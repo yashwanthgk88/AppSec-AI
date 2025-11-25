@@ -1,140 +1,80 @@
-# AppSec Platform VS Code Extension
+# AppSec AI Security Scanner - VS Code Extension
 
-Real-time security scanning directly in your IDE with AI-powered remediation assistance.
+Real-time security scanning with AI-powered threat detection directly in your VS Code editor.
 
 ## Features
 
-### 🔍 Real-Time Security Scanning
-- **SAST**: Detect vulnerabilities as you type
-- **SCA**: Identify vulnerable dependencies
-- **Secrets**: Find hardcoded credentials
-- Inline error highlighting with severity indicators
-
-### 🤖 AI Security Assistant
-- Ask security questions in your native language
-- Get context-aware remediation guidance
-- Explain vulnerabilities in plain language
-- Proactive security tips
-
-### ⚡ Auto-Remediation
-- One-click vulnerability fixes
-- Automated code patches
-- Secure code suggestions
-- Pull request integration
-
-### 📊 Security Dashboard
-- View all vulnerabilities in sidebar
-- Filter by severity (Critical, High, Medium, Low)
-- Jump to vulnerable code locations
-- Track remediation progress
+- **SAST (Static Application Security Testing)**: Detect code vulnerabilities as you type
+- **SCA (Software Composition Analysis)**: Find vulnerable dependencies
+- **Secret Detection**: Identify hardcoded secrets and API keys
+- **AI-Powered Fixes**: Get intelligent remediation suggestions
+- **Real-time Diagnostics**: See security issues inline with squiggly lines
+- **Tree View**: Browse all findings organized by severity
+- **One-Click Fixes**: Apply AI-suggested fixes instantly
 
 ## Installation
 
-### From VSIX
-1. Download `appsec-platform-vscode-1.0.0.vsix`
-2. Open VS Code
-3. Go to Extensions → ··· → Install from VSIX
-4. Select the downloaded file
+### From Your AppSec Platform
 
-### From Source
-```bash
-cd vscode-extension
-npm install
-npm run compile
-```
+1. Log into your AppSec platform dashboard
+2. Navigate to Settings or Downloads
+3. Click "Download VS Code Extension"
+4. Save `appsec-ai-scanner-1.0.0.vsix` to your computer
+
+### Install in VS Code
+
+1. Open VS Code
+2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
+3. Click the "..." menu → "Install from VSIX..."
+4. Select the downloaded `.vsix` file
+5. Reload VS Code when prompted
+
+## Getting Started
+
+1. **Login**: Use Command Palette (`Ctrl/Cmd+Shift+P`) → "AppSec: Login to Platform"
+2. **Enter Credentials**: Use your AppSec platform credentials
+3. **Scan**: Right-click in editor → "AppSec: Scan Workspace"
+4. **View Results**: Check the AppSec Security sidebar
 
 ## Configuration
 
-Open VS Code Settings and configure:
+Open Settings (Ctrl/Cmd+,) and search for "AppSec":
 
-```json
-{
-  "appsec.apiUrl": "http://localhost:8000",
-  "appsec.apiKey": "your-api-token",
-  "appsec.enableRealTimeScanning": true,
-  "appsec.scanOnSave": true
-}
-```
+- `appsec.apiUrl`: Your AppSec platform URL (default: http://localhost:8000)
+- `appsec.autoScan`: Automatically scan files on save
+- `appsec.minimumSeverity`: Minimum severity level to show (low/medium/high/critical)
 
 ## Usage
 
-### Scan Current File
-1. Open any supported file (.js, .ts, .py, .java, .go)
-2. Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-3. Type "AppSec: Scan Current File"
+### Commands
 
-### Scan Entire Workspace
-1. `Cmd+Shift+P` → "AppSec: Scan Entire Workspace"
-2. Wait for scan to complete
-3. View results in Problems panel
+- `AppSec: Login to Platform` - Authenticate with your platform
+- `AppSec: Scan Workspace` - Scan entire project
+- `AppSec: Scan Current File` - Scan active file only
+- `AppSec: View on Web Dashboard` - Open findings in web interface
+- `AppSec: Clear Security Findings` - Clear all diagnostics
 
-### Open Security Chatbot
-1. `Cmd+Shift+P` → "AppSec: Open Security Chatbot"
-2. Ask questions about vulnerabilities
-3. Get AI-powered remediation guidance
+### Context Menu
 
-### Auto-Fix Vulnerability
-1. Click on a vulnerability in your code
-2. `Cmd+Shift+P` → "AppSec: Auto-Fix Vulnerability"
-3. Review and accept the suggested fix
+Right-click in any file:
+- Scan Current File
+- Apply AI-Suggested Fix
+- Mark as Resolved
+- Mark as False Positive
 
-## Supported Languages
+## Support
 
-- JavaScript / TypeScript
-- Python
-- Java
-- Go
-- PHP (coming soon)
-- Ruby (coming soon)
+For issues or questions:
+- Visit: Your AppSec Platform Dashboard
+- GitHub: https://github.com/yashwanthgk88/AppSec-AI
 
-## Keyboard Shortcuts
+## Privacy
 
-- `Cmd+K S` - Scan current file
-- `Cmd+K W` - Scan workspace
-- `Cmd+K C` - Open security chatbot
-- `Cmd+K F` - Fix vulnerability at cursor
+- All API communications are secure (HTTPS)
+- Auth tokens stored in VS Code's secure storage
+- No data sent to third parties
 
-## Examples
+## Version
 
-### Detecting SQL Injection
-```python
-# This will be highlighted as CRITICAL
-query = "SELECT * FROM users WHERE id = " + user_id
+Current Version: 1.0.0
 
-# Hover to see:
-# [CRITICAL] SQL Injection (CWE-89)
-# Use parameterized queries to prevent SQL injection
-
-# Click to auto-fix:
-cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-```
-
-### Detecting Secrets
-```javascript
-// This will be flagged
-const API_KEY = "sk_live_1234567890abcdef";
-
-// Suggestion: Use environment variables
-const API_KEY = process.env.STRIPE_API_KEY;
-```
-
-## Troubleshooting
-
-### Extension not working
-1. Check AppSec Platform backend is running at `http://localhost:8000`
-2. Verify API token in settings
-3. Check extension output: View → Output → AppSec Platform
-
-### Scans not appearing
-1. Ensure file language is supported
-2. Check `appsec.enableRealTimeScanning` is enabled
-3. Manually trigger scan with command palette
-
-## Contributing
-
-Report issues or contribute at:
-https://github.com/your-org/appsec-platform
-
-## License
-
-MIT License

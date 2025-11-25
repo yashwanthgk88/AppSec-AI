@@ -629,6 +629,35 @@ class SecretScanner:
         }
         return cvss_map.get(severity.lower(), 5.0)
 
+    def scan_file(self, file_path: str) -> Dict[str, Any]:
+        """
+        Scan a single file for secrets
+
+        Args:
+            file_path: Path to file to scan
+
+        Returns:
+            Dictionary containing scan results
+        """
+        import os
+
+        if not os.path.exists(file_path):
+            return {'findings': [], 'error': 'File not found'}
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
+            findings = self.scan_content(content, file_path)
+
+            return {
+                'findings': findings,
+                'file_path': file_path,
+                'total_findings': len(findings)
+            }
+        except Exception as e:
+            return {'findings': [], 'error': str(e)}
+
     def scan_directory(self, directory_path: str) -> Dict[str, Any]:
         """
         Scan entire directory for secrets with comprehensive reporting

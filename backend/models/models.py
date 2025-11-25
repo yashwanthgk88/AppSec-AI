@@ -34,6 +34,14 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     preferred_language = Column(String(10), default="en")
+
+    # AI Provider Configuration
+    ai_provider = Column(String(50), default="anthropic")  # anthropic, openai, azure, google, ollama
+    ai_api_key = Column(Text)  # Encrypted API key
+    ai_model = Column(String(100))  # Model name (e.g., claude-3-5-sonnet, gpt-4, etc.)
+    ai_base_url = Column(String(500))  # For Azure or custom endpoints
+    ai_api_version = Column(String(50))  # For Azure
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -48,6 +56,8 @@ class Project(Base):
     name = Column(String(255), nullable=False)
     description = Column(Text)
     architecture_doc = Column(Text)
+    architecture_diagram = Column(Text)  # Base64 encoded image data
+    diagram_media_type = Column(String(50))  # image/png, image/jpeg, etc.
     repository_url = Column(String(500))
     technology_stack = Column(JSON)  # ["Python", "React", "PostgreSQL"]
     compliance_targets = Column(JSON)  # ["OWASP Top 10", "SANS CWE-25"]

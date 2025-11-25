@@ -1,9 +1,9 @@
 {
-  "name": "appsec-platform-vscode",
-  "displayName": "AppSec Platform Security Scanner",
-  "description": "Real-time security scanning with SAST, SCA, and AI-powered remediation",
-  "version": "1.0.0",
-  "publisher": "appsec-platform",
+  "name": "appsec-ai-scanner",
+  "displayName": "AppSec AI Security Scanner",
+  "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
+  "version": "1.1.0",
+  "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -12,76 +12,163 @@
     "Programming Languages",
     "Other"
   ],
+  "keywords": [
+    "security",
+    "sast",
+    "sca",
+    "vulnerabilities",
+    "appsec",
+    "threat-modeling",
+    "ai"
+  ],
   "activationEvents": [
-    "onLanguage:javascript",
-    "onLanguage:typescript",
-    "onLanguage:python",
-    "onLanguage:java",
-    "onLanguage:go"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
+        "command": "appsec.login",
+        "title": "AppSec: Login to Platform"
+      },
+      {
+        "command": "appsec.logout",
+        "title": "AppSec: Logout"
+      },
+      {
+        "command": "appsec.scanWorkspace",
+        "title": "AppSec: Scan Workspace",
+        "icon": "$(shield)"
+      },
+      {
         "command": "appsec.scanFile",
         "title": "AppSec: Scan Current File"
       },
       {
-        "command": "appsec.scanWorkspace",
-        "title": "AppSec: Scan Entire Workspace"
+        "command": "appsec.viewOnWeb",
+        "title": "AppSec: View on Web Dashboard"
       },
       {
-        "command": "appsec.openChat",
-        "title": "AppSec: Open Security Chatbot"
+        "command": "appsec.clearFindings",
+        "title": "AppSec: Clear Security Findings"
       },
       {
-        "command": "appsec.fixVulnerability",
-        "title": "AppSec: Auto-Fix Vulnerability"
+        "command": "appsec.refreshFindings",
+        "title": "AppSec: Refresh Findings",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "appsec.applyFix",
+        "title": "AppSec: Apply AI-Suggested Fix"
+      },
+      {
+        "command": "appsec.markResolved",
+        "title": "AppSec: Mark as Resolved"
+      },
+      {
+        "command": "appsec.markFalsePositive",
+        "title": "AppSec: Mark as False Positive"
+      },
+      {
+        "command": "appsec.showDetails",
+        "title": "AppSec: Show Vulnerability Details"
+      },
+      {
+        "command": "appsec.openChatbot",
+        "title": "AppSec: Open AI Assistant",
+        "icon": "$(comment-discussion)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "appsec-sidebar",
-          "title": "AppSec Platform",
-          "icon": "resources/shield.svg"
+          "title": "AppSec Security",
+          "icon": "$(shield)"
         }
       ]
     },
     "views": {
       "appsec-sidebar": [
         {
-          "id": "appsec.vulnerabilities",
-          "name": "Vulnerabilities"
+          "id": "appsecFindings",
+          "name": "Security Findings"
         },
         {
-          "id": "appsec.chatbot",
-          "name": "Security Assistant"
+          "id": "appsecProjects",
+          "name": "Projects"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "appsec.scanWorkspace",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.refreshFindings",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.openChatbot",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "appsec.applyFix",
+          "when": "view == appsecFindings && viewItem == vulnerability",
+          "group": "inline"
+        },
+        {
+          "command": "appsec.markResolved",
+          "when": "view == appsecFindings && viewItem == vulnerability",
+          "group": "actions"
+        },
+        {
+          "command": "appsec.markFalsePositive",
+          "when": "view == appsecFindings && viewItem == vulnerability",
+          "group": "actions"
         }
       ]
     },
     "configuration": {
-      "title": "AppSec Platform",
+      "title": "AppSec AI Scanner",
       "properties": {
         "appsec.apiUrl": {
           "type": "string",
           "default": "http://localhost:8000",
           "description": "AppSec Platform API URL"
         },
-        "appsec.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "API authentication token"
-        },
-        "appsec.enableRealTimeScanning": {
+        "appsec.autoScan": {
           "type": "boolean",
-          "default": true,
-          "description": "Enable real-time scanning as you type"
-        },
-        "appsec.scanOnSave": {
-          "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Automatically scan files on save"
+        },
+        "appsec.enableSAST": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Static Application Security Testing (SAST)"
+        },
+        "appsec.enableSCA": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Software Composition Analysis (SCA)"
+        },
+        "appsec.enableSecrets": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Secret Detection"
+        },
+        "appsec.minimumSeverity": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"],
+          "default": "medium",
+          "description": "Minimum severity level to show"
         }
       }
     }
@@ -90,14 +177,17 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "20.x",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
-    "typescript": "^5.3.3"
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "@vscode/vsce": "^2.22.0"
   },
   "dependencies": {
     "axios": "^1.6.2"

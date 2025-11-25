@@ -1,12 +1,19 @@
 """
 Threat Modeling Service - DFD Generation, STRIDE Analysis, MITRE ATT&CK Mapping
 """
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import re
 import json
+import base64
+import os
+from anthropic import Anthropic
 
 class ThreatModelingService:
     """Service for threat modeling with DFD, STRIDE, and MITRE ATT&CK"""
+
+    def __init__(self):
+        """Initialize the threat modeling service"""
+        self.anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
     # STRIDE threat categories
     STRIDE_CATEGORIES = {
@@ -31,6 +38,65 @@ class ThreatModelingService:
         "T1499": {"name": "Endpoint Denial of Service", "tactic": "Impact"},
         "T1565": {"name": "Data Manipulation", "tactic": "Impact"},
     }
+
+    def analyze_architecture_diagram(self, image_data: str, image_media_type: str = "image/png") -> str:
+        """
+        Analyze an architecture diagram image using Claude's vision capabilities
+
+        Args:
+            image_data: Base64 encoded image data
+            image_media_type: MIME type of the image (image/png, image/jpeg, etc.)
+
+        Returns:
+            Text description of the architecture extracted from the image
+        """
+        prompt = """Analyze this architecture diagram and provide a detailed text description of the system architecture.
+
+Please identify and describe:
+1. All external entities (users, third-party services, clients, etc.)
+2. All internal processes/components (servers, services, APIs, applications, backend, frontend, etc.)
+3. All data stores (databases, caches, storage systems, etc.)
+4. Data flows between components (what data moves where)
+5. Technologies mentioned or implied
+6. Trust boundaries and security zones
+
+Format your response as a structured text description that includes:
+- List of components with their types and purposes
+- Data flows between components
+- Security-relevant details
+
+Be specific about component names, technologies, and relationships."""
+
+        try:
+            response = self.anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=2000,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": image_media_type,
+                                "data": image_data
+                            }
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }]
+            )
+
+            # Extract text from response
+            architecture_text = response.content[0].text
+            return architecture_text
+
+        except Exception as e:
+            print(f"Error analyzing architecture diagram: {e}")
+            raise Exception(f"Failed to analyze architecture diagram: {str(e)}")
 
     def parse_architecture(self, architecture_doc: str) -> Dict[str, Any]:
         """Parse architecture document and extract components"""
@@ -515,8 +581,34 @@ class ThreatModelingService:
 
         return "\n".join(mermaid)
 
-    def generate_threat_model(self, architecture_doc: str, project_name: str) -> Dict[str, Any]:
-        """Complete threat modeling workflow"""
+    def generate_threat_model(
+        self,
+        architecture_doc: str,
+        project_name: str,
+        architecture_diagram: Optional[str] = None,
+        diagram_media_type: str = "image/png"
+    ) -> Dict[str, Any]:
+        """Complete threat modeling workflow
+
+        Args:
+            architecture_doc: Text description of the architecture
+            project_name: Name of the project
+            architecture_diagram: Optional base64 encoded architecture diagram image
+            diagram_media_type: MIME type of the diagram image
+        """
+        # If architecture diagram is provided, analyze it first
+        if architecture_diagram:
+            try:
+                diagram_description = self.analyze_architecture_diagram(
+                    architecture_diagram,
+                    diagram_media_type
+                )
+                # Combine diagram description with existing architecture doc
+                architecture_doc = f"{architecture_doc}\n\n## Extracted from Architecture Diagram:\n{diagram_description}"
+            except Exception as e:
+                print(f"Warning: Could not analyze architecture diagram: {e}")
+                # Continue with text-only analysis
+
         # Parse architecture
         parsed = self.parse_architecture(architecture_doc)
 

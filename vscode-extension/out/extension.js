@@ -1,148 +1,134 @@
-import * as vscode from 'vscode';
-import { ApiClient } from './apiClient';
-import { FindingsProvider } from './findingsProvider';
-import { DiagnosticsManager } from './diagnosticsManager';
-import { VulnerabilityPanel } from './vulnerabilityPanel';
-import { ChatbotPanel } from './chatbotPanel';
-
-let apiClient: ApiClient;
-let findingsProvider: FindingsProvider;
-let diagnosticsManager: DiagnosticsManager;
-let statusBarItem: vscode.StatusBarItem;
-
-export async function activate(context: vscode.ExtensionContext) {
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.activate = activate;
+exports.deactivate = deactivate;
+const vscode = __importStar(require("vscode"));
+const apiClient_1 = require("./apiClient");
+const findingsProvider_1 = require("./findingsProvider");
+const diagnosticsManager_1 = require("./diagnosticsManager");
+const vulnerabilityPanel_1 = require("./vulnerabilityPanel");
+const chatbotPanel_1 = require("./chatbotPanel");
+let apiClient;
+let findingsProvider;
+let diagnosticsManager;
+let statusBarItem;
+async function activate(context) {
     console.log('AppSec AI Scanner extension activated');
-
-    apiClient = new ApiClient(context);
-    diagnosticsManager = new DiagnosticsManager();
-    findingsProvider = new FindingsProvider(apiClient);
-
+    apiClient = new apiClient_1.ApiClient(context);
+    diagnosticsManager = new diagnosticsManager_1.DiagnosticsManager();
+    findingsProvider = new findingsProvider_1.FindingsProvider(apiClient);
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.text = "$(shield) AppSec";
     statusBarItem.tooltip = "AppSec AI Scanner";
     statusBarItem.command = 'appsec.scanWorkspace';
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
-
     vscode.window.registerTreeDataProvider('appsecFindings', findingsProvider);
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.login', async () => {
-            await loginCommand(context);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.logout', async () => {
-            await apiClient.logout();
-            vscode.window.showInformationMessage('Logged out from AppSec platform');
-            findingsProvider.refresh();
-            updateStatusBar('disconnected');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.scanWorkspace', async () => {
-            await scanWorkspaceCommand();
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.scanCurrentFile', async () => {
-            await scanCurrentFileCommand();
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.refreshFindings', async () => {
-            await refreshFindingsCommand();
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.clearFindings', () => {
-            diagnosticsManager.clear();
-            vscode.window.showInformationMessage('Security findings cleared');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.viewOnDashboard', async () => {
-            const config = vscode.workspace.getConfiguration('appsec');
-            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-            const webUrl = apiUrl.replace(':8000', ':5173');
-            vscode.env.openExternal(vscode.Uri.parse(webUrl));
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.applyFix', async (finding: any) => {
-            await applyFixCommand(finding);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.markResolved', async (finding: any) => {
-            await markStatusCommand(finding, 'resolved');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.markFalsePositive', async (finding: any) => {
-            await markStatusCommand(finding, 'false_positive');
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.showDetails', (finding: any) => {
-            VulnerabilityPanel.show(finding, apiClient);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.openChatbot', () => {
-            ChatbotPanel.show(apiClient);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(async (document) => {
-            const config = vscode.workspace.getConfiguration('appsec');
-            const autoScan = config.get<boolean>('autoScan', false);
-
-            if (autoScan && await apiClient.isAuthenticated()) {
-                await scanFile(document.uri);
-            }
-        })
-    );
-
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.login', async () => {
+        await loginCommand(context);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.logout', async () => {
+        await apiClient.logout();
+        vscode.window.showInformationMessage('Logged out from AppSec platform');
+        findingsProvider.refresh();
+        updateStatusBar('disconnected');
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.scanWorkspace', async () => {
+        await scanWorkspaceCommand();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.scanCurrentFile', async () => {
+        await scanCurrentFileCommand();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.refreshFindings', async () => {
+        await refreshFindingsCommand();
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.clearFindings', () => {
+        diagnosticsManager.clear();
+        vscode.window.showInformationMessage('Security findings cleared');
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.viewOnDashboard', async () => {
+        const config = vscode.workspace.getConfiguration('appsec');
+        const apiUrl = config.get('apiUrl', 'http://localhost:8000');
+        const webUrl = apiUrl.replace(':8000', ':5173');
+        vscode.env.openExternal(vscode.Uri.parse(webUrl));
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.applyFix', async (finding) => {
+        await applyFixCommand(finding);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.markResolved', async (finding) => {
+        await markStatusCommand(finding, 'resolved');
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.markFalsePositive', async (finding) => {
+        await markStatusCommand(finding, 'false_positive');
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.showDetails', (finding) => {
+        vulnerabilityPanel_1.VulnerabilityPanel.show(finding, apiClient);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.openChatbot', () => {
+        chatbotPanel_1.ChatbotPanel.show(apiClient);
+    }));
+    context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(async (document) => {
+        const config = vscode.workspace.getConfiguration('appsec');
+        const autoScan = config.get('autoScan', false);
+        if (autoScan && await apiClient.isAuthenticated()) {
+            await scanFile(document.uri);
+        }
+    }));
     if (await apiClient.isAuthenticated()) {
         updateStatusBar('connected');
         vscode.window.showInformationMessage('Connected to AppSec platform');
     }
 }
-
-async function loginCommand(context: vscode.ExtensionContext) {
+async function loginCommand(context) {
     const username = await vscode.window.showInputBox({
         prompt: 'Enter your AppSec platform username',
         placeHolder: 'username',
         ignoreFocusOut: true
     });
-
     if (!username) {
         return;
     }
-
     const password = await vscode.window.showInputBox({
         prompt: 'Enter your password',
         password: true,
         ignoreFocusOut: true
     });
-
     if (!password) {
         return;
     }
-
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -151,33 +137,27 @@ async function loginCommand(context: vscode.ExtensionContext) {
         }, async () => {
             await apiClient.login(username, password);
         });
-
         vscode.window.showInformationMessage('Successfully logged in to AppSec platform');
         updateStatusBar('connected');
         await refreshFindingsCommand();
-    } catch (error: any) {
+    }
+    catch (error) {
         vscode.window.showErrorMessage('Login failed: ' + error.message);
     }
 }
-
 async function scanWorkspaceCommand() {
     if (!await apiClient.isAuthenticated()) {
-        const login = await vscode.window.showWarningMessage(
-            'Please login to AppSec platform first',
-            'Login'
-        );
+        const login = await vscode.window.showWarningMessage('Please login to AppSec platform first', 'Login');
         if (login === 'Login') {
             await vscode.commands.executeCommand('appsec.login');
         }
         return;
     }
-
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
         vscode.window.showErrorMessage('No workspace folder open');
         return;
     }
-
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -185,74 +165,59 @@ async function scanWorkspaceCommand() {
             cancellable: true
         }, async (progress, token) => {
             updateStatusBar('scanning');
-
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const results = await apiClient.scanWorkspace(workspacePath);
-
             diagnosticsManager.updateFromResults(results);
             findingsProvider.refresh();
-
             updateStatusBar('connected');
-
             const totalFindings = (results.sast?.findings?.length || 0) +
-                                 (results.sca?.findings?.length || 0) +
-                                 (results.secrets?.findings?.length || 0);
-
+                (results.sca?.findings?.length || 0) +
+                (results.secrets?.findings?.length || 0);
             vscode.window.showInformationMessage('Scan complete: ' + totalFindings + ' security issues found');
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         updateStatusBar('error');
         vscode.window.showErrorMessage('Scan failed: ' + error.message);
         setTimeout(() => updateStatusBar('connected'), 3000);
     }
 }
-
 async function scanCurrentFileCommand() {
     if (!await apiClient.isAuthenticated()) {
-        const login = await vscode.window.showWarningMessage(
-            'Please login to AppSec platform first',
-            'Login'
-        );
+        const login = await vscode.window.showWarningMessage('Please login to AppSec platform first', 'Login');
         if (login === 'Login') {
             await vscode.commands.executeCommand('appsec.login');
         }
         return;
     }
-
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showErrorMessage('No active file');
         return;
     }
-
     await scanFile(editor.document.uri);
 }
-
-async function scanFile(fileUri: vscode.Uri) {
+async function scanFile(fileUri) {
     try {
         updateStatusBar('scanning');
-
         const results = await apiClient.scanFile(fileUri.fsPath);
         diagnosticsManager.updateFileFromResults(fileUri, results);
         findingsProvider.refresh();
-
         updateStatusBar('connected');
-
         const findings = results.sast?.findings || [];
         const fileName = fileUri.fsPath.split('/').pop();
         vscode.window.showInformationMessage('Scan complete: ' + findings.length + ' issues found in ' + fileName);
-    } catch (error: any) {
+    }
+    catch (error) {
         updateStatusBar('error');
         vscode.window.showErrorMessage('Scan failed: ' + error.message);
         setTimeout(() => updateStatusBar('connected'), 3000);
     }
 }
-
 async function refreshFindingsCommand() {
     if (!await apiClient.isAuthenticated()) {
         return;
     }
-
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
@@ -261,61 +226,51 @@ async function refreshFindingsCommand() {
         }, async () => {
             findingsProvider.refresh();
         });
-    } catch (error: any) {
+    }
+    catch (error) {
         vscode.window.showErrorMessage('Failed to refresh: ' + error.message);
     }
 }
-
-async function applyFixCommand(finding: any) {
+async function applyFixCommand(finding) {
     if (!finding || !finding.fix) {
         vscode.window.showWarningMessage('No fix available for this finding');
         return;
     }
-
     try {
         const document = await vscode.workspace.openTextDocument(finding.file);
         const editor = await vscode.window.showTextDocument(document);
-
         const edit = new vscode.WorkspaceEdit();
-
         if (finding.fix.code) {
-            const range = new vscode.Range(
-                finding.line - 1, 0,
-                finding.line, 0
-            );
+            const range = new vscode.Range(finding.line - 1, 0, finding.line, 0);
             edit.replace(document.uri, range, finding.fix.code);
         }
-
         const success = await vscode.workspace.applyEdit(edit);
-
         if (success) {
             vscode.window.showInformationMessage('Fix applied successfully');
             await markStatusCommand(finding, 'resolved');
         }
-    } catch (error: any) {
+    }
+    catch (error) {
         vscode.window.showErrorMessage('Failed to apply fix: ' + error.message);
     }
 }
-
-async function markStatusCommand(finding: any, status: string) {
+async function markStatusCommand(finding, status) {
     if (!finding) {
         return;
     }
-
     try {
         await apiClient.updateFindingStatus(finding.id, status);
         vscode.window.showInformationMessage('Finding marked as ' + status);
         findingsProvider.refresh();
-
         if (status === 'resolved') {
             diagnosticsManager.removeFinding(finding);
         }
-    } catch (error: any) {
+    }
+    catch (error) {
         vscode.window.showErrorMessage('Failed to update status: ' + error.message);
     }
 }
-
-function updateStatusBar(status: 'connected' | 'disconnected' | 'scanning' | 'error') {
+function updateStatusBar(status) {
     switch (status) {
         case 'connected':
             statusBarItem.text = "$(shield) AppSec";
@@ -338,7 +293,7 @@ function updateStatusBar(status: 'connected' | 'disconnected' | 'scanning' | 'er
             break;
     }
 }
-
-export function deactivate() {
+function deactivate() {
     diagnosticsManager.dispose();
 }
+//# sourceMappingURL=extension.js.map

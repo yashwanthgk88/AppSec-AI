@@ -26,6 +26,9 @@ from services.chatbot_service import ChatbotService
 from services.report_service import ReportService
 from services.repository_scanner import RepositoryScanner
 
+# Import routers
+from routers import settings
+
 # Pydantic schemas
 from pydantic import BaseModel, EmailStr
 
@@ -46,6 +49,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(settings.router)
 
 # Initialize services
 threat_service = ThreatModelingService()
@@ -1291,75 +1297,7 @@ async def export_xml_report(
         headers={"Content-Disposition": f"attachment; filename={project.name}_report.xml"}
     )
 
-# Settings endpoints
-class SettingsUpdate(BaseModel):
-    openai_api_key: Optional[str] = None
-
-@app.get("/api/settings")
-async def get_settings(current_user: User = Depends(get_current_active_user)):
-    """Get current settings (masked API key)"""
-    openai_key = os.getenv("OPENAI_API_KEY", "")
-    masked_key = ""
-    if openai_key:
-        # Show only last 4 characters
-        masked_key = "*" * (len(openai_key) - 4) + openai_key[-4:] if len(openai_key) > 4 else "****"
-
-    return {
-        "openai_api_key": masked_key,
-        "has_openai_key": bool(openai_key)
-    }
-
-@app.put("/api/settings")
-async def update_settings(
-    settings: SettingsUpdate,
-    current_user: User = Depends(get_current_active_user)
-):
-    """Update settings - requires authentication"""
-    global _chatbot_service
-
-    if settings.openai_api_key:
-        # Update .env file
-        env_path = os.path.join(os.path.dirname(__file__), '.env')
-
-        # Read existing .env content
-        env_lines = []
-        if os.path.exists(env_path):
-            with open(env_path, 'r') as f:
-                env_lines = f.readlines()
-
-        # Update or add OPENAI_API_KEY
-        key_found = False
-        for i, line in enumerate(env_lines):
-            if line.startswith('OPENAI_API_KEY='):
-                env_lines[i] = f'OPENAI_API_KEY={settings.openai_api_key}\n'
-                key_found = True
-                break
-
-        if not key_found:
-            env_lines.append(f'OPENAI_API_KEY={settings.openai_api_key}\n')
-
-        # Write back to .env
-        with open(env_path, 'w') as f:
-            f.writelines(env_lines)
-
-        # Update environment variable
-        os.environ['OPENAI_API_KEY'] = settings.openai_api_key
-
-        # Reinitialize chatbot service with new key
-        _chatbot_service = None
-        try:
-            _chatbot_service = ChatbotService()
-            return {
-                "success": True,
-                "message": "OpenAI API key updated successfully"
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "message": f"API key updated but failed to initialize chatbot: {str(e)}"
-            }
-
-    return {"success": True, "message": "No changes made"}
+# Note: Settings endpoints are now handled by the settings router (routers/settings.py)
 
 @app.post("/api/vulnerabilities/{vuln_id}/commit-fix")
 async def commit_vulnerability_fix(
@@ -1644,6 +1582,183 @@ EXPLANATION:
             "success": False,
             "message": f"Failed to auto-remediate: {str(e)}"
         }
+
+# VS Code Extension Endpoints - Direct scanning without project requirement
+class DirectScanRequest(BaseModel):
+    path: str
+    scan_types: List[str] = ["sast", "sca", "secrets"]
+
+class DirectFileScanRequest(BaseModel):
+    file_path: str
+    scan_types: List[str] = ["sast", "secrets"]
+
+@app.post("/api/scan")
+async def direct_workspace_scan(
+    request: DirectScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Direct workspace scan for VS Code extension"""
+    results = {
+        "sast": {"findings": []},
+        "sca": {"findings": []},
+        "secrets": {"findings": []}
+    }
+
+    try:
+        # Run SAST scan
+        if "sast" in request.scan_types:
+            scan_results = sast_scanner.scan_directory(request.path)
+            findings = scan_results.get('findings', [])
+            results["sast"]["findings"] = [
+                {
+                    "id": f"sast-{i}",
+                    "title": f['title'],
+                    "description": f['description'],
+                    "severity": f['severity'],
+                    "file": f['file_path'],
+                    "line": f['line_number'],
+                    "category": f['owasp_category'],
+                    "cwe_id": f['cwe_id'],
+                    "code_snippet": f['code_snippet'],
+                    "remediation": f['remediation'],
+                    "remediation_code": f.get('suggested_fix', ''),
+                    "impact": f.get('impact', 'This vulnerability could compromise application security'),
+                    "remediation_steps": f.get('remediation_steps', [])
+                }
+                for i, f in enumerate(findings)
+            ]
+
+        # Run SCA scan
+        if "sca" in request.scan_types:
+            # Find dependency files
+            import os
+            import json
+            dep_files = []
+            for root, dirs, files in os.walk(request.path):
+                if 'node_modules' in dirs:
+                    dirs.remove('node_modules')
+                if '.git' in dirs:
+                    dirs.remove('.git')
+
+                for file in files:
+                    if file in ['package.json', 'requirements.txt', 'pom.xml', 'composer.json']:
+                        dep_files.append(os.path.join(root, file))
+
+            sca_findings = []
+            for dep_file in dep_files:
+                try:
+                    with open(dep_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    if 'package.json' in dep_file:
+                        deps = sca_scanner.parse_package_json(content)
+                        vulns = sca_scanner.check_vulnerabilities(deps, 'npm')
+                        sca_findings.extend(vulns)
+                except Exception as e:
+                    print(f"Error scanning {dep_file}: {e}")
+
+            results["sca"]["findings"] = [
+                {
+                    "id": f"sca-{i}",
+                    "title": f"{v['package']} {v['version']} - {v.get('title', 'Known vulnerability')}",
+                    "description": v.get('description', 'Security vulnerability detected'),
+                    "severity": v['severity'],
+                    "file": v.get('file_path', 'dependency file'),
+                    "line": 1,
+                    "category": "Vulnerable Dependency",
+                    "package": v['package'],
+                    "version": v['version'],
+                    "fixed_version": v.get('fixed_version')
+                }
+                for i, v in enumerate(sca_findings)
+            ]
+
+        # Run Secret scan
+        if "secrets" in request.scan_types:
+            scan_results = secret_scanner.scan_directory(request.path)
+            findings = scan_results.get('findings', [])
+            results["secrets"]["findings"] = [
+                {
+                    "id": f"secret-{i}",
+                    "title": f['title'],
+                    "description": f['description'],
+                    "severity": f['severity'],
+                    "file": f['file_path'],
+                    "line": f['line_number'],
+                    "category": "Exposed Secret",
+                    "secret_type": f.get('secret_type', 'Unknown'),
+                    "code_snippet": f['code_snippet']
+                }
+                for i, f in enumerate(findings)
+            ]
+
+        return results
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Scan failed: {str(e)}")
+
+@app.post("/api/scan/file")
+async def direct_file_scan(
+    request: DirectFileScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Direct file scan for VS Code extension"""
+    results = {
+        "sast": {"findings": []},
+        "secrets": {"findings": []}
+    }
+
+    try:
+        import os
+        if not os.path.exists(request.file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # Run SAST scan on single file
+        if "sast" in request.scan_types:
+            scan_results = sast_scanner.scan_file(request.file_path)
+            findings = scan_results.get('findings', [])
+            results["sast"]["findings"] = [
+                {
+                    "id": f"sast-{i}",
+                    "title": f['title'],
+                    "description": f['description'],
+                    "severity": f['severity'],
+                    "file": f['file_path'],
+                    "line": f['line_number'],
+                    "category": f['owasp_category'],
+                    "cwe_id": f['cwe_id'],
+                    "code_snippet": f['code_snippet'],
+                    "remediation": f['remediation'],
+                    "remediation_code": f.get('suggested_fix', ''),
+                    "impact": f.get('impact', 'This vulnerability could compromise application security'),
+                    "remediation_steps": f.get('remediation_steps', [])
+                }
+                for i, f in enumerate(findings)
+            ]
+
+        # Run Secret scan on single file
+        if "secrets" in request.scan_types:
+            scan_results = secret_scanner.scan_file(request.file_path)
+            findings = scan_results.get('findings', [])
+            results["secrets"]["findings"] = [
+                {
+                    "id": f"secret-{i}",
+                    "title": f['title'],
+                    "description": f['description'],
+                    "severity": f['severity'],
+                    "file": f['file_path'],
+                    "line": f['line_number'],
+                    "category": "Exposed Secret",
+                    "secret_type": f.get('secret_type', 'Unknown'),
+                    "code_snippet": f['code_snippet']
+                }
+                for i, f in enumerate(findings)
+            ]
+
+        return results
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File scan failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
