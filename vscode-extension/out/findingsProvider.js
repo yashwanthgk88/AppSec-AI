@@ -45,6 +45,13 @@ class FindingsProvider {
     refresh() {
         this._onDidChangeTreeData.fire();
     }
+    setFindings(findings) {
+        this.findings = findings;
+        this.refresh();
+    }
+    getAllFindings() {
+        return this.findings;
+    }
     getTreeItem(element) {
         return element;
     }
@@ -53,10 +60,21 @@ class FindingsProvider {
             return [];
         }
         if (!element) {
-            return this.getRootCategories();
+            // Update counts for each severity
+            const criticalCount = this.findings.filter(f => f.severity.toLowerCase() === 'critical').length;
+            const highCount = this.findings.filter(f => f.severity.toLowerCase() === 'high').length;
+            const mediumCount = this.findings.filter(f => f.severity.toLowerCase() === 'medium').length;
+            const lowCount = this.findings.filter(f => f.severity.toLowerCase() === 'low').length;
+            return [
+                new FindingItem(`Critical (${criticalCount})`, vscode.TreeItemCollapsibleState.Expanded, 'category', 'critical'),
+                new FindingItem(`High (${highCount})`, vscode.TreeItemCollapsibleState.Expanded, 'category', 'high'),
+                new FindingItem(`Medium (${mediumCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'category', 'medium'),
+                new FindingItem(`Low (${lowCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'category', 'low')
+            ];
         }
         if (element.contextValue === 'category') {
-            return this.getFindingsByCategory(element.label);
+            const severityLabel = element.label.split('(')[0].trim();
+            return this.getFindingsByCategory(severityLabel);
         }
         return [];
     }
@@ -68,41 +86,34 @@ class FindingsProvider {
             new FindingItem('Low', vscode.TreeItemCollapsibleState.Collapsed, 'category', 'low')
         ];
     }
-    async getFindingsByCategory(severity) {
-        try {
-            const response = await this.apiClient.getFindings();
-            const findings = response.findings || [];
-            return findings
-                .filter((f) => f.severity.toLowerCase() === severity.toLowerCase())
-                .map((finding) => {
-                const fileName = finding.file.split('/').pop() || finding.file;
-                const item = new FindingItem(`${finding.title}`, vscode.TreeItemCollapsibleState.None, 'vulnerability', finding.severity, finding);
-                item.description = `${fileName}:${finding.line}`;
-                // Create detailed tooltip with markdown
-                const tooltipMarkdown = new vscode.MarkdownString();
-                tooltipMarkdown.appendMarkdown(`### ${finding.title}\n\n`);
-                tooltipMarkdown.appendMarkdown(`**Severity:** ${finding.severity}\n\n`);
-                tooltipMarkdown.appendMarkdown(`**File:** ${finding.file}:${finding.line}\n\n`);
-                tooltipMarkdown.appendMarkdown(`**Category:** ${finding.category || finding.owasp_category || 'N/A'}\n\n`);
-                if (finding.cwe_id) {
-                    tooltipMarkdown.appendMarkdown(`**CWE:** ${finding.cwe_id}\n\n`);
-                }
-                tooltipMarkdown.appendMarkdown(`**Description:** ${finding.description || 'No description'}\n\n`);
-                tooltipMarkdown.appendMarkdown(`---\n\n`);
-                tooltipMarkdown.appendMarkdown(`*Click to view detailed information and remediation*`);
-                tooltipMarkdown.isTrusted = true;
-                item.tooltip = tooltipMarkdown;
-                item.command = {
-                    command: 'appsec.showDetails',
-                    title: 'Show Details',
-                    arguments: [finding]
-                };
-                return item;
-            });
-        }
-        catch (error) {
-            return [];
-        }
+    getFindingsByCategory(severity) {
+        return this.findings
+            .filter((f) => f.severity.toLowerCase() === severity.toLowerCase())
+            .map((finding) => {
+            const fileName = finding.file.split('/').pop() || finding.file;
+            const item = new FindingItem(`${finding.title}`, vscode.TreeItemCollapsibleState.None, 'vulnerability', finding.severity, finding);
+            item.description = `${fileName}:${finding.line}`;
+            // Create detailed tooltip with markdown
+            const tooltipMarkdown = new vscode.MarkdownString();
+            tooltipMarkdown.appendMarkdown(`### ${finding.title}\n\n`);
+            tooltipMarkdown.appendMarkdown(`**Severity:** ${finding.severity}\n\n`);
+            tooltipMarkdown.appendMarkdown(`**File:** ${finding.file}:${finding.line}\n\n`);
+            tooltipMarkdown.appendMarkdown(`**Category:** ${finding.category || finding.owasp_category || 'N/A'}\n\n`);
+            if (finding.cwe_id) {
+                tooltipMarkdown.appendMarkdown(`**CWE:** ${finding.cwe_id}\n\n`);
+            }
+            tooltipMarkdown.appendMarkdown(`**Description:** ${finding.description || 'No description'}\n\n`);
+            tooltipMarkdown.appendMarkdown(`---\n\n`);
+            tooltipMarkdown.appendMarkdown(`*Click to view detailed information and remediation*`);
+            tooltipMarkdown.isTrusted = true;
+            item.tooltip = tooltipMarkdown;
+            item.command = {
+                command: 'appsec.showDetails',
+                title: 'Show Details',
+                arguments: [finding]
+            };
+            return item;
+        });
     }
 }
 exports.FindingsProvider = FindingsProvider;

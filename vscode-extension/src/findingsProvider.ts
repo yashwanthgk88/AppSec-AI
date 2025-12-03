@@ -16,6 +16,15 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
         this._onDidChangeTreeData.fire();
     }
 
+    setFindings(findings: any[]): void {
+        this.findings = findings;
+        this.refresh();
+    }
+
+    getAllFindings(): any[] {
+        return this.findings;
+    }
+
     getTreeItem(element: FindingItem): vscode.TreeItem {
         return element;
     }
@@ -26,11 +35,23 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
         }
 
         if (!element) {
-            return this.getRootCategories();
+            // Update counts for each severity
+            const criticalCount = this.findings.filter(f => f.severity.toLowerCase() === 'critical').length;
+            const highCount = this.findings.filter(f => f.severity.toLowerCase() === 'high').length;
+            const mediumCount = this.findings.filter(f => f.severity.toLowerCase() === 'medium').length;
+            const lowCount = this.findings.filter(f => f.severity.toLowerCase() === 'low').length;
+
+            return [
+                new FindingItem(`Critical (${criticalCount})`, vscode.TreeItemCollapsibleState.Expanded, 'category', 'critical'),
+                new FindingItem(`High (${highCount})`, vscode.TreeItemCollapsibleState.Expanded, 'category', 'high'),
+                new FindingItem(`Medium (${mediumCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'category', 'medium'),
+                new FindingItem(`Low (${lowCount})`, vscode.TreeItemCollapsibleState.Collapsed, 'category', 'low')
+            ];
         }
 
         if (element.contextValue === 'category') {
-            return this.getFindingsByCategory(element.label as string);
+            const severityLabel = (element.label as string).split('(')[0].trim();
+            return this.getFindingsByCategory(severityLabel);
         }
 
         return [];
@@ -45,14 +66,10 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
         ];
     }
 
-    private async getFindingsByCategory(severity: string): Promise<FindingItem[]> {
-        try {
-            const response = await this.apiClient.getFindings();
-            const findings = response.findings || [];
-
-            return findings
-                .filter((f: any) => f.severity.toLowerCase() === severity.toLowerCase())
-                .map((finding: any) => {
+    private getFindingsByCategory(severity: string): FindingItem[] {
+        return this.findings
+            .filter((f: any) => f.severity.toLowerCase() === severity.toLowerCase())
+            .map((finding: any) => {
                     const fileName = finding.file.split('/').pop() || finding.file;
                     const item = new FindingItem(
                         `${finding.title}`,
@@ -87,9 +104,6 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
 
                     return item;
                 });
-        } catch (error) {
-            return [];
-        }
     }
 }
 

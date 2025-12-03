@@ -42,17 +42,22 @@ const diagnosticsManager_1 = require("./diagnosticsManager");
 const vulnerabilityDetailsPanel_1 = require("./vulnerabilityDetailsPanel");
 const chatbotPanel_1 = require("./chatbotPanel");
 const scanProgressManager_1 = require("./scanProgressManager");
+const inlineSecurityProvider_1 = require("./inlineSecurityProvider");
 let apiClient;
 let findingsProvider;
 let diagnosticsManager;
 let statusBarItem;
 let scanProgressManager;
+let inlineSecurityProvider;
+let inlineDiagnostics;
 async function activate(context) {
     console.log('AppSec AI Scanner extension activated');
     apiClient = new apiClient_1.ApiClient(context);
     diagnosticsManager = new diagnosticsManager_1.DiagnosticsManager();
     findingsProvider = new findingsProvider_1.FindingsProvider(apiClient);
     scanProgressManager = new scanProgressManager_1.ScanProgressManager();
+    inlineSecurityProvider = new inlineSecurityProvider_1.InlineSecurityProvider();
+    inlineDiagnostics = vscode.languages.createDiagnosticCollection('appsec-inline');
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.text = "$(shield) AppSec";
     statusBarItem.tooltip = "AppSec AI Scanner";
@@ -110,6 +115,26 @@ async function activate(context) {
             await scanFile(document.uri);
         }
     }));
+    // Inline security analysis as you type
+    context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
+        if (e.document.uri.scheme === 'file') {
+            analyzeDocumentInline(e.document);
+        }
+    }));
+    context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(document => {
+        if (document.uri.scheme === 'file') {
+            analyzeDocumentInline(document);
+        }
+    }));
+    // Register code action provider for inline suggestions
+    context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ scheme: 'file' }, inlineSecurityProvider, {
+        providedCodeActionKinds: inlineSecurityProvider_1.InlineSecurityProvider.providedCodeActionKinds
+    }));
+    // Analyze currently open documents
+    if (vscode.window.activeTextEditor) {
+        analyzeDocumentInline(vscode.window.activeTextEditor.document);
+    }
+    context.subscriptions.push(inlineDiagnostics);
     if (await apiClient.isAuthenticated()) {
         updateStatusBar('connected');
         vscode.window.showInformationMessage('Connected to AppSec platform');
@@ -192,8 +217,19 @@ async function scanWorkspaceCommand() {
                 percentage: 90,
                 details: 'Updating findings'
             });
+            // Extract all findings from scan results
+            const allFindings = [];
+            if (scanResults.sast?.findings) {
+                allFindings.push(...scanResults.sast.findings);
+            }
+            if (scanResults.sca?.findings) {
+                allFindings.push(...scanResults.sca.findings);
+            }
+            if (scanResults.secrets?.findings) {
+                allFindings.push(...scanResults.secrets.findings);
+            }
             diagnosticsManager.updateFromResults(scanResults);
-            findingsProvider.refresh();
+            findingsProvider.setFindings(allFindings);
             updateProgress({
                 stage: 'complete',
                 message: 'Scan complete',
@@ -248,8 +284,20 @@ async function scanFile(fileUri) {
                 percentage: 80,
                 details: 'Updating diagnostics'
             });
+            // Extract findings from file scan results
+            const fileFindings = [];
+            if (scanResults.sast?.findings) {
+                fileFindings.push(...scanResults.sast.findings);
+            }
+            if (scanResults.secrets?.findings) {
+                fileFindings.push(...scanResults.secrets.findings);
+            }
+            // Merge with existing findings
+            const existingFindings = findingsProvider.getAllFindings();
+            const otherFindings = existingFindings.filter((f) => f.file !== fileUri.fsPath);
+            const allFindings = [...otherFindings, ...fileFindings];
             diagnosticsManager.updateFileFromResults(fileUri, scanResults);
-            findingsProvider.refresh();
+            findingsProvider.setFindings(allFindings);
             updateProgress({
                 stage: 'complete',
                 message: 'Scan complete',
@@ -333,6 +381,15 @@ async function markStatusCommand(finding, status) {
         vscode.window.showErrorMessage('Failed to update status: ' + error.message);
     }
 }
+function analyzeDocumentInline(document) {
+    // Only analyze source code files
+    const supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'csharp', 'php', 'ruby', 'go'];
+    if (!supportedLanguages.includes(document.languageId)) {
+        return;
+    }
+    const diagnostics = inlineSecurityProvider.analyzeDocument(document);
+    inlineDiagnostics.set(document.uri, diagnostics);
+}
 function updateStatusBar(status) {
     switch (status) {
         case 'connected':
@@ -358,5 +415,6 @@ function updateStatusBar(status) {
 }
 function deactivate() {
     diagnosticsManager.dispose();
+    inlineDiagnostics.dispose();
 }
 //# sourceMappingURL=extension.js.map

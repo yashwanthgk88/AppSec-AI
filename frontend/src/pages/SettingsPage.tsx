@@ -457,7 +457,7 @@ export default function SettingsPage() {
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 905 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 912 KB</p>
           </div>
         </div>
 
@@ -470,9 +470,11 @@ export default function SettingsPage() {
             <li><strong>🎨 Enhanced Vulnerability Details Panel:</strong> Beautiful dark theme with comprehensive vulnerability information, impact analysis, and remediation steps</li>
             <li><strong>📊 Scan Progress Bar:</strong> Real-time progress tracking with stage indicators and detailed status messages</li>
             <li><strong>✅ Auto-Remediation with Git:</strong> One-click fix application with automatic git commit and customizable commit messages</li>
-            <li><strong>🔍 Improved Findings View:</strong> Rich tooltips with markdown, better organization, and click-to-view detailed information</li>
+            <li><strong>⚡ Real-Time Inline Security Suggestions:</strong> Get instant security warnings as you type - detects eval(), innerHTML, SQL injection, hardcoded secrets, weak crypto, and more</li>
+            <li><strong>🔍 Improved Findings Sidebar:</strong> Shows vulnerability counts per severity, rich tooltips with markdown, and organized tree view</li>
             <li><strong>📁 File Navigation:</strong> Click file location to jump directly to vulnerable code in editor</li>
             <li><strong>📋 Code Snippets:</strong> View vulnerable code and suggested fixes side-by-side with syntax highlighting</li>
+            <li><strong>💡 Quick Fixes:</strong> Hover over inline security warnings for suggested remediation steps</li>
           </ul>
         </div>
 
