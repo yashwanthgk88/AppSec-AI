@@ -53,16 +53,32 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
             return findings
                 .filter((f: any) => f.severity.toLowerCase() === severity.toLowerCase())
                 .map((finding: any) => {
+                    const fileName = finding.file.split('/').pop() || finding.file;
                     const item = new FindingItem(
-                        `${finding.title} - ${finding.file}:${finding.line}`,
+                        `${finding.title}`,
                         vscode.TreeItemCollapsibleState.None,
-                        'finding',
+                        'vulnerability',
                         finding.severity,
                         finding
                     );
 
-                    item.description = finding.category;
-                    item.tooltip = finding.description;
+                    item.description = `${fileName}:${finding.line}`;
+
+                    // Create detailed tooltip with markdown
+                    const tooltipMarkdown = new vscode.MarkdownString();
+                    tooltipMarkdown.appendMarkdown(`### ${finding.title}\n\n`);
+                    tooltipMarkdown.appendMarkdown(`**Severity:** ${finding.severity}\n\n`);
+                    tooltipMarkdown.appendMarkdown(`**File:** ${finding.file}:${finding.line}\n\n`);
+                    tooltipMarkdown.appendMarkdown(`**Category:** ${finding.category || finding.owasp_category || 'N/A'}\n\n`);
+                    if (finding.cwe_id) {
+                        tooltipMarkdown.appendMarkdown(`**CWE:** ${finding.cwe_id}\n\n`);
+                    }
+                    tooltipMarkdown.appendMarkdown(`**Description:** ${finding.description || 'No description'}\n\n`);
+                    tooltipMarkdown.appendMarkdown(`---\n\n`);
+                    tooltipMarkdown.appendMarkdown(`*Click to view detailed information and remediation*`);
+                    tooltipMarkdown.isTrusted = true;
+
+                    item.tooltip = tooltipMarkdown;
                     item.command = {
                         command: 'appsec.showDetails',
                         title: 'Show Details',

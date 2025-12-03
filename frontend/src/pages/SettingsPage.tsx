@@ -450,28 +450,29 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.1.0.vsix"
+              href="/downloads/appsec-ai-scanner-1.2.0.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.1.0 • 885 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 905 KB</p>
           </div>
         </div>
 
-        <div className="mt-6 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-4">
+        <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
-            <span className="bg-green-600 text-white text-xs px-2 py-1 rounded mr-2">NEW</span>
-            What's New in v1.1.0
+            <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
+            What's New in v1.2.0
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-            <li><strong>Enhanced Vulnerability Panel:</strong> Detailed impact analysis and smart remediation steps</li>
-            <li><strong>Auto-Remediation:</strong> One-click fix application with automatic git commit</li>
-            <li><strong>Modern AI Chatbot:</strong> Beautiful gradient UI with quick suggestion buttons</li>
-            <li><strong>Code Formatting:</strong> Syntax highlighting for inline code and code blocks in chat</li>
-            <li><strong>Improved UX:</strong> Animations, timestamps, and auto-scroll in chat interface</li>
+            <li><strong>🎨 Enhanced Vulnerability Details Panel:</strong> Beautiful dark theme with comprehensive vulnerability information, impact analysis, and remediation steps</li>
+            <li><strong>📊 Scan Progress Bar:</strong> Real-time progress tracking with stage indicators and detailed status messages</li>
+            <li><strong>✅ Auto-Remediation with Git:</strong> One-click fix application with automatic git commit and customizable commit messages</li>
+            <li><strong>🔍 Improved Findings View:</strong> Rich tooltips with markdown, better organization, and click-to-view detailed information</li>
+            <li><strong>📁 File Navigation:</strong> Click file location to jump directly to vulnerable code in editor</li>
+            <li><strong>📋 Code Snippets:</strong> View vulnerable code and suggested fixes side-by-side with syntax highlighting</li>
           </ul>
         </div>
 

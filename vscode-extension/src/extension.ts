@@ -2,13 +2,15 @@ import * as vscode from 'vscode';
 import { ApiClient } from './apiClient';
 import { FindingsProvider } from './findingsProvider';
 import { DiagnosticsManager } from './diagnosticsManager';
-import { VulnerabilityPanel } from './vulnerabilityPanel';
+import { VulnerabilityDetailsPanel } from './vulnerabilityDetailsPanel';
 import { ChatbotPanel } from './chatbotPanel';
+import { ScanProgressManager } from './scanProgressManager';
 
 let apiClient: ApiClient;
 let findingsProvider: FindingsProvider;
 let diagnosticsManager: DiagnosticsManager;
 let statusBarItem: vscode.StatusBarItem;
+let scanProgressManager: ScanProgressManager;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('AppSec AI Scanner extension activated');
@@ -16,6 +18,7 @@ export async function activate(context: vscode.ExtensionContext) {
     apiClient = new ApiClient(context);
     diagnosticsManager = new DiagnosticsManager();
     findingsProvider = new FindingsProvider(apiClient);
+    scanProgressManager = new ScanProgressManager();
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.text = "$(shield) AppSec";
@@ -95,7 +98,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.showDetails', (finding: any) => {
-            VulnerabilityPanel.show(finding, apiClient);
+            VulnerabilityDetailsPanel.show(finding, apiClient);
         })
     );
 
@@ -178,31 +181,73 @@ async function scanWorkspaceCommand() {
         return;
     }
 
+    const startTime = Date.now();
+
     try {
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Scanning workspace for security issues...',
-            cancellable: true
-        }, async (progress, token) => {
-            updateStatusBar('scanning');
+        updateStatusBar('scanning');
 
-            const workspacePath = workspaceFolders[0].uri.fsPath;
-            const results = await apiClient.scanWorkspace(workspacePath);
+        const results = await scanProgressManager.showScanProgress(
+            'AppSec Security Scan',
+            async (updateProgress) => {
+                const workspacePath = workspaceFolders[0].uri.fsPath;
 
-            diagnosticsManager.updateFromResults(results);
-            findingsProvider.refresh();
+                updateProgress({
+                    stage: 'initializing',
+                    message: 'Initializing scan',
+                    percentage: 10,
+                    details: 'Preparing workspace analysis'
+                });
 
-            updateStatusBar('connected');
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-            const totalFindings = (results.sast?.findings?.length || 0) +
-                                 (results.sca?.findings?.length || 0) +
-                                 (results.secrets?.findings?.length || 0);
+                updateProgress({
+                    stage: 'analyzing',
+                    message: 'Analyzing code',
+                    percentage: 30,
+                    details: 'Running SAST scanner'
+                });
 
-            vscode.window.showInformationMessage('Scan complete: ' + totalFindings + ' security issues found');
-        });
+                updateProgress({
+                    stage: 'detecting',
+                    message: 'Detecting vulnerabilities',
+                    percentage: 60,
+                    details: 'Running SCA and secret detection'
+                });
+
+                const scanResults = await apiClient.scanWorkspace(workspacePath);
+
+                updateProgress({
+                    stage: 'completing',
+                    message: 'Processing results',
+                    percentage: 90,
+                    details: 'Updating findings'
+                });
+
+                diagnosticsManager.updateFromResults(scanResults);
+                findingsProvider.refresh();
+
+                updateProgress({
+                    stage: 'complete',
+                    message: 'Scan complete',
+                    percentage: 100
+                });
+
+                return scanResults;
+            }
+        );
+
+        updateStatusBar('connected');
+
+        const duration = (Date.now() - startTime) / 1000;
+        const totalFindings = (results.sast?.findings?.length || 0) +
+                             (results.sca?.findings?.length || 0) +
+                             (results.secrets?.findings?.length || 0);
+
+        scanProgressManager.showScanComplete(totalFindings, duration);
+
     } catch (error: any) {
         updateStatusBar('error');
-        vscode.window.showErrorMessage('Scan failed: ' + error.message);
+        scanProgressManager.showScanError(error.message);
         setTimeout(() => updateStatusBar('connected'), 3000);
     }
 }
@@ -229,21 +274,65 @@ async function scanCurrentFileCommand() {
 }
 
 async function scanFile(fileUri: vscode.Uri) {
+    const startTime = Date.now();
+    const fileName = fileUri.fsPath.split('/').pop();
+
     try {
         updateStatusBar('scanning');
 
-        const results = await apiClient.scanFile(fileUri.fsPath);
-        diagnosticsManager.updateFileFromResults(fileUri, results);
-        findingsProvider.refresh();
+        const results = await scanProgressManager.showScanProgress(
+            `Scanning ${fileName}`,
+            async (updateProgress) => {
+                updateProgress({
+                    stage: 'analyzing',
+                    message: 'Analyzing file',
+                    percentage: 30,
+                    details: fileName || ''
+                });
+
+                const scanResults = await apiClient.scanFile(fileUri.fsPath);
+
+                updateProgress({
+                    stage: 'completing',
+                    message: 'Processing results',
+                    percentage: 80,
+                    details: 'Updating diagnostics'
+                });
+
+                diagnosticsManager.updateFileFromResults(fileUri, scanResults);
+                findingsProvider.refresh();
+
+                updateProgress({
+                    stage: 'complete',
+                    message: 'Scan complete',
+                    percentage: 100
+                });
+
+                return scanResults;
+            }
+        );
 
         updateStatusBar('connected');
 
+        const duration = (Date.now() - startTime) / 1000;
         const findings = results.sast?.findings || [];
-        const fileName = fileUri.fsPath.split('/').pop();
-        vscode.window.showInformationMessage('Scan complete: ' + findings.length + ' issues found in ' + fileName);
+
+        if (findings.length > 0) {
+            vscode.window.showWarningMessage(
+                `⚠️ Found ${findings.length} issue${findings.length !== 1 ? 's' : ''} in ${fileName}`,
+                'View Results'
+            ).then(selection => {
+                if (selection === 'View Results') {
+                    vscode.commands.executeCommand('workbench.view.extension.appsec-sidebar');
+                }
+            });
+        } else {
+            vscode.window.showInformationMessage(`✅ No issues found in ${fileName}`);
+        }
+
     } catch (error: any) {
         updateStatusBar('error');
-        vscode.window.showErrorMessage('Scan failed: ' + error.message);
+        scanProgressManager.showScanError(error.message);
         setTimeout(() => updateStatusBar('connected'), 3000);
     }
 }
