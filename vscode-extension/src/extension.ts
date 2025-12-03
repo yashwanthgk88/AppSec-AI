@@ -114,6 +114,12 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.discussWithAI', (finding: any) => {
+            ChatbotPanel.show(apiClient, finding);
+        })
+    );
+
+    context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(async (document) => {
             const config = vscode.workspace.getConfiguration('appsec');
             const autoScan = config.get<boolean>('autoScan', false);

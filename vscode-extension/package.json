@@ -77,6 +77,11 @@
         "command": "appsec.openChatbot",
         "title": "AppSec: Open AI Assistant",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "appsec.discussWithAI",
+        "title": "AppSec: Discuss with AI Assistant",
+        "icon": "$(comment)"
       }
     ],
     "viewsContainers": {
@@ -120,9 +125,14 @@
       ],
       "view/item/context": [
         {
+          "command": "appsec.discussWithAI",
+          "when": "view == appsecFindings && viewItem == vulnerability",
+          "group": "inline@1"
+        },
+        {
           "command": "appsec.applyFix",
           "when": "view == appsecFindings && viewItem == vulnerability",
-          "group": "inline"
+          "group": "inline@2"
         },
         {
           "command": "appsec.markResolved",

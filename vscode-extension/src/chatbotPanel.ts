@@ -21,11 +21,15 @@ export class ChatbotPanel {
         );
     }
 
-    public static show(apiClient: ApiClient) {
+    public static show(apiClient: ApiClient, vulnerabilityContext?: any) {
         const column = vscode.ViewColumn.Two;
 
         if (ChatbotPanel.currentPanel) {
             ChatbotPanel.currentPanel.panel.reveal(column);
+            // If context provided, add it to the chat
+            if (vulnerabilityContext) {
+                ChatbotPanel.currentPanel.loadVulnerabilityContext(vulnerabilityContext);
+            }
         } else {
             const panel = vscode.window.createWebviewPanel(
                 'appSecChatbot',
@@ -38,12 +42,65 @@ export class ChatbotPanel {
             );
 
             ChatbotPanel.currentPanel = new ChatbotPanel(panel, apiClient);
+
+            // If context provided, add it to the chat before showing
+            if (vulnerabilityContext) {
+                ChatbotPanel.currentPanel.loadVulnerabilityContext(vulnerabilityContext);
+            }
+
             ChatbotPanel.currentPanel.update();
         }
     }
 
     private update() {
         this.panel.webview.html = this.getHtmlContent();
+    }
+
+    private async loadVulnerabilityContext(vulnerability: any) {
+        try {
+            // Read the vulnerable code snippet from the file
+            const document = await vscode.workspace.openTextDocument(vulnerability.file);
+            const lineNumber = vulnerability.line - 1; // Convert to 0-indexed
+
+            // Get 5 lines before and after the vulnerable line for context
+            const startLine = Math.max(0, lineNumber - 5);
+            const endLine = Math.min(document.lineCount - 1, lineNumber + 5);
+
+            let codeSnippet = '';
+            for (let i = startLine; i <= endLine; i++) {
+                const lineText = document.lineAt(i).text;
+                const linePrefix = i === lineNumber ? '>>> ' : '    '; // Mark vulnerable line
+                codeSnippet += `${linePrefix}${i + 1}: ${lineText}\n`;
+            }
+
+            // Create a detailed context message
+            const contextMessage = `I found a **${vulnerability.severity}** severity vulnerability in my code and need your help:
+
+**Vulnerability:** ${vulnerability.title}
+**File:** ${vulnerability.file}:${vulnerability.line}
+**Category:** ${vulnerability.category || vulnerability.owasp_category || 'N/A'}
+${vulnerability.cwe_id ? `**CWE:** ${vulnerability.cwe_id}` : ''}
+
+**Description:** ${vulnerability.description || 'No description available'}
+
+**Vulnerable Code Snippet:**
+\`\`\`
+${codeSnippet}\`\`\`
+
+Can you help me understand this vulnerability better and suggest the best way to fix it?`;
+
+            // Add the context as a user message
+            this.messages.push({role: 'user', content: contextMessage});
+            this.update();
+
+            // Get AI response
+            const response = await this.apiClient.sendChatMessage(contextMessage);
+            this.messages.push({role: 'assistant', content: response.response});
+            this.update();
+
+        } catch (error: any) {
+            vscode.window.showErrorMessage('Failed to load vulnerability context: ' + error.message);
+        }
     }
 
     private async handleUserMessage(userMessage: string) {

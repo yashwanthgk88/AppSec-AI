@@ -457,7 +457,7 @@ export default function SettingsPage() {
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 922 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 924 KB</p>
           </div>
         </div>
 
@@ -467,6 +467,7 @@ export default function SettingsPage() {
             What's New in v1.2.0
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+            <li><strong>💬 AI-Powered Vulnerability Discussion:</strong> Click "Discuss with AI" on any finding to open chatbot with full vulnerability context, code snippet, and start an interactive conversation about the security issue</li>
             <li><strong>📝 Detailed Impact & Remediation:</strong> Category-specific detailed impact analysis (6-12 points) and step-by-step remediation guides (10-12 steps) with actionable instructions</li>
             <li><strong>💻 Always-Available Remediation Code:</strong> Every vulnerability now includes before/after code examples - actual fixes when available, or intelligent category-specific examples as fallback</li>
             <li><strong>🎨 Enhanced Vulnerability Details Panel:</strong> Beautiful dark theme with comprehensive vulnerability information, impact analysis, and remediation steps</li>
