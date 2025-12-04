@@ -320,12 +320,12 @@ class SecretScanner:
             "entropy_check": True
         },
         "Cloudflare API Key": {
-            "pattern": r'[a-z0-9]{37}',
+            "pattern": r'cloudflare[_-]?api[_-]?key[\'"]?\s*[:=]\s*[\'"]?([a-z0-9]{37})[\'"]?',
             "severity": "high",
-            "description": "Potential Cloudflare API key",
+            "description": "Cloudflare API key detected",
             "remediation": "Verify and rotate if confirmed. Use scoped API tokens.",
             "entropy_check": True,
-            "min_entropy": 4.0
+            "min_entropy": 4.5
         },
 
         # ==================== CI/CD & DEVOPS ====================
@@ -353,9 +353,9 @@ class SecretScanner:
 
         # ==================== SENSITIVE DATA ====================
         "Email Address": {
-            "pattern": r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b',
-            "severity": "low",
-            "description": "Email address found (potential PII)",
+            "pattern": r'(email|contact|admin|user_email|customer_email)\s*[:=]\s*[\'"]([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})[\'"]',
+            "severity": "info",
+            "description": "Hardcoded email address found (potential PII)",
             "remediation": "Consider if email exposure is necessary. May violate GDPR/privacy regulations. Use data anonymization.",
             "entropy_check": False,
             "false_positive_check": True
@@ -393,12 +393,12 @@ class SecretScanner:
 
         # ==================== HIGH ENTROPY STRINGS ====================
         "High Entropy String": {
-            "pattern": r'[\'"][a-zA-Z0-9+/=_-]{40,}[\'"]',
+            "pattern": r'(secret|key|token|password|credential)\s*[:=]\s*[\'"]([a-zA-Z0-9+/=_-]{32,})[\'"]',
             "severity": "medium",
             "description": "High entropy string detected - potential secret",
             "remediation": "Verify if this is a secret. If yes, move to secure storage.",
             "entropy_check": True,
-            "min_entropy": 4.5,
+            "min_entropy": 5.0,
             "false_positive_check": True
         },
     }
