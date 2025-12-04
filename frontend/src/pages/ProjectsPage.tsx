@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, FileText, Calendar, TrendingUp } from 'lucide-react'
 import axios from 'axios'
+import { useToast, ToastContainer } from '../components/Toast'
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const { toasts, success, error, removeToast } = useToast()
 
   useEffect(() => {
     fetchProjects()
@@ -29,13 +31,16 @@ export default function ProjectsPage() {
   const handleCreateProject = async (formData: any) => {
     try {
       const token = localStorage.getItem('token')
-      await axios.post('/api/projects', formData, {
+      const response = await axios.post('/api/projects', formData, {
         headers: { Authorization: `Bearer ${token}` }
       })
       setShowCreateModal(false)
+      success(`Project "${formData.name}" created successfully!`)
       fetchProjects()
-    } catch (error) {
-      console.error('Failed to create project:', error)
+    } catch (err: any) {
+      console.error('Failed to create project:', err)
+      const errorMessage = err.response?.data?.detail || 'Failed to create project. Please try again.'
+      error(errorMessage)
     }
   }
 
@@ -49,6 +54,9 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
