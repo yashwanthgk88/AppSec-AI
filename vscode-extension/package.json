@@ -82,6 +82,40 @@
         "command": "appsec.discussWithAI",
         "title": "AppSec: Discuss with AI Assistant",
         "icon": "$(comment)"
+      },
+      {
+        "command": "appsec.manageCustomRules",
+        "title": "AppSec: Manage Custom Rules",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "appsec.viewRulePerformance",
+        "title": "AppSec: View Rule Performance Dashboard"
+      },
+      {
+        "command": "appsec.generateRuleWithAI",
+        "title": "AppSec: Generate Rule with AI"
+      },
+      {
+        "command": "appsec.refreshCustomRules",
+        "title": "AppSec: Refresh Custom Rules",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "appsec.createCustomRule",
+        "title": "AppSec: Create Custom Rule"
+      },
+      {
+        "command": "appsec.editCustomRule",
+        "title": "AppSec: Edit Rule"
+      },
+      {
+        "command": "appsec.deleteCustomRule",
+        "title": "AppSec: Delete Rule"
+      },
+      {
+        "command": "appsec.toggleCustomRule",
+        "title": "AppSec: Toggle Rule Enabled/Disabled"
       }
     ],
     "viewsContainers": {
@@ -98,6 +132,10 @@
         {
           "id": "appsecFindings",
           "name": "Security Findings"
+        },
+        {
+          "id": "appsecCustomRules",
+          "name": "Custom Rules"
         },
         {
           "id": "appsecProjects",
@@ -121,6 +159,21 @@
           "command": "appsec.openChatbot",
           "when": "view == appsecFindings",
           "group": "navigation"
+        },
+        {
+          "command": "appsec.createCustomRule",
+          "when": "view == appsecCustomRules",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.generateRuleWithAI",
+          "when": "view == appsecCustomRules",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.refreshCustomRules",
+          "when": "view == appsecCustomRules",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -143,6 +196,21 @@
           "command": "appsec.markFalsePositive",
           "when": "view == appsecFindings && viewItem == vulnerability",
           "group": "actions"
+        },
+        {
+          "command": "appsec.toggleCustomRule",
+          "when": "view == appsecCustomRules && viewItem == customRule",
+          "group": "inline@1"
+        },
+        {
+          "command": "appsec.editCustomRule",
+          "when": "view == appsecCustomRules && viewItem == customRule",
+          "group": "actions@1"
+        },
+        {
+          "command": "appsec.deleteCustomRule",
+          "when": "view == appsecCustomRules && viewItem == customRule",
+          "group": "actions@2"
         }
       ]
     },

@@ -152,6 +152,102 @@ class ApiClient {
             throw new Error(error.response?.data?.detail || 'Chat request failed');
         }
     }
+    // Custom Rules API Methods
+    async getCustomRules(severity, language, enabledOnly) {
+        try {
+            const params = {};
+            if (severity) {
+                params.severity = severity;
+            }
+            if (language) {
+                params.language = language;
+            }
+            if (enabledOnly) {
+                params.enabled_only = enabledOnly;
+            }
+            const response = await this.axiosInstance.get('/api/rules', { params });
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to fetch custom rules');
+        }
+    }
+    async getCustomRule(ruleId) {
+        try {
+            const response = await this.axiosInstance.get(`/api/rules/${ruleId}`);
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to fetch rule');
+        }
+    }
+    async createCustomRule(rule) {
+        try {
+            const response = await this.axiosInstance.post('/api/rules/', rule);
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to create rule');
+        }
+    }
+    async updateCustomRule(ruleId, updates) {
+        try {
+            const response = await this.axiosInstance.put(`/api/rules/${ruleId}`, updates);
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to update rule');
+        }
+    }
+    async deleteCustomRule(ruleId) {
+        try {
+            await this.axiosInstance.delete(`/api/rules/${ruleId}`);
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to delete rule');
+        }
+    }
+    async generateRuleWithAI(request) {
+        try {
+            const response = await this.axiosInstance.post('/api/rules/generate', request);
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to generate rule');
+        }
+    }
+    async getEnhancementJobStatus(jobId) {
+        try {
+            const response = await this.axiosInstance.get(`/api/rules/jobs/${jobId}`);
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to fetch job status');
+        }
+    }
+    async getRulePerformanceStats() {
+        try {
+            const response = await this.axiosInstance.get('/api/rules/performance/stats');
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to fetch performance stats');
+        }
+    }
+    async submitRuleFeedback(ruleId, findingId, feedback, comment) {
+        try {
+            const response = await this.axiosInstance.post('/api/rules/performance/feedback', {
+                rule_id: ruleId,
+                finding_id: findingId,
+                user_feedback: feedback,
+                feedback_comment: comment
+            });
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to submit feedback');
+        }
+    }
 }
 exports.ApiClient = ApiClient;
 //# sourceMappingURL=apiClient.js.map

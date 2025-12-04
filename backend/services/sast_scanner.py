@@ -710,6 +710,8 @@ if len(user_input) <= 100:
         self.scanned_files = 0
         self.skipped_files = 0
         self.errors = []
+        self.custom_rules = []
+        self._load_custom_rules()
 
     def scan_code(self, code_content: str, file_path: str = "unknown", language: str = None) -> List[Dict[str, Any]]:
         """
@@ -774,6 +776,10 @@ if len(user_input) <= 100:
                             })
                     except re.error as e:
                         self.errors.append(f"Regex error in pattern '{pattern}': {e}")
+
+        # Scan with custom rules (user-defined and AI-generated)
+        custom_findings = self._scan_with_custom_rules(code_content, file_path, language, lines)
+        findings.extend(custom_findings)
 
         return findings
 
@@ -1041,5 +1047,101 @@ if len(user_input) <= 100:
             for result in results:
                 result['line_number'] = snippet['line']
                 findings.append(result)
+
+        return findings
+
+    def _load_custom_rules(self):
+        """Load enabled custom rules from database"""
+        import sqlite3
+        try:
+            conn = sqlite3.connect('appsec.db')
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT id, name, pattern, severity, description, language, cwe, owasp, remediation, remediation_code
+                FROM custom_rules
+                WHERE enabled = 1
+            ''')
+
+            self.custom_rules = [dict(row) for row in cursor.fetchall()]
+            conn.close()
+        except Exception as e:
+            print(f"Warning: Could not load custom rules: {e}")
+            self.custom_rules = []
+
+    def reload_custom_rules(self):
+        """Reload custom rules from database (call after rule updates)"""
+        self._load_custom_rules()
+
+    def _scan_with_custom_rules(self, code_content: str, file_path: str, language: str, lines: List[str]) -> List[Dict[str, Any]]:
+        """
+        Scan code with custom user-defined and AI-generated rules
+
+        Args:
+            code_content: Full code content
+            file_path: Path to the file
+            language: Detected programming language
+            lines: Lines of code
+
+        Returns:
+            List of findings from custom rules
+        """
+        findings = []
+        seen_findings: Set[str] = set()
+
+        for rule in self.custom_rules:
+            # Check if rule applies to this language
+            rule_language = rule.get('language', '*')
+            if rule_language != '*' and rule_language.lower() != language.lower():
+                continue
+
+            pattern_str = rule['pattern']
+
+            try:
+                pattern = re.compile(pattern_str, re.IGNORECASE)
+
+                for line_num, line in enumerate(lines, start=1):
+                    # Skip comments
+                    if self._is_comment(line, language):
+                        continue
+
+                    match = pattern.search(line)
+                    if match:
+                        # Create unique key to avoid duplicates
+                        finding_key = f"{file_path}:{line_num}:{rule['name']}"
+                        if finding_key in seen_findings:
+                            continue
+
+                        seen_findings.add(finding_key)
+
+                        # Extract code snippet (±2 lines context)
+                        start_line = max(0, line_num - 3)
+                        end_line = min(len(lines), line_num + 2)
+                        code_snippet = '\n'.join(lines[start_line:end_line])
+
+                        findings.append({
+                            "title": rule['name'],
+                            "category": rule.get('owasp', 'Custom Rule'),
+                            "severity": rule['severity'],
+                            "confidence": "medium",
+                            "file": file_path,
+                            "line": line_num,
+                            "column": match.start() + 1,
+                            "code_snippet": code_snippet,
+                            "vulnerable_code": line.strip(),
+                            "description": rule['description'],
+                            "impact": f"This {rule['severity']} severity vulnerability was detected by custom rule: {rule['name']}",
+                            "remediation": rule.get('remediation', 'Review and fix this security issue'),
+                            "remediation_code": rule.get('remediation_code'),
+                            "cwe_id": rule.get('cwe'),
+                            "owasp_category": rule.get('owasp'),
+                            "rule_id": rule['id'],  # Track which rule found this
+                            "rule_source": rule.get('generated_by', 'user'),  # 'ai', 'user', 'cve'
+                        })
+
+            except re.error as e:
+                print(f"Warning: Invalid regex pattern in custom rule '{rule['name']}': {e}")
+                continue
 
         return findings

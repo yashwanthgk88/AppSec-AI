@@ -6,9 +6,11 @@ import { VulnerabilityDetailsPanel } from './vulnerabilityDetailsPanel';
 import { ChatbotPanel } from './chatbotPanel';
 import { ScanProgressManager } from './scanProgressManager';
 import { InlineSecurityProvider } from './inlineSecurityProvider';
+import { CustomRulesProvider } from './customRulesProvider';
 
 let apiClient: ApiClient;
 let findingsProvider: FindingsProvider;
+let customRulesProvider: CustomRulesProvider;
 let diagnosticsManager: DiagnosticsManager;
 let statusBarItem: vscode.StatusBarItem;
 let scanProgressManager: ScanProgressManager;
@@ -21,6 +23,7 @@ export async function activate(context: vscode.ExtensionContext) {
     apiClient = new ApiClient(context);
     diagnosticsManager = new DiagnosticsManager();
     findingsProvider = new FindingsProvider(apiClient);
+    customRulesProvider = new CustomRulesProvider(apiClient);
     scanProgressManager = new ScanProgressManager();
     inlineSecurityProvider = new InlineSecurityProvider();
     inlineDiagnostics = vscode.languages.createDiagnosticCollection('appsec-inline');
@@ -33,6 +36,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(statusBarItem);
 
     vscode.window.registerTreeDataProvider('appsecFindings', findingsProvider);
+    vscode.window.registerTreeDataProvider('appsecCustomRules', customRulesProvider);
 
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.login', async () => {
@@ -116,6 +120,62 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.discussWithAI', (finding: any) => {
             ChatbotPanel.show(apiClient, finding);
+        })
+    );
+
+    // Custom Rules Commands
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.manageCustomRules', () => {
+            const config = vscode.workspace.getConfiguration('appsec');
+            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+            const webUrl = apiUrl.replace(':8000', ':5174') + '/custom-rules';
+            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.viewRulePerformance', () => {
+            const config = vscode.workspace.getConfiguration('appsec');
+            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+            const webUrl = apiUrl.replace(':8000', ':5174') + '/rule-performance';
+            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.refreshCustomRules', () => {
+            customRulesProvider.refresh();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.createCustomRule', async () => {
+            await createCustomRuleCommand();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.editCustomRule', async (ruleItem: any) => {
+            await editCustomRuleCommand(ruleItem);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.deleteCustomRule', async (ruleItem: any) => {
+            await deleteCustomRuleCommand(ruleItem);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.toggleCustomRule', async (ruleItem: any) => {
+            await toggleCustomRuleCommand(ruleItem);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.generateRuleWithAI', async () => {
+            await generateRuleWithAICommand();
         })
     );
 
@@ -509,6 +569,256 @@ function updateStatusBar(status: 'connected' | 'disconnected' | 'scanning' | 'er
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             break;
     }
+}
+
+// Custom Rules Command Handlers
+
+async function createCustomRuleCommand() {
+    if (!await apiClient.isAuthenticated()) {
+        vscode.window.showWarningMessage('Please login first');
+        return;
+    }
+
+    const name = await vscode.window.showInputBox({
+        prompt: 'Enter rule name',
+        placeHolder: 'e.g., Hardcoded API Key'
+    });
+    if (!name) {return;}
+
+    const pattern = await vscode.window.showInputBox({
+        prompt: 'Enter regex pattern',
+        placeHolder: 'e.g., api[_-]?key["\']\\s*[:=]\\s*["\'][a-zA-Z0-9]{20,}'
+    });
+    if (!pattern) {return;}
+
+    const severity = await vscode.window.showQuickPick(
+        ['critical', 'high', 'medium', 'low'],
+        { placeHolder: 'Select severity level' }
+    );
+    if (!severity) {return;}
+
+    const description = await vscode.window.showInputBox({
+        prompt: 'Enter description',
+        placeHolder: 'Describe what this rule detects'
+    });
+    if (!description) {return;}
+
+    const language = await vscode.window.showInputBox({
+        prompt: 'Enter programming language (* for all)',
+        placeHolder: '* or javascript, python, etc.',
+        value: '*'
+    });
+
+    try {
+        await apiClient.createCustomRule({
+            name,
+            pattern,
+            severity,
+            description,
+            language: language || '*',
+            enabled: true
+        });
+
+        vscode.window.showInformationMessage(`Rule "${name}" created successfully`);
+        customRulesProvider.refresh();
+    } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to create rule: ' + error.message);
+    }
+}
+
+async function editCustomRuleCommand(ruleItem: any) {
+    if (!ruleItem || !ruleItem.rule) {
+        vscode.window.showWarningMessage('No rule selected');
+        return;
+    }
+
+    const rule = ruleItem.rule;
+
+    const options = await vscode.window.showQuickPick([
+        { label: 'Edit Name', value: 'name' },
+        { label: 'Edit Pattern', value: 'pattern' },
+        { label: 'Edit Description', value: 'description' },
+        { label: 'Change Severity', value: 'severity' },
+        { label: 'Change Language', value: 'language' }
+    ], { placeHolder: 'What would you like to edit?' });
+
+    if (!options) {return;}
+
+    try {
+        let updates: any = {};
+
+        switch (options.value) {
+            case 'name':
+                const newName = await vscode.window.showInputBox({
+                    prompt: 'Enter new name',
+                    value: rule.name
+                });
+                if (newName) {updates.name = newName;}
+                break;
+
+            case 'pattern':
+                const newPattern = await vscode.window.showInputBox({
+                    prompt: 'Enter new pattern',
+                    value: rule.pattern
+                });
+                if (newPattern) {updates.pattern = newPattern;}
+                break;
+
+            case 'description':
+                const newDesc = await vscode.window.showInputBox({
+                    prompt: 'Enter new description',
+                    value: rule.description
+                });
+                if (newDesc) {updates.description = newDesc;}
+                break;
+
+            case 'severity':
+                const newSeverity = await vscode.window.showQuickPick(
+                    ['critical', 'high', 'medium', 'low'],
+                    { placeHolder: 'Select severity level' }
+                );
+                if (newSeverity) {updates.severity = newSeverity;}
+                break;
+
+            case 'language':
+                const newLang = await vscode.window.showInputBox({
+                    prompt: 'Enter language',
+                    value: rule.language
+                });
+                if (newLang) {updates.language = newLang;}
+                break;
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await apiClient.updateCustomRule(rule.id, updates);
+            vscode.window.showInformationMessage('Rule updated successfully');
+            customRulesProvider.refresh();
+        }
+    } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to update rule: ' + error.message);
+    }
+}
+
+async function deleteCustomRuleCommand(ruleItem: any) {
+    if (!ruleItem || !ruleItem.rule) {
+        vscode.window.showWarningMessage('No rule selected');
+        return;
+    }
+
+    const rule = ruleItem.rule;
+
+    const confirm = await vscode.window.showWarningMessage(
+        `Are you sure you want to delete rule "${rule.name}"?`,
+        { modal: true },
+        'Delete'
+    );
+
+    if (confirm !== 'Delete') {return;}
+
+    try {
+        await apiClient.deleteCustomRule(rule.id);
+        vscode.window.showInformationMessage(`Rule "${rule.name}" deleted successfully`);
+        customRulesProvider.refresh();
+    } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to delete rule: ' + error.message);
+    }
+}
+
+async function toggleCustomRuleCommand(ruleItem: any) {
+    if (!ruleItem || !ruleItem.rule) {
+        vscode.window.showWarningMessage('No rule selected');
+        return;
+    }
+
+    const rule = ruleItem.rule;
+
+    try {
+        await apiClient.updateCustomRule(rule.id, { enabled: !rule.enabled });
+        vscode.window.showInformationMessage(
+            `Rule "${rule.name}" ${!rule.enabled ? 'enabled' : 'disabled'}`
+        );
+        customRulesProvider.refresh();
+    } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to toggle rule: ' + error.message);
+    }
+}
+
+async function generateRuleWithAICommand() {
+    if (!await apiClient.isAuthenticated()) {
+        vscode.window.showWarningMessage('Please login first');
+        return;
+    }
+
+    const ruleName = await vscode.window.showInputBox({
+        prompt: 'Enter a name for the rule',
+        placeHolder: 'e.g., SQL Injection Detection'
+    });
+    if (!ruleName) {return;}
+
+    const vulnDescription = await vscode.window.showInputBox({
+        prompt: 'Describe the vulnerability this rule should detect',
+        placeHolder: 'e.g., Detect SQL injection vulnerabilities in database queries'
+    });
+    if (!vulnDescription) {return;}
+
+    const severity = await vscode.window.showQuickPick(
+        ['critical', 'high', 'medium', 'low'],
+        { placeHolder: 'Select severity level' }
+    );
+    if (!severity) {return;}
+
+    const languagesInput = await vscode.window.showInputBox({
+        prompt: 'Enter programming languages (comma-separated) or * for all',
+        placeHolder: 'javascript,python,java or *',
+        value: '*'
+    });
+
+    const languages = languagesInput === '*' ? ['*'] : languagesInput?.split(',').map(l => l.trim()) || ['*'];
+
+    try {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Generating rule with AI...',
+            cancellable: false
+        }, async () => {
+            const result = await apiClient.generateRuleWithAI({
+                rule_name: ruleName,
+                vulnerability_description: vulnDescription,
+                severity,
+                languages
+            });
+
+            // Poll for job completion
+            if (result.job_id) {
+                await pollJobStatus(result.job_id);
+            }
+        });
+
+        vscode.window.showInformationMessage('AI rule generation completed');
+        customRulesProvider.refresh();
+    } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to generate rule: ' + error.message);
+    }
+}
+
+async function pollJobStatus(jobId: number, maxAttempts = 30) {
+    for (let i = 0; i < maxAttempts; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+
+        try {
+            const job = await apiClient.getEnhancementJobStatus(jobId);
+
+            if (job.status === 'completed') {
+                return;
+            } else if (job.status === 'failed') {
+                throw new Error('Job failed: ' + (job.errors || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error polling job status:', error);
+        }
+    }
+
+    throw new Error('Job timed out');
 }
 
 export function deactivate() {

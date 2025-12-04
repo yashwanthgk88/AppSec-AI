@@ -8,6 +8,8 @@ import ThreatModelPage from './pages/ThreatModelPage'
 import VulnerabilitiesPage from './pages/VulnerabilitiesPage'
 import ChatPage from './pages/ChatPage'
 import SettingsPage from './pages/SettingsPage'
+import CustomRulesPage from './pages/CustomRulesPage'
+import RulePerformancePage from './pages/RulePerformancePage'
 import Layout from './components/Layout'
 
 function App() {
@@ -50,6 +52,8 @@ function App() {
           <Route path="/projects/:id/threat-model" element={<ThreatModelPage />} />
           <Route path="/projects/:id/vulnerabilities" element={<VulnerabilitiesPage />} />
           <Route path="/chat" element={<ChatPage />} />
+          <Route path="/custom-rules" element={<CustomRulesPage />} />
+          <Route path="/rule-performance" element={<RulePerformancePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

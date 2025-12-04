@@ -28,6 +28,7 @@ from services.repository_scanner import RepositoryScanner
 
 # Import routers
 from routers import settings
+from routers import custom_rules, rule_performance
 
 # Pydantic schemas
 from pydantic import BaseModel, EmailStr
@@ -42,9 +43,16 @@ app = FastAPI(
 )
 
 # CORS middleware
+# Allow both frontend ports for development
+cors_origins = os.getenv("CORS_ORIGINS")
+if cors_origins:
+    allowed_origins = [origin.strip() for origin in cors_origins.split(",")]
+else:
+    allowed_origins = ["http://localhost:5173", "http://localhost:5174"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:5173").split(","),
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,6 +60,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(settings.router)
+app.include_router(custom_rules.router)
+app.include_router(rule_performance.router)
 
 # Initialize services
 threat_service = ThreatModelingService()
