@@ -23,12 +23,18 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if Docker Compose is installed
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+# Detect Docker Compose command (supports both docker-compose and docker compose)
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null 2>&1; then
+    DOCKER_COMPOSE="docker compose"
+else
     echo -e "${RED}Error: Docker Compose is not installed${NC}"
     echo "Please install Docker Compose"
     exit 1
 fi
+
+echo "Using Docker Compose command: $DOCKER_COMPOSE"
 
 # Check if .env file exists
 if [ ! -f .env ]; then
@@ -61,34 +67,34 @@ MODE=${1:-dev}
 if [ "$MODE" == "production" ] || [ "$MODE" == "prod" ]; then
     echo -e "${GREEN}Deploying in PRODUCTION mode with Nginx${NC}"
     check_secret_key
-    COMPOSE_PROFILES=production docker-compose up -d --build
+    COMPOSE_PROFILES=production $DOCKER_COMPOSE up -d --build
 
 elif [ "$MODE" == "dev" ] || [ "$MODE" == "development" ]; then
     echo -e "${GREEN}Deploying in DEVELOPMENT mode${NC}"
-    docker-compose up -d --build
+    $DOCKER_COMPOSE up -d --build
 
 elif [ "$MODE" == "stop" ]; then
     echo -e "${YELLOW}Stopping all containers...${NC}"
-    docker-compose down
+    $DOCKER_COMPOSE down
     echo -e "${GREEN}Containers stopped${NC}"
     exit 0
 
 elif [ "$MODE" == "restart" ]; then
     echo -e "${YELLOW}Restarting containers...${NC}"
-    docker-compose restart
+    $DOCKER_COMPOSE restart
     echo -e "${GREEN}Containers restarted${NC}"
     exit 0
 
 elif [ "$MODE" == "logs" ]; then
     echo -e "${GREEN}Showing logs (Ctrl+C to exit)...${NC}"
-    docker-compose logs -f
+    $DOCKER_COMPOSE logs -f
     exit 0
 
 elif [ "$MODE" == "clean" ]; then
     echo -e "${YELLOW}Cleaning up containers, images, and volumes...${NC}"
     read -p "Are you sure? This will delete all data! (yes/no): " -r
     if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
-        docker-compose down -v
+        $DOCKER_COMPOSE down -v
         docker system prune -af
         echo -e "${GREEN}Cleanup complete${NC}"
     else
@@ -118,11 +124,11 @@ echo -e "${YELLOW}Waiting for services to start...${NC}"
 sleep 10
 
 # Check if containers are running
-if docker-compose ps | grep -q "Up"; then
+if $DOCKER_COMPOSE ps | grep -q "Up"; then
     echo -e "${GREEN}✓ Deployment successful!${NC}"
     echo ""
     echo "Services are running:"
-    docker-compose ps
+    $DOCKER_COMPOSE ps
     echo ""
     echo -e "${GREEN}Access the application:${NC}"
 
