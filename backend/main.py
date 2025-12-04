@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Optional
 from datetime import timedelta
 import os
@@ -870,27 +871,42 @@ async def run_security_scan(
     db.flush()
 
     for finding in sast_findings:
-        file_path = finding['file_path']
+        file_path = finding.get('file_path', 'unknown')
         if repo_scanner and repo_scanner.repo_path:
             file_path = repo_scanner.get_relative_path(file_path)
 
+        # Get rule_id if this finding was detected by a custom rule
+        rule_id = finding.get('rule_id')
+
         vuln = Vulnerability(
             scan_id=sast_scan.id,
-            title=finding['title'],
-            description=finding['description'],
-            severity=SeverityLevel[finding['severity'].upper()],
-            cwe_id=finding['cwe_id'],
-            owasp_category=finding['owasp_category'],
+            rule_id=rule_id,  # Track which rule detected this vulnerability
+            title=finding.get('title', 'Security Issue'),
+            description=finding.get('description', 'Security vulnerability detected'),
+            severity=SeverityLevel[finding.get('severity', 'medium').upper()],
+            cwe_id=finding.get('cwe_id', ''),
+            owasp_category=finding.get('owasp_category', 'Security'),
             file_path=file_path,
-            line_number=finding['line_number'],
-            code_snippet=finding['code_snippet'],
-            remediation=finding['remediation'],
+            line_number=finding.get('line_number', 0),
+            code_snippet=finding.get('code_snippet', ''),
+            remediation=finding.get('remediation', ''),
             remediation_code=finding.get('remediation_code'),
-            cvss_score=finding['cvss_score'],
+            cvss_score=finding.get('cvss_score', 0.0),
             stride_category=finding.get('stride_category'),
             mitre_attack_id=finding.get('mitre_attack_id')
         )
         db.add(vuln)
+
+        # Update rule performance stats if this was detected by a custom rule
+        if rule_id:
+            try:
+                db.execute(
+                    text("UPDATE custom_rules SET total_detections = total_detections + 1 WHERE id = :rule_id"),
+                    {"rule_id": rule_id}
+                )
+            except Exception as e:
+                print(f"Warning: Failed to update rule performance for rule {rule_id}: {e}")
+
     scan_results["sast"] = len(sast_findings)
 
     # Run SCA scan
@@ -938,27 +954,31 @@ async def run_security_scan(
         scan_type=ScanType.SCA,
         status=ScanStatus.COMPLETED,
         total_findings=len(sca_findings),
-        critical_count=len([f for f in sca_findings if f['severity'] == 'critical']),
-        high_count=len([f for f in sca_findings if f['severity'] == 'high']),
-        medium_count=len([f for f in sca_findings if f['severity'] == 'medium']),
-        low_count=len([f for f in sca_findings if f['severity'] == 'low'])
+        critical_count=len([f for f in sca_findings if f.get('severity', '').lower() == 'critical']),
+        high_count=len([f for f in sca_findings if f.get('severity', '').lower() == 'high']),
+        medium_count=len([f for f in sca_findings if f.get('severity', '').lower() == 'medium']),
+        low_count=len([f for f in sca_findings if f.get('severity', '').lower() == 'low'])
     )
     db.add(sca_scan)
     db.flush()
 
     for finding in sca_findings:
+        package_name = finding.get('package', 'unknown')
+        installed_version = finding.get('installed_version', 'unknown')
+        vulnerability = finding.get('vulnerability', 'Vulnerability')
+
         vuln = Vulnerability(
             scan_id=sca_scan.id,
-            title=f"{finding['vulnerability']} in {finding['package']}",
-            description=finding['description'],
-            severity=SeverityLevel[finding['severity'].upper()],
-            cwe_id=finding['cwe_id'],
-            owasp_category=finding['owasp_category'],
-            file_path=f"{finding.get('ecosystem', 'package')} dependency: {finding['package']} {finding['installed_version']}",
+            title=f"{vulnerability} in {package_name}",
+            description=finding.get('description', 'Vulnerability in dependency'),
+            severity=SeverityLevel[finding.get('severity', 'medium').upper()],
+            cwe_id=finding.get('cwe_id', ''),
+            owasp_category=finding.get('owasp_category', 'A06:2021 - Vulnerable and Outdated Components'),
+            file_path=f"{finding.get('ecosystem', 'package')} dependency: {package_name} {installed_version}",
             line_number=0,
-            code_snippet=f"Dependency: {finding['package']}@{finding['installed_version']}",
-            remediation=finding['remediation'],
-            cvss_score=finding['cvss_score'],
+            code_snippet=f"Dependency: {package_name}@{installed_version}",
+            remediation=finding.get('remediation', 'Update to latest version'),
+            cvss_score=finding.get('cvss_score', 0.0),
             stride_category=finding.get('stride_category'),
             mitre_attack_id=finding.get('mitre_attack_id')
         )
@@ -977,31 +997,31 @@ async def run_security_scan(
         scan_type=ScanType.SECRET,
         status=ScanStatus.COMPLETED,
         total_findings=len(secret_findings),
-        critical_count=len([f for f in secret_findings if f['severity'] == 'critical']),
-        high_count=len([f for f in secret_findings if f['severity'] == 'high']),
-        medium_count=len([f for f in secret_findings if f['severity'] == 'medium']),
-        low_count=len([f for f in secret_findings if f['severity'] == 'low'])
+        critical_count=len([f for f in secret_findings if f.get('severity', '').lower() == 'critical']),
+        high_count=len([f for f in secret_findings if f.get('severity', '').lower() == 'high']),
+        medium_count=len([f for f in secret_findings if f.get('severity', '').lower() == 'medium']),
+        low_count=len([f for f in secret_findings if f.get('severity', '').lower() == 'low'])
     )
     db.add(secret_scan)
     db.flush()
 
     for finding in secret_findings:
-        file_path = finding['file_path']
+        file_path = finding.get('file_path', 'unknown')
         if repo_scanner and repo_scanner.repo_path:
             file_path = repo_scanner.get_relative_path(file_path)
 
         vuln = Vulnerability(
             scan_id=secret_scan.id,
-            title=finding['title'],
-            description=finding['description'],
-            severity=SeverityLevel[finding['severity'].upper()],
-            cwe_id=finding['cwe_id'],
-            owasp_category=finding['owasp_category'],
+            title=finding.get('title', 'Exposed Secret'),
+            description=finding.get('description', 'Sensitive information exposed in code'),
+            severity=SeverityLevel[finding.get('severity', 'high').upper()],
+            cwe_id=finding.get('cwe_id', 'CWE-798'),
+            owasp_category=finding.get('owasp_category', 'A07:2021 - Identification and Authentication Failures'),
             file_path=file_path,
-            line_number=finding['line_number'],
-            code_snippet=finding['code_snippet'],
-            remediation=finding['remediation'],
-            cvss_score=finding['cvss_score'],
+            line_number=finding.get('line_number', 0),
+            code_snippet=finding.get('code_snippet', ''),
+            remediation=finding.get('remediation', 'Remove and rotate the exposed secret'),
+            cvss_score=finding.get('cvss_score', 7.5),
             stride_category=finding.get('stride_category'),
             mitre_attack_id=finding.get('mitre_attack_id')
         )

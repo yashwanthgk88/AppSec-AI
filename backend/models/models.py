@@ -98,6 +98,7 @@ class Vulnerability(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     scan_id = Column(Integer, ForeignKey("scans.id"), nullable=False)
+    rule_id = Column(Integer, nullable=True)  # Link to custom_rules table for performance tracking
     title = Column(String(500), nullable=False)
     description = Column(Text)
     severity = Column(Enum(SeverityLevel), nullable=False)
