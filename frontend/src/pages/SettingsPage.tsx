@@ -450,28 +450,28 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.2.0.vsix"
+              href="/downloads/appsec-ai-scanner-1.4.0.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.2.0 • 924 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.4.0 • 957 KB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.2.0
+            What's New in v1.4.0
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-            <li><strong>💬 AI-Powered Vulnerability Discussion:</strong> Click "Discuss with AI" on any finding to open chatbot with full vulnerability context, code snippet, and start an interactive conversation about the security issue</li>
-            <li><strong>📝 Detailed Impact & Remediation:</strong> Category-specific detailed impact analysis (6-12 points) and step-by-step remediation guides (10-12 steps) with actionable instructions</li>
-            <li><strong>💻 Always-Available Remediation Code:</strong> Every vulnerability now includes before/after code examples - actual fixes when available, or intelligent category-specific examples as fallback</li>
-            <li><strong>🎨 Enhanced Vulnerability Details Panel:</strong> Beautiful dark theme with comprehensive vulnerability information, impact analysis, and remediation steps</li>
-            <li><strong>📊 Scan Progress Bar:</strong> Real-time progress tracking with stage indicators and detailed status messages</li>
+            <li><strong>📦 Separate SCA Vulnerabilities View:</strong> Dedicated tree view for dependency vulnerabilities with package info, CVE details, CVSS scores, and fixed versions</li>
+            <li><strong>🔐 Dedicated Secret Detection View:</strong> New tree view for exposed secrets grouped by type (API Keys, Passwords, Tokens) with critical security warnings</li>
+            <li><strong>📊 Rule Performance Dashboard:</strong> Inline VS Code panel to view rule statistics, precision metrics, top performers, and rules needing attention - no browser needed!</li>
+            <li><strong>🎯 Enhanced Findings Organization:</strong> SAST findings now in separate view from SCA and Secrets for better clarity and navigation</li>
+            <li><strong>🐛 Bug Fixes:</strong> Fixed missing command registration errors and improved error handling throughout the extension</li>
             <li><strong>✅ Auto-Remediation with Git:</strong> One-click fix application with automatic git commit and customizable commit messages</li>
             <li><strong>⚡ Real-Time Inline Security Suggestions:</strong> Get instant security warnings as you type - detects eval(), innerHTML, SQL injection, hardcoded secrets, weak crypto, and more</li>
             <li><strong>🔍 Improved Findings Sidebar:</strong> Shows vulnerability counts per severity, rich tooltips with markdown, and organized tree view</li>

@@ -38,14 +38,19 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const apiClient_1 = require("./apiClient");
 const findingsProvider_1 = require("./findingsProvider");
+const scaFindingsProvider_1 = require("./scaFindingsProvider");
+const secretsFindingsProvider_1 = require("./secretsFindingsProvider");
 const diagnosticsManager_1 = require("./diagnosticsManager");
 const vulnerabilityDetailsPanel_1 = require("./vulnerabilityDetailsPanel");
 const chatbotPanel_1 = require("./chatbotPanel");
 const scanProgressManager_1 = require("./scanProgressManager");
 const inlineSecurityProvider_1 = require("./inlineSecurityProvider");
 const customRulesProvider_1 = require("./customRulesProvider");
+const RulePerformancePanel_1 = require("./RulePerformancePanel");
 let apiClient;
 let findingsProvider;
+let scaFindingsProvider;
+let secretsFindingsProvider;
 let customRulesProvider;
 let diagnosticsManager;
 let statusBarItem;
@@ -57,6 +62,8 @@ async function activate(context) {
     apiClient = new apiClient_1.ApiClient(context);
     diagnosticsManager = new diagnosticsManager_1.DiagnosticsManager();
     findingsProvider = new findingsProvider_1.FindingsProvider(apiClient);
+    scaFindingsProvider = new scaFindingsProvider_1.ScaFindingsProvider(apiClient);
+    secretsFindingsProvider = new secretsFindingsProvider_1.SecretsFindingsProvider(apiClient);
     customRulesProvider = new customRulesProvider_1.CustomRulesProvider(apiClient);
     scanProgressManager = new scanProgressManager_1.ScanProgressManager();
     inlineSecurityProvider = new inlineSecurityProvider_1.InlineSecurityProvider();
@@ -68,6 +75,8 @@ async function activate(context) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
     vscode.window.registerTreeDataProvider('appsecFindings', findingsProvider);
+    vscode.window.registerTreeDataProvider('appsecScaFindings', scaFindingsProvider);
+    vscode.window.registerTreeDataProvider('appsecSecretsFindings', secretsFindingsProvider);
     vscode.window.registerTreeDataProvider('appsecCustomRules', customRulesProvider);
     context.subscriptions.push(vscode.commands.registerCommand('appsec.login', async () => {
         await loginCommand(context);
@@ -109,6 +118,12 @@ async function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand('appsec.showDetails', (finding) => {
         vulnerabilityDetailsPanel_1.VulnerabilityDetailsPanel.show(finding, apiClient);
     }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.showScaDetails', (finding) => {
+        vulnerabilityDetailsPanel_1.VulnerabilityDetailsPanel.show(finding, apiClient);
+    }));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.showSecretDetails', (finding) => {
+        vulnerabilityDetailsPanel_1.VulnerabilityDetailsPanel.show(finding, apiClient);
+    }));
     context.subscriptions.push(vscode.commands.registerCommand('appsec.openChatbot', () => {
         chatbotPanel_1.ChatbotPanel.show(apiClient);
     }));
@@ -116,17 +131,27 @@ async function activate(context) {
         chatbotPanel_1.ChatbotPanel.show(apiClient, finding);
     }));
     // Custom Rules Commands
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.viewOnWeb', () => {
+        const config = vscode.workspace.getConfiguration('appsec');
+        const apiUrl = config.get('apiUrl', 'http://localhost:8000');
+        const webUrl = apiUrl.replace(':8000', ':5174');
+        vscode.env.openExternal(vscode.Uri.parse(webUrl));
+    }));
     context.subscriptions.push(vscode.commands.registerCommand('appsec.manageCustomRules', () => {
         const config = vscode.workspace.getConfiguration('appsec');
         const apiUrl = config.get('apiUrl', 'http://localhost:8000');
         const webUrl = apiUrl.replace(':8000', ':5174') + '/custom-rules';
         vscode.env.openExternal(vscode.Uri.parse(webUrl));
     }));
-    context.subscriptions.push(vscode.commands.registerCommand('appsec.viewRulePerformance', () => {
-        const config = vscode.workspace.getConfiguration('appsec');
-        const apiUrl = config.get('apiUrl', 'http://localhost:8000');
-        const webUrl = apiUrl.replace(':8000', ':5174') + '/rule-performance';
-        vscode.env.openExternal(vscode.Uri.parse(webUrl));
+    context.subscriptions.push(vscode.commands.registerCommand('appsec.viewRulePerformance', async () => {
+        try {
+            console.log('Opening Rule Performance Dashboard...');
+            RulePerformancePanel_1.RulePerformancePanel.show(apiClient);
+        }
+        catch (error) {
+            console.error('Error opening Rule Performance Dashboard:', error);
+            vscode.window.showErrorMessage('Failed to open Rule Performance Dashboard: ' + error.message);
+        }
     }));
     context.subscriptions.push(vscode.commands.registerCommand('appsec.refreshCustomRules', () => {
         customRulesProvider.refresh();
@@ -255,19 +280,23 @@ async function scanWorkspaceCommand() {
                 percentage: 90,
                 details: 'Updating findings'
             });
-            // Extract all findings from scan results
-            const allFindings = [];
+            // Extract findings by type
+            const sastFindings = [];
+            const scaFindings = [];
+            const secretsFindings = [];
             if (scanResults.sast?.findings) {
-                allFindings.push(...scanResults.sast.findings);
+                sastFindings.push(...scanResults.sast.findings);
             }
             if (scanResults.sca?.findings) {
-                allFindings.push(...scanResults.sca.findings);
+                scaFindings.push(...scanResults.sca.findings);
             }
             if (scanResults.secrets?.findings) {
-                allFindings.push(...scanResults.secrets.findings);
+                secretsFindings.push(...scanResults.secrets.findings);
             }
             diagnosticsManager.updateFromResults(scanResults);
-            findingsProvider.setFindings(allFindings);
+            findingsProvider.setFindings(sastFindings);
+            scaFindingsProvider.setFindings(scaFindings);
+            secretsFindingsProvider.setFindings(secretsFindings);
             updateProgress({
                 stage: 'complete',
                 message: 'Scan complete',
@@ -322,20 +351,25 @@ async function scanFile(fileUri) {
                 percentage: 80,
                 details: 'Updating diagnostics'
             });
-            // Extract findings from file scan results
-            const fileFindings = [];
+            // Extract findings by type from file scan
+            const fileSastFindings = [];
+            const fileSecretsFindings = [];
             if (scanResults.sast?.findings) {
-                fileFindings.push(...scanResults.sast.findings);
+                fileSastFindings.push(...scanResults.sast.findings);
             }
             if (scanResults.secrets?.findings) {
-                fileFindings.push(...scanResults.secrets.findings);
+                fileSecretsFindings.push(...scanResults.secrets.findings);
             }
-            // Merge with existing findings
-            const existingFindings = findingsProvider.getAllFindings();
-            const otherFindings = existingFindings.filter((f) => f.file !== fileUri.fsPath);
-            const allFindings = [...otherFindings, ...fileFindings];
+            // Merge with existing findings for each type
+            const existingSastFindings = findingsProvider.getAllFindings();
+            const otherSastFindings = existingSastFindings.filter((f) => f.file !== fileUri.fsPath);
+            const allSastFindings = [...otherSastFindings, ...fileSastFindings];
+            const existingSecretsFindings = secretsFindingsProvider.getAllFindings();
+            const otherSecretsFindings = existingSecretsFindings.filter((f) => f.file !== fileUri.fsPath);
+            const allSecretsFindings = [...otherSecretsFindings, ...fileSecretsFindings];
             diagnosticsManager.updateFileFromResults(fileUri, scanResults);
-            findingsProvider.setFindings(allFindings);
+            findingsProvider.setFindings(allSastFindings);
+            secretsFindingsProvider.setFindings(allSecretsFindings);
             updateProgress({
                 stage: 'complete',
                 message: 'Scan complete',

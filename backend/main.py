@@ -1615,6 +1615,11 @@ async def direct_workspace_scan(
     }
 
     try:
+        import os
+        # Validate path exists
+        if not os.path.exists(request.path):
+            raise HTTPException(status_code=404, detail=f"Path not found: {request.path}")
+
         # Run SAST scan
         if "sast" in request.scan_types:
             scan_results = sast_scanner.scan_directory(request.path)
@@ -1622,15 +1627,15 @@ async def direct_workspace_scan(
             results["sast"]["findings"] = [
                 {
                     "id": f"sast-{i}",
-                    "title": f['title'],
-                    "description": f['description'],
-                    "severity": f['severity'],
-                    "file": f['file_path'],
-                    "line": f['line_number'],
-                    "category": f['owasp_category'],
-                    "cwe_id": f['cwe_id'],
-                    "code_snippet": f['code_snippet'],
-                    "remediation": f['remediation'],
+                    "title": f.get('title', 'Security Issue'),
+                    "description": f.get('description', 'Security vulnerability detected'),
+                    "severity": f.get('severity', 'medium'),
+                    "file": f.get('file_path', 'unknown'),
+                    "line": f.get('line_number', 0),
+                    "category": f.get('owasp_category', 'Security'),
+                    "cwe_id": f.get('cwe_id', ''),
+                    "code_snippet": f.get('code_snippet', ''),
+                    "remediation": f.get('remediation', ''),
                     "remediation_code": f.get('suggested_fix', ''),
                     "impact": f.get('impact', 'This vulnerability could compromise application security'),
                     "remediation_steps": f.get('remediation_steps', [])
@@ -1690,14 +1695,14 @@ async def direct_workspace_scan(
             results["secrets"]["findings"] = [
                 {
                     "id": f"secret-{i}",
-                    "title": f['title'],
-                    "description": f['description'],
-                    "severity": f['severity'],
-                    "file": f['file_path'],
-                    "line": f['line_number'],
+                    "title": f.get('title', 'Exposed Secret'),
+                    "description": f.get('description', 'Potential secret detected'),
+                    "severity": f.get('severity', 'high'),
+                    "file": f.get('file_path', 'unknown'),
+                    "line": f.get('line_number', 0),
                     "category": "Exposed Secret",
                     "secret_type": f.get('secret_type', 'Unknown'),
-                    "code_snippet": f['code_snippet']
+                    "code_snippet": f.get('code_snippet', '')
                 }
                 for i, f in enumerate(findings)
             ]
@@ -1730,15 +1735,15 @@ async def direct_file_scan(
             results["sast"]["findings"] = [
                 {
                     "id": f"sast-{i}",
-                    "title": f['title'],
-                    "description": f['description'],
-                    "severity": f['severity'],
-                    "file": f['file_path'],
-                    "line": f['line_number'],
-                    "category": f['owasp_category'],
-                    "cwe_id": f['cwe_id'],
-                    "code_snippet": f['code_snippet'],
-                    "remediation": f['remediation'],
+                    "title": f.get('title', 'Security Issue'),
+                    "description": f.get('description', 'Security vulnerability detected'),
+                    "severity": f.get('severity', 'medium'),
+                    "file": f.get('file_path', request.file_path),
+                    "line": f.get('line_number', 0),
+                    "category": f.get('owasp_category', 'Security'),
+                    "cwe_id": f.get('cwe_id', ''),
+                    "code_snippet": f.get('code_snippet', ''),
+                    "remediation": f.get('remediation', ''),
                     "remediation_code": f.get('suggested_fix', ''),
                     "impact": f.get('impact', 'This vulnerability could compromise application security'),
                     "remediation_steps": f.get('remediation_steps', [])
@@ -1753,14 +1758,14 @@ async def direct_file_scan(
             results["secrets"]["findings"] = [
                 {
                     "id": f"secret-{i}",
-                    "title": f['title'],
-                    "description": f['description'],
-                    "severity": f['severity'],
-                    "file": f['file_path'],
-                    "line": f['line_number'],
+                    "title": f.get('title', 'Exposed Secret'),
+                    "description": f.get('description', 'Potential secret detected'),
+                    "severity": f.get('severity', 'high'),
+                    "file": f.get('file_path', request.file_path),
+                    "line": f.get('line_number', 0),
                     "category": "Exposed Secret",
                     "secret_type": f.get('secret_type', 'Unknown'),
-                    "code_snippet": f['code_snippet']
+                    "code_snippet": f.get('code_snippet', '')
                 }
                 for i, f in enumerate(findings)
             ]

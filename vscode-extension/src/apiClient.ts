@@ -198,7 +198,7 @@ export class ApiClient {
 
     async getRulePerformanceStats(): Promise<any> {
         try {
-            const response = await this.axiosInstance.get('/api/rules/performance/stats');
+            const response = await this.axiosInstance.get('/api/rules/performance/dashboard');
             return response.data;
         } catch (error: any) {
             throw new Error(error.response?.data?.detail || 'Failed to fetch performance stats');

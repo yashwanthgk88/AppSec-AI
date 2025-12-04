@@ -1,15 +1,20 @@
 import * as vscode from 'vscode';
 import { ApiClient } from './apiClient';
 import { FindingsProvider } from './findingsProvider';
+import { ScaFindingsProvider } from './scaFindingsProvider';
+import { SecretsFindingsProvider } from './secretsFindingsProvider';
 import { DiagnosticsManager } from './diagnosticsManager';
 import { VulnerabilityDetailsPanel } from './vulnerabilityDetailsPanel';
 import { ChatbotPanel } from './chatbotPanel';
 import { ScanProgressManager } from './scanProgressManager';
 import { InlineSecurityProvider } from './inlineSecurityProvider';
 import { CustomRulesProvider } from './customRulesProvider';
+import { RulePerformancePanel } from './RulePerformancePanel';
 
 let apiClient: ApiClient;
 let findingsProvider: FindingsProvider;
+let scaFindingsProvider: ScaFindingsProvider;
+let secretsFindingsProvider: SecretsFindingsProvider;
 let customRulesProvider: CustomRulesProvider;
 let diagnosticsManager: DiagnosticsManager;
 let statusBarItem: vscode.StatusBarItem;
@@ -23,6 +28,8 @@ export async function activate(context: vscode.ExtensionContext) {
     apiClient = new ApiClient(context);
     diagnosticsManager = new DiagnosticsManager();
     findingsProvider = new FindingsProvider(apiClient);
+    scaFindingsProvider = new ScaFindingsProvider(apiClient);
+    secretsFindingsProvider = new SecretsFindingsProvider(apiClient);
     customRulesProvider = new CustomRulesProvider(apiClient);
     scanProgressManager = new ScanProgressManager();
     inlineSecurityProvider = new InlineSecurityProvider();
@@ -36,6 +43,8 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(statusBarItem);
 
     vscode.window.registerTreeDataProvider('appsecFindings', findingsProvider);
+    vscode.window.registerTreeDataProvider('appsecScaFindings', scaFindingsProvider);
+    vscode.window.registerTreeDataProvider('appsecSecretsFindings', secretsFindingsProvider);
     vscode.window.registerTreeDataProvider('appsecCustomRules', customRulesProvider);
 
     context.subscriptions.push(
@@ -112,6 +121,18 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.showScaDetails', (finding: any) => {
+            VulnerabilityDetailsPanel.show(finding, apiClient);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.showSecretDetails', (finding: any) => {
+            VulnerabilityDetailsPanel.show(finding, apiClient);
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('appsec.openChatbot', () => {
             ChatbotPanel.show(apiClient);
         })
@@ -126,6 +147,15 @@ export async function activate(context: vscode.ExtensionContext) {
     // Custom Rules Commands
 
     context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.viewOnWeb', () => {
+            const config = vscode.workspace.getConfiguration('appsec');
+            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+            const webUrl = apiUrl.replace(':8000', ':5174');
+            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+        })
+    );
+
+    context.subscriptions.push(
         vscode.commands.registerCommand('appsec.manageCustomRules', () => {
             const config = vscode.workspace.getConfiguration('appsec');
             const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
@@ -135,11 +165,14 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.viewRulePerformance', () => {
-            const config = vscode.workspace.getConfiguration('appsec');
-            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-            const webUrl = apiUrl.replace(':8000', ':5174') + '/rule-performance';
-            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+        vscode.commands.registerCommand('appsec.viewRulePerformance', async () => {
+            try {
+                console.log('Opening Rule Performance Dashboard...');
+                RulePerformancePanel.show(apiClient);
+            } catch (error: any) {
+                console.error('Error opening Rule Performance Dashboard:', error);
+                vscode.window.showErrorMessage('Failed to open Rule Performance Dashboard: ' + error.message);
+            }
         })
     );
 
@@ -329,20 +362,25 @@ async function scanWorkspaceCommand() {
                     details: 'Updating findings'
                 });
 
-                // Extract all findings from scan results
-                const allFindings: any[] = [];
+                // Extract findings by type
+                const sastFindings: any[] = [];
+                const scaFindings: any[] = [];
+                const secretsFindings: any[] = [];
+
                 if (scanResults.sast?.findings) {
-                    allFindings.push(...scanResults.sast.findings);
+                    sastFindings.push(...scanResults.sast.findings);
                 }
                 if (scanResults.sca?.findings) {
-                    allFindings.push(...scanResults.sca.findings);
+                    scaFindings.push(...scanResults.sca.findings);
                 }
                 if (scanResults.secrets?.findings) {
-                    allFindings.push(...scanResults.secrets.findings);
+                    secretsFindings.push(...scanResults.secrets.findings);
                 }
 
                 diagnosticsManager.updateFromResults(scanResults);
-                findingsProvider.setFindings(allFindings);
+                findingsProvider.setFindings(sastFindings);
+                scaFindingsProvider.setFindings(scaFindings);
+                secretsFindingsProvider.setFindings(secretsFindings);
 
                 updateProgress({
                     stage: 'complete',
@@ -417,22 +455,29 @@ async function scanFile(fileUri: vscode.Uri) {
                     details: 'Updating diagnostics'
                 });
 
-                // Extract findings from file scan results
-                const fileFindings: any[] = [];
+                // Extract findings by type from file scan
+                const fileSastFindings: any[] = [];
+                const fileSecretsFindings: any[] = [];
+
                 if (scanResults.sast?.findings) {
-                    fileFindings.push(...scanResults.sast.findings);
+                    fileSastFindings.push(...scanResults.sast.findings);
                 }
                 if (scanResults.secrets?.findings) {
-                    fileFindings.push(...scanResults.secrets.findings);
+                    fileSecretsFindings.push(...scanResults.secrets.findings);
                 }
 
-                // Merge with existing findings
-                const existingFindings = findingsProvider.getAllFindings();
-                const otherFindings = existingFindings.filter((f: any) => f.file !== fileUri.fsPath);
-                const allFindings = [...otherFindings, ...fileFindings];
+                // Merge with existing findings for each type
+                const existingSastFindings = findingsProvider.getAllFindings();
+                const otherSastFindings = existingSastFindings.filter((f: any) => f.file !== fileUri.fsPath);
+                const allSastFindings = [...otherSastFindings, ...fileSastFindings];
+
+                const existingSecretsFindings = secretsFindingsProvider.getAllFindings();
+                const otherSecretsFindings = existingSecretsFindings.filter((f: any) => f.file !== fileUri.fsPath);
+                const allSecretsFindings = [...otherSecretsFindings, ...fileSecretsFindings];
 
                 diagnosticsManager.updateFileFromResults(fileUri, scanResults);
-                findingsProvider.setFindings(allFindings);
+                findingsProvider.setFindings(allSastFindings);
+                secretsFindingsProvider.setFindings(allSecretsFindings);
 
                 updateProgress({
                     stage: 'complete',

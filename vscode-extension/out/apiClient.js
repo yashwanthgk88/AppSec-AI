@@ -227,7 +227,7 @@ class ApiClient {
     }
     async getRulePerformanceStats() {
         try {
-            const response = await this.axiosInstance.get('/api/rules/performance/stats');
+            const response = await this.axiosInstance.get('/api/rules/performance/dashboard');
             return response.data;
         }
         catch (error) {

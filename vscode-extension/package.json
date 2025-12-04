@@ -2,7 +2,7 @@
   "name": "appsec-ai-scanner",
   "displayName": "AppSec AI Security Scanner",
   "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
@@ -131,7 +131,15 @@
       "appsec-sidebar": [
         {
           "id": "appsecFindings",
-          "name": "Security Findings"
+          "name": "SAST Findings"
+        },
+        {
+          "id": "appsecScaFindings",
+          "name": "SCA Vulnerabilities"
+        },
+        {
+          "id": "appsecSecretsFindings",
+          "name": "Secret Detection"
         },
         {
           "id": "appsecCustomRules",

@@ -1,24 +1,44 @@
-**/__pycache__
-**/*.pyc
-**/*.pyo
-**/*.pyd
-.Python
-**/.venv
-**/venv
-**/env
-**/.env
-**/node_modules
-**/.git
-**/.gitignore
-**/.DS_Store
-**/dist
-**/build
-**/*.log
-**/tmp
-**/temp
-**/.vscode
-**/.idea
-**/coverage
-**/.pytest_cache
-**/*.sqlite
-**/*.db
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+LICENSE
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv
+
+# Environment
+.env
+.env.local
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
