@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, FileText, Calendar, TrendingUp, Download, Play } from 'lucide-react'
+import { Plus, FileText, Calendar, TrendingUp } from 'lucide-react'
 import axios from 'axios'
 
 export default function ProjectsPage() {

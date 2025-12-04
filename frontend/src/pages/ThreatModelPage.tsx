@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Network, Shield, AlertTriangle, ArrowLeft, Download, Search, ChevronDown, ChevronRight } from 'lucide-react'
+import { Network, Shield, AlertTriangle, ArrowLeft, Download } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
 import { toPng, toSvg } from 'html-to-image'

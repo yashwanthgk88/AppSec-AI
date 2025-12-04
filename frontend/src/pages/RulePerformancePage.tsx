@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Activity, BarChart3, Clock, Zap } from 'lucide-react'
+import { TrendingUp, AlertTriangle, CheckCircle, Activity, BarChart3, Clock, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface OverallStats {

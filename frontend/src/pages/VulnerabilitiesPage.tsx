@@ -263,7 +263,7 @@ export default function VulnerabilitiesPage() {
 }
 
 function SeverityCard({ title, count, color }: any) {
-  const colorClasses = {
+  const colorClasses: { [key: string]: string } = {
     red: 'bg-red-100 text-red-600 border-red-200',
     orange: 'bg-orange-100 text-orange-600 border-orange-200',
     yellow: 'bg-yellow-100 text-yellow-600 border-yellow-200',
@@ -271,7 +271,7 @@ function SeverityCard({ title, count, color }: any) {
   }
 
   return (
-    <div className={`card p-6 border-2 ${colorClasses[color]}`}>
+    <div className={`card p-6 border-2 ${colorClasses[color] || colorClasses.blue}`}>
       <p className="text-sm font-medium mb-1">{title}</p>
       <p className="text-3xl font-bold">{count}</p>
     </div>

@@ -303,9 +303,9 @@ const CustomRulesPage: React.FC = () => {
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    {rule.precision !== null ? (
-                      <span className={rule.precision < 0.85 ? 'text-orange-600 font-semibold' : 'text-green-600'}>
-                        {(rule.precision * 100).toFixed(1)}%
+                    {rule.precision !== null && rule.precision !== undefined ? (
+                      <span className={(rule.precision ?? 0) < 0.85 ? 'text-orange-600 font-semibold' : 'text-green-600'}>
+                        {((rule.precision ?? 0) * 100).toFixed(1)}%
                       </span>
                     ) : (
                       <span className="text-gray-400">N/A</span>
@@ -633,8 +633,8 @@ const CustomRulesPage: React.FC = () => {
                   <div className="mt-3 text-center">
                     <span className="text-lg font-semibold">
                       Precision:
-                      <span className={selectedRule.precision < 0.85 ? 'text-orange-600' : 'text-green-600'}>
-                        {' '}{(selectedRule.precision * 100).toFixed(1)}%
+                      <span className={(selectedRule.precision ?? 0) < 0.85 ? 'text-orange-600' : 'text-green-600'}>
+                        {' '}{((selectedRule.precision ?? 0) * 100).toFixed(1)}%
                       </span>
                     </span>
                   </div>
