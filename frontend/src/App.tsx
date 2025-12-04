@@ -10,6 +10,7 @@ import ChatPage from './pages/ChatPage'
 import SettingsPage from './pages/SettingsPage'
 import CustomRulesPage from './pages/CustomRulesPage'
 import RulePerformancePage from './pages/RulePerformancePage'
+import ScanMonitorPage from './pages/ScanMonitorPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -54,6 +55,7 @@ function App() {
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/custom-rules" element={<CustomRulesPage />} />
           <Route path="/rule-performance" element={<RulePerformancePage />} />
+          <Route path="/scan-monitor" element={<ScanMonitorPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

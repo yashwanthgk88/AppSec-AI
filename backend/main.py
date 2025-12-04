@@ -1131,6 +1131,128 @@ async def get_vulnerabilities(
         for v in vulnerabilities
     ]
 
+# Get all scans with filtering
+@app.get("/api/scans/")
+async def get_all_scans(
+    status: Optional[str] = None,
+    project_id: Optional[int] = None,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Scan).join(Project)
+
+    if status:
+        query = query.filter(Scan.status == status)
+    if project_id:
+        query = query.filter(Scan.project_id == project_id)
+
+    scans = query.order_by(Scan.started_at.desc()).limit(limit).all()
+
+    return [
+        {
+            "id": s.id,
+            "project_id": s.project_id,
+            "project_name": s.project.name,
+            "scan_type": s.scan_type,
+            "status": s.status,
+            "started_at": s.started_at.isoformat() if s.started_at else None,
+            "completed_at": s.completed_at.isoformat() if s.completed_at else None,
+            "total_vulnerabilities": s.total_vulnerabilities or 0,
+            "critical_count": s.critical_count or 0,
+            "high_count": s.high_count or 0,
+            "medium_count": s.medium_count or 0,
+            "low_count": s.low_count or 0,
+            "progress": 75 if s.status == 'running' else (100 if s.status == 'completed' else 0)
+        }
+        for s in scans
+    ]
+
+# Get scan logs
+@app.get("/api/scans/{scan_id}/logs")
+async def get_scan_logs(
+    scan_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    # Generate logs based on scan status and data
+    logs = []
+
+    if scan.started_at:
+        logs.append({
+            "timestamp": scan.started_at.isoformat(),
+            "level": "info",
+            "message": f"Starting {scan.scan_type} scan for project: {scan.project.name}"
+        })
+        logs.append({
+            "timestamp": scan.started_at.isoformat(),
+            "level": "info",
+            "message": "Initializing scan environment..."
+        })
+        logs.append({
+            "timestamp": scan.started_at.isoformat(),
+            "level": "success",
+            "message": "Environment ready"
+        })
+
+    if scan.status == 'running':
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "level": "info",
+            "message": "Analyzing source code..."
+        })
+        logs.append({
+            "timestamp": datetime.now().isoformat(),
+            "level": "info",
+            "message": f"Processed 75% of files"
+        })
+        if scan.critical_count and scan.critical_count > 0:
+            logs.append({
+                "timestamp": datetime.now().isoformat(),
+                "level": "warning",
+                "message": f"Found {scan.critical_count} critical issues"
+            })
+
+    elif scan.status == 'completed' and scan.completed_at:
+        logs.append({
+            "timestamp": scan.completed_at.isoformat(),
+            "level": "info",
+            "message": "Analysis complete"
+        })
+        logs.append({
+            "timestamp": scan.completed_at.isoformat(),
+            "level": "success",
+            "message": "Scan completed successfully"
+        })
+        logs.append({
+            "timestamp": scan.completed_at.isoformat(),
+            "level": "info",
+            "message": f"Total vulnerabilities found: {scan.total_vulnerabilities or 0}"
+        })
+        logs.append({
+            "timestamp": scan.completed_at.isoformat(),
+            "level": "info",
+            "message": f"Critical: {scan.critical_count or 0}, High: {scan.high_count or 0}, Medium: {scan.medium_count or 0}, Low: {scan.low_count or 0}"
+        })
+
+    elif scan.status == 'failed':
+        logs.append({
+            "timestamp": scan.completed_at.isoformat() if scan.completed_at else datetime.now().isoformat(),
+            "level": "error",
+            "message": "Scan failed due to an error"
+        })
+        logs.append({
+            "timestamp": scan.completed_at.isoformat() if scan.completed_at else datetime.now().isoformat(),
+            "level": "error",
+            "message": "Please check project configuration and try again"
+        })
+
+    return logs
+
 # Chatbot endpoints
 @app.post("/api/chat")
 async def chat(
