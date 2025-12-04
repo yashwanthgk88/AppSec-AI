@@ -43,6 +43,7 @@ const CustomRulesPage: React.FC = () => {
   const [selectedRule, setSelectedRule] = useState<CustomRule | null>(null);
   const [filterSeverity, setFilterSeverity] = useState<string>('');
   const [filterLanguage, setFilterLanguage] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const [newRule, setNewRule] = useState({
     name: '',
@@ -181,6 +182,20 @@ const CustomRulesPage: React.FC = () => {
     return colors[status as keyof typeof colors] || colors.pending;
   };
 
+  // Filter rules based on search query
+  const filteredRules = rules.filter(rule => {
+    if (!searchQuery) return true;
+
+    const query = searchQuery.toLowerCase();
+    return (
+      rule.name.toLowerCase().includes(query) ||
+      rule.description.toLowerCase().includes(query) ||
+      rule.pattern.toLowerCase().includes(query) ||
+      (rule.cwe && rule.cwe.toLowerCase().includes(query)) ||
+      (rule.owasp && rule.owasp.toLowerCase().includes(query))
+    );
+  });
+
   if (loading) {
     return <div className="flex justify-center items-center h-screen">Loading...</div>;
   }
@@ -211,7 +226,14 @@ const CustomRulesPage: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <input
+            type="text"
+            placeholder="🔍 Search rules by name, description, or pattern..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 min-w-[300px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
           <select
             value={filterSeverity}
             onChange={(e) => setFilterSeverity(e.target.value)}
@@ -239,11 +261,30 @@ const CustomRulesPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Search Results Info */}
+      {searchQuery && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <p className="text-sm text-blue-800">
+            Showing <span className="font-bold">{filteredRules.length}</span> of <span className="font-bold">{rules.length}</span> rules matching "{searchQuery}"
+            {filteredRules.length !== rules.length && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="ml-2 text-blue-600 hover:text-blue-800 underline"
+              >
+                Clear search
+              </button>
+            )}
+          </p>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow-sm p-4">
-          <div className="text-2xl font-bold text-blue-600">{rules.length}</div>
-          <div className="text-sm text-gray-600">Total Rules</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {searchQuery ? filteredRules.length : rules.length}
+          </div>
+          <div className="text-sm text-gray-600">{searchQuery ? 'Filtered Rules' : 'Total Rules'}</div>
         </div>
         <div className="bg-white rounded-lg shadow-sm p-4">
           <div className="text-2xl font-bold text-green-600">
@@ -282,8 +323,15 @@ const CustomRulesPage: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {rules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-gray-50">
+              {filteredRules.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                    {searchQuery ? `No rules found matching "${searchQuery}"` : 'No rules available'}
+                  </td>
+                </tr>
+              ) : (
+                filteredRules.map((rule) => (
+                  <tr key={rule.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">{rule.name}</div>
                     <div className="text-sm text-gray-500 truncate max-w-xs" title={rule.pattern}>
@@ -341,7 +389,7 @@ const CustomRulesPage: React.FC = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
