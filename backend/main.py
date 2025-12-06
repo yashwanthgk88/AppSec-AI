@@ -1913,12 +1913,15 @@ async def update_vulnerability_status(
     if new_status == "resolved":
         vulnerability.is_resolved = True
         vulnerability.false_positive = False
+        vulnerability.resolved_at = datetime.now()  # Set resolved timestamp for remediation velocity tracking
     elif new_status == "false_positive":
         vulnerability.is_resolved = False
         vulnerability.false_positive = True
+        vulnerability.resolved_at = None  # Clear resolved timestamp
     else:  # active
         vulnerability.is_resolved = False
         vulnerability.false_positive = False
+        vulnerability.resolved_at = None  # Clear resolved timestamp
 
     db.commit()
     db.refresh(vulnerability)
@@ -2035,8 +2038,9 @@ EXPLANATION:
         if not fixed_code:
             fixed_code = ai_response  # Fallback to full response
 
-        # Update vulnerability status to 'fixed'
-        vulnerability.status = 'fixed'
+        # Update vulnerability status to resolved and set timestamp for remediation velocity tracking
+        vulnerability.is_resolved = True
+        vulnerability.resolved_at = datetime.now()
         db.commit()
 
         return {
