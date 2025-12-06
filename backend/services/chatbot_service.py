@@ -1,41 +1,16 @@
 """
-Multilingual AI Chatbot Service using OpenAI API
-Provides security assistance in 90+ languages with auto-detection
+AI Chatbot Service using OpenAI API
+Provides security assistance in English
 """
 import os
 from typing import Dict, Any, Optional
 from openai import OpenAI
-from langdetect import detect, LangDetectException
 from dotenv import load_dotenv
 
 load_dotenv()
 
 class ChatbotService:
-    """Multilingual security chatbot powered by OpenAI"""
-
-    # Language name mapping
-    LANGUAGE_NAMES = {
-        "en": "English",
-        "es": "Spanish",
-        "fr": "French",
-        "de": "German",
-        "it": "Italian",
-        "pt": "Portuguese",
-        "ru": "Russian",
-        "ja": "Japanese",
-        "zh-cn": "Chinese (Simplified)",
-        "zh-tw": "Chinese (Traditional)",
-        "ko": "Korean",
-        "ar": "Arabic",
-        "hi": "Hindi",
-        "nl": "Dutch",
-        "sv": "Swedish",
-        "pl": "Polish",
-        "tr": "Turkish",
-        "vi": "Vietnamese",
-        "th": "Thai",
-        "id": "Indonesian"
-    }
+    """Security chatbot powered by OpenAI (English only)"""
 
     def __init__(self):
         api_key = os.getenv("OPENAI_API_KEY")
@@ -44,35 +19,19 @@ class ChatbotService:
         self.client = OpenAI(api_key=api_key)
         self.model = "gpt-4o-mini"
 
-    def detect_language(self, text: str) -> str:
-        """Detect language of input text"""
-        try:
-            lang_code = detect(text)
-            return lang_code
-        except LangDetectException:
-            return "en"  # Default to English
-
-    def get_language_name(self, lang_code: str) -> str:
-        """Get full language name from code"""
-        return self.LANGUAGE_NAMES.get(lang_code, "English")
-
     def chat(self, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Process chat message and return response in detected language
+        Process chat message and return response in English
 
         Args:
             message: User's message
             context: Optional context (vulnerability, threat model, etc.)
 
         Returns:
-            Dict with response, detected language, and metadata
+            Dict with response and metadata
         """
-        # Detect language
-        detected_lang = self.detect_language(message)
-        lang_name = self.get_language_name(detected_lang)
-
         # Build system prompt
-        system_prompt = self._build_system_prompt(detected_lang, context)
+        system_prompt = self._build_system_prompt(context)
 
         # Build user message with context
         user_message = self._build_user_message(message, context)
@@ -93,8 +52,8 @@ class ChatbotService:
 
             return {
                 "response": response_text,
-                "detected_language": detected_lang,
-                "language_name": lang_name,
+                "detected_language": "en",
+                "language_name": "English",
                 "tokens_used": tokens_used,
                 "model": self.model,
                 "context_type": context.get("type") if context else None
@@ -104,22 +63,21 @@ class ChatbotService:
             # Fallback response
             return {
                 "response": f"I apologize, but I encountered an error processing your request: {str(e)}",
-                "detected_language": detected_lang,
-                "language_name": lang_name,
+                "detected_language": "en",
+                "language_name": "English",
                 "tokens_used": 0,
                 "model": self.model,
                 "error": str(e)
             }
 
-    def _build_system_prompt(self, lang_code: str, context: Optional[Dict[str, Any]]) -> str:
+    def _build_system_prompt(self, context: Optional[Dict[str, Any]]) -> str:
         """Build system prompt for OpenAI"""
-        base_prompt = """You are a multilingual application security expert assistant. Your role is to:
+        base_prompt = """You are an application security expert assistant. Your role is to:
 
 1. Provide security guidance and vulnerability remediation assistance
 2. Explain security concepts in clear, accessible language
 3. Reference OWASP Top 10, CWE, STRIDE, and MITRE ATT&CK frameworks
 4. Provide actionable, context-specific advice
-5. Respond in the user's native language automatically
 
 Key responsibilities:
 - Explain vulnerabilities in simple terms appropriate to the developer's skill level
@@ -128,11 +86,7 @@ Key responsibilities:
 - Reference relevant security standards and compliance requirements
 - Help developers understand the "why" behind security issues
 
-Important: ALWAYS respond in the same language as the user's question. If the user asks in Spanish, respond in Spanish. If they ask in Japanese, respond in Japanese, etc."""
-
-        if lang_code != "en":
-            lang_name = self.get_language_name(lang_code)
-            base_prompt += f"\n\nThe user is communicating in {lang_name}. You MUST respond in {lang_name}."
+Always respond in English."""
 
         if context:
             context_type = context.get("type")
@@ -173,7 +127,7 @@ My question: {message}"""
 
         return message
 
-    def generate_remediation_guide(self, vulnerability: Dict[str, Any], language: str = "en") -> str:
+    def generate_remediation_guide(self, vulnerability: Dict[str, Any]) -> str:
         """Generate detailed remediation guide for a vulnerability"""
         prompt = f"""Generate a comprehensive remediation guide for this vulnerability:
 
@@ -190,9 +144,7 @@ Please provide:
 2. Step-by-step remediation instructions
 3. Secure code example
 4. Best practices to prevent this in the future
-5. Testing recommendations
-
-Respond in {self.get_language_name(language)}."""
+5. Testing recommendations"""
 
         try:
             response = self.client.chat.completions.create(
@@ -206,8 +158,8 @@ Respond in {self.get_language_name(language)}."""
         except Exception as e:
             return f"Error generating remediation guide: {str(e)}"
 
-    def explain_stride_threat(self, threat: Dict[str, Any], language: str = "en") -> str:
-        """Explain a STRIDE threat in user's language"""
+    def explain_stride_threat(self, threat: Dict[str, Any]) -> str:
+        """Explain a STRIDE threat"""
         prompt = f"""Explain this security threat in simple terms:
 
 STRIDE Category: {threat.get('stride_category')}
@@ -220,9 +172,7 @@ Please provide:
 1. What this threat means in plain language
 2. Real-world attack scenarios
 3. Why the current mitigation is important
-4. Additional security measures to consider
-
-Respond in {self.get_language_name(language)}."""
+4. Additional security measures to consider"""
 
         try:
             response = self.client.chat.completions.create(
@@ -236,7 +186,7 @@ Respond in {self.get_language_name(language)}."""
         except Exception as e:
             return f"Error explaining threat: {str(e)}"
 
-    def get_security_tips(self, technology: str, language: str = "en") -> str:
+    def get_security_tips(self, technology: str) -> str:
         """Get proactive security tips for a specific technology"""
         prompt = f"""Provide 5 important security tips for developers working with {technology}.
 
@@ -244,9 +194,7 @@ Focus on:
 - Common vulnerabilities specific to {technology}
 - Best practices and secure coding patterns
 - Recent security trends and threats
-- Actionable advice
-
-Respond in {self.get_language_name(language)}."""
+- Actionable advice"""
 
         try:
             response = self.client.chat.completions.create(
@@ -262,8 +210,6 @@ Respond in {self.get_language_name(language)}."""
 
     def answer_compliance_question(self, question: str, framework: str = "OWASP Top 10") -> Dict[str, Any]:
         """Answer compliance-related questions"""
-        detected_lang = self.detect_language(question)
-
         prompt = f"""Answer this compliance question about {framework}:
 
 {question}
@@ -272,9 +218,7 @@ Provide:
 1. A clear, accurate answer
 2. Relevant requirements and controls
 3. Implementation guidance
-4. Evidence/documentation recommendations
-
-Respond in {self.get_language_name(detected_lang)}."""
+4. Evidence/documentation recommendations"""
 
         try:
             response = self.client.chat.completions.create(
@@ -287,13 +231,13 @@ Respond in {self.get_language_name(detected_lang)}."""
 
             return {
                 "response": response.choices[0].message.content,
-                "detected_language": detected_lang,
+                "detected_language": "en",
                 "framework": framework
             }
         except Exception as e:
             return {
                 "response": f"Error: {str(e)}",
-                "detected_language": detected_lang,
+                "detected_language": "en",
                 "framework": framework,
                 "error": str(e)
             }

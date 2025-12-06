@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle } from 'lucide-react'
+import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp } from 'lucide-react'
 import axios from 'axios'
 
 export default function VulnerabilitiesPage() {
@@ -8,11 +8,16 @@ export default function VulnerabilitiesPage() {
   const [searchParams] = useSearchParams()
   const [scans, setScans] = useState<any[]>([])
   const [vulnerabilities, setVulnerabilities] = useState<any[]>([])
+  const [threatIntel, setThreatIntel] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSeverity, setSelectedSeverity] = useState('all')
   const [selectedScanType, setSelectedScanType] = useState(searchParams.get('scanType') || 'all')
   const [selectedStatusView, setSelectedStatusView] = useState<'active' | 'resolved' | 'false_positive'>('active')
   const [expandedVuln, setExpandedVuln] = useState<number | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [groupBy, setGroupBy] = useState<'none' | 'category' | 'severity' | 'scan_type' | 'file'>('category')
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
+  const [showThreatCorrelation, setShowThreatCorrelation] = useState(true)
 
   const fetchAllScans = useCallback(async () => {
     console.log('fetchAllScans called, loading:', loading)
@@ -62,6 +67,16 @@ export default function VulnerabilitiesPage() {
       console.log('Total vulnerabilities:', allVulnerabilities.length)
       console.log('All vulnerabilities:', allVulnerabilities)
       setVulnerabilities(allVulnerabilities)
+
+      // Fetch threat intelligence for correlation
+      try {
+        const threatRes = await axios.get('/api/threat-intel/threats', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        setThreatIntel(threatRes.data.threats || [])
+      } catch (threatError) {
+        console.error('Failed to fetch threat intel:', threatError)
+      }
     } catch (error) {
       console.error('Failed to fetch scans:', error)
     } finally {
@@ -69,6 +84,46 @@ export default function VulnerabilitiesPage() {
       setLoading(false)
     }
   }, [id, loading])
+
+  // Correlate vulnerabilities with threat intel
+  const getCorrelatedThreats = (vuln: any) => {
+    const correlatedThreats: any[] = []
+
+    // Match by CWE ID
+    if (vuln.cwe_id) {
+      const cweNum = vuln.cwe_id.replace('CWE-', '')
+      threatIntel.forEach(threat => {
+        if (threat.cwe_id && threat.cwe_id.includes(cweNum)) {
+          correlatedThreats.push({ ...threat, match_type: 'CWE' })
+        }
+      })
+    }
+
+    // Match by keywords in title/description
+    const vulnKeywords = [vuln.title, vuln.description, vuln.owasp_category]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+
+    const threatKeywords = ['sql injection', 'xss', 'cross-site', 'rce', 'remote code', 'buffer overflow',
+      'authentication', 'authorization', 'path traversal', 'directory traversal', 'ssrf', 'xxe',
+      'deserialization', 'injection', 'command injection', 'ldap', 'xpath']
+
+    threatKeywords.forEach(keyword => {
+      if (vulnKeywords.includes(keyword)) {
+        threatIntel.forEach(threat => {
+          const threatDesc = (threat.description || '').toLowerCase()
+          const threatName = (threat.name || '').toLowerCase()
+          if ((threatDesc.includes(keyword) || threatName.includes(keyword)) &&
+              !correlatedThreats.find(t => t.cve_id === threat.cve_id)) {
+            correlatedThreats.push({ ...threat, match_type: 'Keyword' })
+          }
+        })
+      }
+    })
+
+    return correlatedThreats.slice(0, 3) // Return top 3 matches
+  }
 
   useEffect(() => {
     console.log('===== VulnerabilitiesPage useEffect triggered =====')
@@ -88,14 +143,83 @@ export default function VulnerabilitiesPage() {
     )
   }
 
-  // Filter by severity, scan type, and status
+  // Filter by severity, scan type, status, and search query
   const filteredVulnerabilities = vulnerabilities.filter((v) => {
     const severityMatch = selectedSeverity === 'all' || v.severity === selectedSeverity
     const scanTypeMatch = selectedScanType === 'all' || v.scan_type === selectedScanType
     const statusMatch = v.status === selectedStatusView || (!v.status && selectedStatusView === 'active')
 
-    return severityMatch && scanTypeMatch && statusMatch
+    // Search filter
+    const searchMatch = !searchQuery ||
+      v.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.file_path?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.cwe_id?.toLowerCase().includes(searchQuery.toLowerCase())
+
+    return severityMatch && scanTypeMatch && statusMatch && searchMatch
   })
+
+  // Group vulnerabilities
+  const groupVulnerabilities = () => {
+    if (groupBy === 'none') {
+      return { 'All Vulnerabilities': filteredVulnerabilities }
+    }
+
+    const groups: Record<string, any[]> = {}
+
+    filteredVulnerabilities.forEach((vuln) => {
+      let groupKey = ''
+
+      switch (groupBy) {
+        case 'category':
+          groupKey = vuln.title?.split(':')[0] || 'Unknown'
+          break
+        case 'severity':
+          groupKey = (vuln.severity || 'unknown').charAt(0).toUpperCase() + (vuln.severity || 'unknown').slice(1)
+          break
+        case 'scan_type':
+          groupKey = (vuln.scan_type || 'unknown').toUpperCase()
+          break
+        case 'file':
+          groupKey = vuln.file_path || 'Unknown File'
+          break
+        default:
+          groupKey = 'All'
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = []
+      }
+      groups[groupKey].push(vuln)
+    })
+
+    // Sort groups by count (descending)
+    const sortedGroups = Object.fromEntries(
+      Object.entries(groups).sort((a, b) => b[1].length - a[1].length)
+    )
+
+    return sortedGroups
+  }
+
+  const groupedVulnerabilities = groupVulnerabilities()
+
+  const toggleGroup = (groupName: string) => {
+    const newExpanded = new Set(expandedGroups)
+    if (newExpanded.has(groupName)) {
+      newExpanded.delete(groupName)
+    } else {
+      newExpanded.add(groupName)
+    }
+    setExpandedGroups(newExpanded)
+  }
+
+  const toggleAllGroups = (expand: boolean) => {
+    if (expand) {
+      setExpandedGroups(new Set(Object.keys(groupedVulnerabilities)))
+    } else {
+      setExpandedGroups(new Set())
+    }
+  }
 
   // Count vulnerabilities by status
   const statusCounts = {
@@ -141,7 +265,7 @@ export default function VulnerabilitiesPage() {
       </div>
 
       {/* Scan Type Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="card p-4 bg-blue-50 border-blue-200">
           <p className="text-sm font-medium text-blue-900">SAST Findings</p>
           <p className="text-2xl font-bold text-blue-900">{scanTypeCounts.sast}</p>
@@ -156,6 +280,125 @@ export default function VulnerabilitiesPage() {
           <p className="text-sm font-medium text-red-900">Secret Findings</p>
           <p className="text-2xl font-bold text-red-900">{scanTypeCounts.secret}</p>
           <p className="text-xs text-red-700 mt-1">Exposed secrets</p>
+        </div>
+        <div className="card p-4 bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-orange-900">Threat Intel Matches</p>
+              <p className="text-2xl font-bold text-orange-600">
+                {vulnerabilities.filter(v => getCorrelatedThreats(v).length > 0).length}
+              </p>
+              <p className="text-xs text-orange-700 mt-1">Actively exploited threats</p>
+            </div>
+            <Zap className="w-8 h-8 text-orange-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Threat Intel Correlation Banner */}
+      {threatIntel.length > 0 && (
+        <div className="card p-4 bg-gradient-to-r from-red-50 via-orange-50 to-yellow-50 border-l-4 border-red-500">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Shield className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-gray-900">Live Threat Intelligence Correlation</h3>
+                <p className="text-sm text-gray-600">
+                  Comparing {vulnerabilities.length} findings against {threatIntel.length} active threats from CISA KEV, NVD, and Exploit-DB
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-xs text-gray-500">Actively Exploited</p>
+                <p className="text-lg font-bold text-red-600">
+                  {threatIntel.filter(t => t.actively_exploited).length}
+                </p>
+              </div>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showThreatCorrelation}
+                  onChange={(e) => setShowThreatCorrelation(e.target.checked)}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <span className="text-sm text-gray-700">Show correlations</span>
+              </label>
+              <Link
+                to="/threat-intel"
+                className="btn btn-secondary btn-sm inline-flex items-center space-x-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>View All Threats</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Group By */}
+      <div className="card p-4 space-y-4">
+        {/* Search Bar */}
+        <div className="flex items-center space-x-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search vulnerabilities by title, description, file path, or CWE..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+
+          {/* Group By Selector */}
+          <div className="flex items-center space-x-2">
+            <Layers className="w-5 h-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Group By:</span>
+            <select
+              value={groupBy}
+              onChange={(e) => {
+                setGroupBy(e.target.value as any)
+                setExpandedGroups(new Set())
+              }}
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="category">Category</option>
+              <option value="severity">Severity</option>
+              <option value="scan_type">Scan Type</option>
+              <option value="file">File</option>
+              <option value="none">No Grouping</option>
+            </select>
+          </div>
+
+          {/* Expand/Collapse All */}
+          {groupBy !== 'none' && Object.keys(groupedVulnerabilities).length > 1 && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => toggleAllGroups(true)}
+                className="px-3 py-2 text-sm text-gray-700 hover:text-primary-600"
+              >
+                Expand All
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => toggleAllGroups(false)}
+                className="px-3 py-2 text-sm text-gray-700 hover:text-primary-600"
+              >
+                Collapse All
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -240,12 +483,13 @@ export default function VulnerabilitiesPage() {
             <Bug className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No vulnerabilities found</h3>
             <p className="text-gray-600">
-              {selectedSeverity === 'all' && selectedScanType === 'all'
+              {selectedSeverity === 'all' && selectedScanType === 'all' && !searchQuery
                 ? 'Run a security scan to see results'
                 : 'No matching vulnerabilities found with current filters'}
             </p>
           </div>
-        ) : (
+        ) : groupBy === 'none' ? (
+          // No grouping - render flat list
           filteredVulnerabilities.map((vuln) => (
             <VulnerabilityCard
               key={vuln.id}
@@ -254,8 +498,75 @@ export default function VulnerabilitiesPage() {
               onToggle={() => setExpandedVuln(expandedVuln === vuln.id ? null : vuln.id)}
               projectId={id!}
               onUpdate={fetchAllScans}
+              correlatedThreats={showThreatCorrelation ? getCorrelatedThreats(vuln) : []}
             />
           ))
+        ) : (
+          // Grouped rendering
+          Object.entries(groupedVulnerabilities).map(([groupName, groupVulns]) => {
+            const isExpanded = expandedGroups.has(groupName)
+
+            return (
+              <div key={groupName} className="card mb-4">
+                {/* Group Header */}
+                <button
+                  onClick={() => toggleGroup(groupName)}
+                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    {isExpanded ? (
+                      <ChevronDown className="w-5 h-5 text-gray-600" />
+                    ) : (
+                      <ChevronUp className="w-5 h-5 text-gray-600" />
+                    )}
+                    <h3 className="text-lg font-semibold text-gray-900">{groupName}</h3>
+                    <span className="badge badge-info">
+                      {groupVulns.length} {groupVulns.length === 1 ? 'vulnerability' : 'vulnerabilities'}
+                    </span>
+                  </div>
+
+                  {/* Show severity distribution for this group */}
+                  <div className="flex items-center space-x-2">
+                    {['critical', 'high', 'medium', 'low'].map((severity) => {
+                      const count = groupVulns.filter((v) => v.severity === severity).length
+                      if (count === 0) return null
+
+                      const severityColors: any = {
+                        critical: 'badge-critical',
+                        high: 'badge-high',
+                        medium: 'badge-medium',
+                        low: 'badge-low',
+                      }
+
+                      return (
+                        <span key={severity} className={`badge ${severityColors[severity]} text-xs`}>
+                          {count} {severity}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </button>
+
+                {/* Group Content */}
+                {isExpanded && (
+                  <div className="border-t border-gray-200 divide-y divide-gray-200">
+                    {groupVulns.map((vuln) => (
+                      <div key={vuln.id} className="p-4">
+                        <VulnerabilityCard
+                          vulnerability={vuln}
+                          isExpanded={expandedVuln === vuln.id}
+                          onToggle={() => setExpandedVuln(expandedVuln === vuln.id ? null : vuln.id)}
+                          projectId={id!}
+                          onUpdate={fetchAllScans}
+                          correlatedThreats={showThreatCorrelation ? getCorrelatedThreats(vuln) : []}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
     </div>
@@ -278,7 +589,7 @@ function SeverityCard({ title, count, color }: any) {
   )
 }
 
-function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onUpdate }: any) {
+function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onUpdate, correlatedThreats = [] }: any) {
   const [autoRemediating, setAutoRemediating] = useState(false)
   const [remediationResult, setRemediationResult] = useState<any>(null)
   const [showGitPanel, setShowGitPanel] = useState(false)
@@ -287,6 +598,8 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
   const [committing, setCommitting] = useState(false)
   const [commitSuccess, setCommitSuccess] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
+
+  const hasActiveExploit = correlatedThreats.some((t: any) => t.actively_exploited)
 
   const severityColors: any = {
     critical: 'badge-critical',
@@ -403,7 +716,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <div className="flex items-center space-x-3 mb-2 flex-wrap">
+            <div className="flex items-center space-x-3 mb-2 flex-wrap gap-y-1">
               <Bug className="w-5 h-5 text-gray-500" />
               <h3 className="font-semibold text-gray-900">{vulnerability.title}</h3>
               <span className={`badge ${severityColors[vulnerability.severity]}`}>
@@ -412,6 +725,18 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               <span className={`px-2 py-1 text-xs rounded ${scanTypeColors[vulnerability.scan_type]}`}>
                 {vulnerability.scan_type.toUpperCase()}
               </span>
+              {hasActiveExploit && (
+                <span className="px-2 py-1 text-xs rounded bg-red-600 text-white font-medium inline-flex items-center space-x-1 animate-pulse">
+                  <Zap className="w-3 h-3" />
+                  <span>ACTIVELY EXPLOITED</span>
+                </span>
+              )}
+              {correlatedThreats.length > 0 && !hasActiveExploit && (
+                <span className="px-2 py-1 text-xs rounded bg-orange-100 text-orange-800 font-medium inline-flex items-center space-x-1">
+                  <Shield className="w-3 h-3" />
+                  <span>{correlatedThreats.length} Threat Match{correlatedThreats.length > 1 ? 'es' : ''}</span>
+                </span>
+              )}
               {vulnerability.status === 'resolved' && (
                 <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800 font-medium">
                   ✓ RESOLVED
@@ -426,17 +751,31 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
             <p className="text-sm text-gray-600 mb-3">{vulnerability.description}</p>
 
-            <div className="flex items-center space-x-6 text-sm flex-wrap gap-2">
-              <div className="flex items-center space-x-1 text-gray-600">
-                <FileText className="w-4 h-4" />
-                <span className="font-mono text-xs">{vulnerability.file_path}</span>
-              </div>
-              {vulnerability.line_number > 0 && (
-                <div className="flex items-center space-x-1 text-gray-600">
-                  <Code className="w-4 h-4" />
-                  <span>Line {vulnerability.line_number}</span>
+            {/* Vulnerable Source Location - Prominent Display */}
+            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded-r">
+              <div className="flex items-start space-x-3">
+                <FileText className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-red-900 mb-1">VULNERABLE FILE LOCATION:</p>
+                  <p className="font-mono text-sm text-red-800 font-bold break-all">
+                    {vulnerability.file_path}
+                    {vulnerability.line_number > 0 && (
+                      <span className="ml-2 text-red-600">
+                        : Line {vulnerability.line_number}
+                      </span>
+                    )}
+                  </p>
+                  {vulnerability.code_snippet && (
+                    <div className="mt-3 bg-gray-900 rounded p-3 overflow-x-auto">
+                      <p className="text-xs text-red-400 font-semibold mb-2">▼ Vulnerable Code:</p>
+                      <pre className="text-xs text-red-300 font-mono whitespace-pre-wrap">{vulnerability.code_snippet}</pre>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-6 text-sm flex-wrap gap-2">
               {vulnerability.cwe_id && (
                 <span className="badge badge-info">{vulnerability.cwe_id}</span>
               )}
@@ -513,6 +852,92 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               </div>
             )}
           </div>
+
+          {/* Threat Intelligence Correlation */}
+          {correlatedThreats.length > 0 && (
+            <div className={`rounded-lg p-4 ${hasActiveExploit ? 'bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300' : 'bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200'}`}>
+              <div className="flex items-center space-x-2 mb-3">
+                <Shield className={`w-5 h-5 ${hasActiveExploit ? 'text-red-600' : 'text-orange-600'}`} />
+                <h4 className={`text-sm font-semibold ${hasActiveExploit ? 'text-red-900' : 'text-orange-900'}`}>
+                  Threat Intelligence Correlation
+                </h4>
+                {hasActiveExploit && (
+                  <span className="px-2 py-0.5 text-xs rounded bg-red-600 text-white font-medium animate-pulse">
+                    URGENT - ACTIVELY EXPLOITED
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                {correlatedThreats.map((threat: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`bg-white rounded-lg p-3 border ${threat.actively_exploited ? 'border-red-300' : 'border-gray-200'}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-1">
+                          {threat.cve_id && (
+                            <span className="font-mono text-sm font-semibold text-primary-600">{threat.cve_id}</span>
+                          )}
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                            Match: {threat.match_type}
+                          </span>
+                          {threat.actively_exploited && (
+                            <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded inline-flex items-center">
+                              <Zap className="w-3 h-3 mr-1" />
+                              Actively Exploited
+                            </span>
+                          )}
+                          {threat.cvss_score && (
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              parseFloat(threat.cvss_score) >= 9 ? 'bg-red-100 text-red-700' :
+                              parseFloat(threat.cvss_score) >= 7 ? 'bg-orange-100 text-orange-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              CVSS: {threat.cvss_score}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-gray-900">{threat.name}</p>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
+                        {threat.required_action && (
+                          <p className="text-xs text-red-700 mt-2 font-medium">
+                            Required Action: {threat.required_action}
+                          </p>
+                        )}
+                      </div>
+                      <div className="ml-3 flex flex-col space-y-1">
+                        {threat.cve_id && (
+                          <a
+                            href={`https://nvd.nist.gov/vuln/detail/${threat.cve_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline flex items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            NVD <ExternalLink className="w-3 h-3 ml-1" />
+                          </a>
+                        )}
+                        <span className="text-xs text-gray-500">{threat.source || 'CISA KEV'}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-orange-200">
+                <Link
+                  to="/threat-intel"
+                  className="text-sm text-orange-700 hover:text-orange-900 font-medium inline-flex items-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  View all threat intelligence
+                  <ExternalLink className="w-4 h-4 ml-1" />
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Remediation */}
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">

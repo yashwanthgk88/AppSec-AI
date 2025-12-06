@@ -289,21 +289,26 @@ export default function RulePerformancePage() {
         </h2>
         {dashboard.detection_trend.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="flex items-end space-x-2 h-48">
+            <div className="flex items-end gap-1" style={{ height: '200px', minWidth: '600px' }}>
               {dashboard.detection_trend.slice(0, 30).reverse().map((item, index) => {
                 const maxCount = Math.max(...dashboard.detection_trend.map(d => d.count), 1)
-                const height = (item.count / maxCount) * 100
+                const heightPx = Math.max((item.count / maxCount) * 160, 8)
                 return (
-                  <div key={index} className="flex-1 flex flex-col items-center group">
+                  <div key={index} className="flex-1 flex flex-col items-center justify-end group" style={{ minWidth: '16px' }}>
                     <div className="text-xs text-gray-500 mb-1 opacity-0 group-hover:opacity-100 transition">
                       {item.count}
                     </div>
                     <div
-                      className="w-full bg-primary-600 rounded-t hover:bg-primary-700 transition cursor-pointer"
-                      style={{ height: `${Math.max(height, 2)}%` }}
+                      className="w-full rounded-t transition cursor-pointer"
+                      style={{
+                        height: `${heightPx}px`,
+                        backgroundColor: '#2563eb'
+                      }}
                       title={`${item.date}: ${item.count} detections`}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
                     ></div>
-                    <div className="text-xs text-gray-400 mt-1 rotate-45 origin-top-left">
+                    <div className="text-xs text-gray-400 mt-1">
                       {new Date(item.date).getDate()}
                     </div>
                   </div>

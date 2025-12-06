@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
-from datetime import timedelta
+from datetime import timedelta, datetime
 import os
 import shutil
 from dotenv import load_dotenv
@@ -26,6 +26,7 @@ from services.secret_scanner import SecretScanner
 from services.chatbot_service import ChatbotService
 from services.report_service import ReportService
 from services.repository_scanner import RepositoryScanner
+from services.threat_intel import threat_intel
 
 # Import routers
 from routers import settings
@@ -299,6 +300,7 @@ async def create_project(
             stride_analysis=threat_model_data['stride_analysis'],
             mitre_mapping=threat_model_data['mitre_mapping'],
             trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
+            attack_paths=threat_model_data.get('attack_paths', []),
             threat_count=threat_model_data['threat_count']
         )
         db.add(threat_model)
@@ -350,6 +352,7 @@ async def create_project(
 
             vuln = Vulnerability(
                 scan_id=sast_scan.id,
+                rule_id=finding.get('rule_id'),  # Track custom rule that found this
                 title=finding['title'],
                 description=finding['description'],
                 severity=SeverityLevel[finding['severity'].upper()],
@@ -365,6 +368,42 @@ async def create_project(
                 mitre_attack_id=finding.get('mitre_attack_id')
             )
             db.add(vuln)
+
+            # If this was found by a custom rule, track the detection
+            if finding.get('rule_id'):
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect('appsec.db')
+                    cursor = conn.cursor()
+                    # Update custom rule detection count
+                    cursor.execute('''
+                        UPDATE custom_rules
+                        SET total_detections = total_detections + 1
+                        WHERE id = ?
+                    ''', (finding['rule_id'],))
+                    # Record in performance metrics for trend tracking
+                    cursor.execute('''
+                        INSERT INTO rule_performance_metrics (
+                            rule_id, finding_id, user_feedback, code_snippet, file_path
+                        ) VALUES (?, ?, ?, ?, ?)
+                    ''', (
+                        finding['rule_id'],
+                        0,  # Placeholder, will be updated after flush
+                        'confirmed',  # Initial status - counts as true positive
+                        finding['code_snippet'][:500] if finding.get('code_snippet') else None,
+                        file_path
+                    ))
+                    # Update true_positives to track precision
+                    cursor.execute('''
+                        UPDATE custom_rules
+                        SET true_positives = true_positives + 1,
+                            precision = CAST(true_positives + 1 AS REAL) / (CAST(true_positives + 1 AS REAL) + CAST(false_positives AS REAL))
+                        WHERE id = ? AND false_positives >= 0
+                    ''', (finding['rule_id'],))
+                    conn.commit()
+                    conn.close()
+                except Exception as e:
+                    print(f"Warning: Failed to track rule detection: {e}")
         db.commit()
         scan_results["sast"] = True
 
@@ -678,7 +717,59 @@ async def get_threat_model(
         "stride_analysis": threat_model.stride_analysis,
         "mitre_mapping": threat_model.mitre_mapping,
         "trust_boundaries": threat_model.trust_boundaries,
+        "attack_paths": threat_model.attack_paths or [],
         "threat_count": threat_model.threat_count
+    }
+
+@app.post("/api/projects/{project_id}/threat-model/regenerate")
+async def regenerate_threat_model(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Regenerate threat model for a project"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not project.architecture_doc:
+        raise HTTPException(status_code=400, detail="Project has no architecture document")
+
+    # Delete existing threat model
+    db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
+    db.commit()
+
+    # Generate new threat model
+    from services.threat_modeling import ThreatModelingService
+    threat_service = ThreatModelingService()
+    threat_model_data = threat_service.generate_threat_model(
+        project.architecture_doc,
+        project.name
+    )
+
+    threat_model = ThreatModel(
+        project_id=project.id,
+        name=f"{project.name} Threat Model",
+        dfd_level=0,
+        dfd_data=threat_model_data['dfd_data'],
+        stride_analysis=threat_model_data['stride_analysis'],
+        mitre_mapping=threat_model_data['mitre_mapping'],
+        trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
+        attack_paths=threat_model_data.get('attack_paths', []),
+        threat_count=threat_model_data['threat_count']
+    )
+    db.add(threat_model)
+    db.commit()
+    db.refresh(threat_model)
+
+    return {
+        "success": True,
+        "message": "Threat model regenerated successfully",
+        "attack_paths_count": len(threat_model_data.get('attack_paths', []))
     }
 
 # Scanning endpoints
@@ -1158,7 +1249,7 @@ async def get_all_scans(
             "status": s.status,
             "started_at": s.started_at.isoformat() if s.started_at else None,
             "completed_at": s.completed_at.isoformat() if s.completed_at else None,
-            "total_vulnerabilities": s.total_vulnerabilities or 0,
+            "total_vulnerabilities": s.total_findings or 0,
             "critical_count": s.critical_count or 0,
             "high_count": s.high_count or 0,
             "medium_count": s.medium_count or 0,
@@ -1167,6 +1258,34 @@ async def get_all_scans(
         }
         for s in scans
     ]
+
+# Create a new scan (for restarting scans)
+@app.post("/api/scans/")
+async def create_scan(
+    request: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a new scan for a project"""
+    project_id = request.get("project_id")
+    scan_type = request.get("scan_type")
+
+    if not project_id or not scan_type:
+        raise HTTPException(status_code=400, detail="project_id and scan_type are required")
+
+    # Verify project exists
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Use the existing scan endpoint
+    # This will trigger the actual scan in the background
+    from fastapi import BackgroundTasks
+    background_tasks = BackgroundTasks()
+
+    # Call the existing run_security_scan function
+    # We'll redirect to the project scan endpoint
+    return await run_security_scan(project_id, current_user, db)
 
 # Get scan logs
 @app.get("/api/scans/{scan_id}/logs")
@@ -1252,6 +1371,206 @@ async def get_scan_logs(
         })
 
     return logs
+
+# Enhanced Dashboard Analytics Endpoint
+@app.get("/api/dashboard/analytics")
+async def get_dashboard_analytics(
+    project_id: Optional[int] = None,
+    days: int = 30,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get comprehensive dashboard analytics with filters"""
+    from datetime import timedelta
+    from collections import defaultdict
+
+    # Base query for vulnerabilities
+    vuln_query = db.query(Vulnerability)
+    if project_id:
+        vuln_query = vuln_query.join(Scan).filter(Scan.project_id == project_id)
+
+    # Get all vulnerabilities
+    all_vulns = vuln_query.all()
+
+    # Get date range for trends
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    # === BASIC METRICS ===
+    total_vulnerabilities = len(all_vulns)
+    critical_count = len([v for v in all_vulns if v.severity == 'critical'])
+    high_count = len([v for v in all_vulns if v.severity == 'high'])
+    medium_count = len([v for v in all_vulns if v.severity == 'medium'])
+    low_count = len([v for v in all_vulns if v.severity == 'low'])
+
+    # === FALSE POSITIVE RATE ===
+    false_positives = len([v for v in all_vulns if v.false_positive])
+    false_positive_rate = (false_positives / total_vulnerabilities * 100) if total_vulnerabilities > 0 else 0
+
+    # === REMEDIATION VELOCITY ===
+    # Vulnerabilities fixed in the last 30 days
+    fixed_vulns = [v for v in all_vulns if v.is_resolved and v.resolved_at and v.resolved_at >= start_date]
+    remediation_velocity = len(fixed_vulns) / days if days > 0 else 0  # per day
+
+    # Average time to fix (in days)
+    fix_times = []
+    for v in fixed_vulns:
+        if v.created_at and v.resolved_at:
+            fix_time = (v.resolved_at - v.created_at).days
+            fix_times.append(fix_time)
+    avg_time_to_fix = sum(fix_times) / len(fix_times) if fix_times else 0
+
+    # === VULNERABILITY TRENDS (last 30 days) ===
+    trend_data = defaultdict(lambda: {'critical': 0, 'high': 0, 'medium': 0, 'low': 0, 'total': 0})
+    for v in all_vulns:
+        if v.created_at and v.created_at >= start_date:
+            date_key = v.created_at.strftime('%Y-%m-%d')
+            trend_data[date_key][v.severity] += 1
+            trend_data[date_key]['total'] += 1
+
+    # Format trend data for frontend
+    vulnerability_trend = []
+    current_date = start_date
+    while current_date <= end_date:
+        date_str = current_date.strftime('%Y-%m-%d')
+        trend_entry = trend_data[date_str]
+        vulnerability_trend.append({
+            'date': date_str,
+            'critical': trend_entry['critical'],
+            'high': trend_entry['high'],
+            'medium': trend_entry['medium'],
+            'low': trend_entry['low'],
+            'total': trend_entry['total']
+        })
+        current_date += timedelta(days=1)
+
+    # === VULNERABILITY BY CATEGORY ===
+    category_counts = defaultdict(int)
+    for v in all_vulns:
+        category = v.title.split(':')[0] if ':' in v.title else 'Other'  # Extract category from title
+        category_counts[category] += 1
+
+    vulnerability_by_category = [
+        {'name': category, 'value': count}
+        for category, count in sorted(category_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+
+    # === VULNERABILITY BY PROJECT ===
+    project_query = db.query(Project)
+    projects = project_query.all()
+
+    vulnerability_by_project = []
+    for project in projects:
+        project_vulns = [v for v in all_vulns if v.scan.project_id == project.id]
+        if project_vulns or not project_id:  # Show all projects if no filter, or matching project
+            vulnerability_by_project.append({
+                'project_id': project.id,
+                'project_name': project.name,
+                'total': len(project_vulns),
+                'critical': len([v for v in project_vulns if v.severity == 'critical']),
+                'high': len([v for v in project_vulns if v.severity == 'high']),
+                'medium': len([v for v in project_vulns if v.severity == 'medium']),
+                'low': len([v for v in project_vulns if v.severity == 'low'])
+            })
+
+    # === STATUS DISTRIBUTION ===
+    status_counts = defaultdict(int)
+    for v in all_vulns:
+        if v.is_resolved:
+            status_counts['Fixed'] += 1
+        elif v.false_positive:
+            status_counts['False Positive'] += 1
+        else:
+            status_counts['Open'] += 1
+
+    status_distribution = [
+        {'name': status, 'value': count}
+        for status, count in status_counts.items()
+    ]
+
+    # === SEVERITY DISTRIBUTION ===
+    severity_distribution = [
+        {'name': 'Critical', 'value': critical_count, 'color': '#ef4444'},
+        {'name': 'High', 'value': high_count, 'color': '#f97316'},
+        {'name': 'Medium', 'value': medium_count, 'color': '#eab308'},
+        {'name': 'Low', 'value': low_count, 'color': '#3b82f6'}
+    ]
+
+    # === TOP VULNERABILITY TYPES ===
+    type_counts = defaultdict(int)
+    for v in all_vulns:
+        # Use OWASP category first, then CWE, then title parsing, then scan type
+        if v.owasp_category:
+            # Extract just the category name (e.g., "A03:2021 - Injection" -> "Injection")
+            vuln_type = v.owasp_category.split(' - ')[-1] if ' - ' in v.owasp_category else v.owasp_category
+        elif v.cwe_id:
+            # Use CWE ID as type
+            vuln_type = v.cwe_id
+        elif ':' in v.title:
+            # Parse from title (e.g., "SQL Injection: Description" -> "SQL Injection")
+            vuln_type = v.title.split(':')[0].strip()
+        elif v.scan:
+            # Use scan type as fallback
+            scan_type_names = {'sast': 'Code Vulnerability', 'sca': 'Dependency Issue', 'secret': 'Exposed Secret'}
+            vuln_type = scan_type_names.get(v.scan.scan_type.value, 'Security Issue')
+        else:
+            vuln_type = 'Security Issue'
+        type_counts[vuln_type] += 1
+
+    top_vulnerability_types = [
+        {'type': vuln_type, 'count': count}
+        for vuln_type, count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+    ]
+
+    # === SCAN ACTIVITY ===
+    scan_query = db.query(Scan)
+    if project_id:
+        scan_query = scan_query.filter(Scan.project_id == project_id)
+
+    scans = scan_query.filter(Scan.started_at >= start_date).all()
+
+    scan_activity = defaultdict(int)
+    for scan in scans:
+        if scan.started_at:
+            date_key = scan.started_at.strftime('%Y-%m-%d')
+            scan_activity[date_key] += 1
+
+    scan_activity_trend = []
+    current_date = start_date
+    while current_date <= end_date:
+        date_str = current_date.strftime('%Y-%m-%d')
+        scan_activity_trend.append({
+            'date': date_str,
+            'scans': scan_activity[date_str]
+        })
+        current_date += timedelta(days=1)
+
+    # === RETURN COMPREHENSIVE ANALYTICS ===
+    return {
+        'summary': {
+            'total_vulnerabilities': total_vulnerabilities,
+            'critical': critical_count,
+            'high': high_count,
+            'medium': medium_count,
+            'low': low_count,
+            'false_positive_rate': round(false_positive_rate, 2),
+            'remediation_velocity': round(remediation_velocity, 2),
+            'avg_time_to_fix': round(avg_time_to_fix, 1),
+            'total_scans': len(scans)
+        },
+        'trends': {
+            'vulnerability_trend': vulnerability_trend,
+            'scan_activity': scan_activity_trend
+        },
+        'distributions': {
+            'severity': severity_distribution,
+            'status': status_distribution,
+            'by_category': vulnerability_by_category,
+            'by_project': vulnerability_by_project
+        },
+        'top_types': top_vulnerability_types,
+        'projects': [{'id': p.id, 'name': p.name} for p in projects]
+    }
 
 # Chatbot endpoints
 @app.post("/api/chat")
@@ -1916,6 +2235,124 @@ async def direct_file_scan(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File scan failed: {str(e)}")
+
+
+# ==================== THREAT INTELLIGENCE ENDPOINTS ====================
+
+@app.get("/api/threat-intel/threats")
+async def get_threat_intelligence(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get aggregated threat intelligence from multiple sources"""
+    try:
+        threats_data = await threat_intel.get_aggregated_threats()
+        return threats_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch threat intelligence: {str(e)}")
+
+
+@app.get("/api/threat-intel/correlate")
+async def correlate_threats(
+    project_id: Optional[int] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Correlate vulnerabilities with active threats using the improved async correlation engine.
+    Features:
+    - O(1) lookups using pre-built indices (CVE, CWE, keywords)
+    - CWE hierarchy matching (e.g., CWE-89 SQL Injection matches CWE-74 Injection family)
+    - Weighted scoring based on match type, CVSS, recency, and exploitation status
+    - Confidence levels: very_high, high, medium, low
+    """
+    try:
+        # Use the new async correlation engine with improved efficiency
+        result = await threat_intel.correlate_with_vulnerabilities_async(db, project_id)
+
+        return {
+            "total_correlated": result['summary']['correlated_count'],
+            "high_risk": result['summary']['high_risk_count'],
+            "actively_exploited_matches": result['summary'].get('actively_exploited_matches', 0),
+            "confidence_breakdown": result['summary'].get('confidence_breakdown', {}),
+            "processing_time_ms": result['summary'].get('processing_time_ms', 0),
+            "correlations": result['correlations']
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to correlate threats: {str(e)}")
+
+
+class GenerateRuleRequest(BaseModel):
+    threat_cve_id: str
+
+
+@app.post("/api/threat-intel/generate-rule")
+async def generate_rule_from_threat(
+    request: GenerateRuleRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Auto-generate a custom SAST rule from threat intelligence
+    """
+    try:
+        # Get threat data
+        threats_data = await threat_intel.get_aggregated_threats()
+        threats = threats_data.get('threats', [])
+
+        # Find the specific threat
+        threat = next((t for t in threats if t.get('cve_id') == request.threat_cve_id), None)
+
+        if not threat:
+            raise HTTPException(status_code=404, detail="Threat not found")
+
+        # Generate rule
+        rule = threat_intel.generate_custom_rule_from_threat(threat)
+
+        return {
+            "success": True,
+            "rule": rule,
+            "message": f"Generated custom rule for {threat.get('name', request.threat_cve_id)}"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate rule: {str(e)}")
+
+
+@app.get("/api/threat-intel/stats")
+async def get_threat_stats(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get threat intelligence statistics"""
+    try:
+        threats_data = await threat_intel.get_aggregated_threats()
+        threats = threats_data.get('threats', [])
+
+        # Calculate stats
+        stats = {
+            "total_threats": len(threats),
+            "actively_exploited": len([t for t in threats if t.get('actively_exploited')]),
+            "by_severity": {
+                "critical": len([t for t in threats if t.get('severity') == 'critical']),
+                "high": len([t for t in threats if t.get('severity') == 'high']),
+                "medium": len([t for t in threats if t.get('severity') == 'medium']),
+                "low": len([t for t in threats if t.get('severity') == 'low']),
+            },
+            "by_source": {},
+            "recent_threats": threats[:10],
+            "last_updated": threats_data.get('last_updated')
+        }
+
+        # Count by source
+        for threat in threats:
+            source = threat.get('source', 'Unknown')
+            stats['by_source'][source] = stats['by_source'].get(source, 0) + 1
+
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get threat stats: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn

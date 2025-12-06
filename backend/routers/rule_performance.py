@@ -230,12 +230,12 @@ async def get_performance_dashboard():
 
     severity_breakdown = [dict(row) for row in cursor.fetchall()]
 
-    # Top performing rules
+    # Top performing rules - include rules with high precision OR no feedback yet (precision IS NULL)
     cursor.execute('''
         SELECT id, name, severity, total_detections, precision, generated_by
         FROM custom_rules
-        WHERE total_detections > 0 AND precision > 0.9
-        ORDER BY total_detections DESC
+        WHERE total_detections > 0 AND (precision > 0.9 OR precision IS NULL)
+        ORDER BY COALESCE(precision, 1.0) DESC, total_detections DESC
         LIMIT 10
     ''')
 

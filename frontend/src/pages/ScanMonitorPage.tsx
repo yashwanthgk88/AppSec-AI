@@ -68,7 +68,7 @@ const ScanMonitorPage: React.FC = () => {
       if (filterStatus) params.append('status', filterStatus);
       if (filterProject) params.append('project_id', filterProject);
 
-      const response = await axios.get(`http://localhost:8000/api/scans/?${params}`, {
+      const response = await axios.get(`/api/scans/?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setScans(response.data);
@@ -82,7 +82,7 @@ const ScanMonitorPage: React.FC = () => {
   const loadScanLogs = async (scanId: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:8000/api/scans/${scanId}/logs`, {
+      const response = await axios.get(`/api/scans/${scanId}/logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setLogs(response.data);
@@ -134,7 +134,7 @@ const ScanMonitorPage: React.FC = () => {
 
       // Create a new scan with the same configuration
       await axios.post(
-        'http://localhost:8000/api/scans/',
+        '/api/scans/',
         {
           project_id: scan.project_id,
           scan_type: scan.scan_type

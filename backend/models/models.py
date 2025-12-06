@@ -134,6 +134,7 @@ class ThreatModel(Base):
     trust_boundaries = Column(JSON)
     data_flows = Column(JSON)
     assets = Column(JSON)
+    attack_paths = Column(JSON)  # Attack path analysis
     threat_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -157,3 +158,17 @@ class ChatMessage(Base):
 
     # Relationships
     user = relationship("User", back_populates="chat_messages")
+
+
+class SystemSettings(Base):
+    """Store system-wide settings like API keys for threat intelligence"""
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, nullable=False, index=True)
+    value = Column(Text)  # Encrypted for sensitive values
+    description = Column(String(500))
+    is_secret = Column(Boolean, default=False)  # If true, value is encrypted
+    category = Column(String(50), default="general")  # threat_intel, ai, general
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

@@ -1,7 +1,7 @@
 from models.database import Base, engine, get_db, init_db
 from models.models import (
     User, Project, Scan, Vulnerability, ThreatModel, ChatMessage,
-    ScanType, SeverityLevel, ScanStatus
+    ScanType, SeverityLevel, ScanStatus, SystemSettings
 )
 
 __all__ = [
@@ -18,4 +18,5 @@ __all__ = [
     "ScanType",
     "SeverityLevel",
     "ScanStatus",
+    "SystemSettings",
 ]

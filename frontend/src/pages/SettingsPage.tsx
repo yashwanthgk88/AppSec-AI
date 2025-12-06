@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, Key, AlertCircle, CheckCircle, Brain, Download, Code } from 'lucide-react'
+import { Save, Key, AlertCircle, CheckCircle, Brain, Download, Code, Shield, Globe, RefreshCw, Trash2 } from 'lucide-react'
 import axios from 'axios'
 
 interface Settings {
@@ -10,6 +10,28 @@ interface Settings {
   ai_base_url?: string
   ai_api_version?: string
   has_ai_key?: boolean
+}
+
+interface ThreatIntelSettings {
+  nvd_api_key: string
+  has_nvd_key: boolean
+  misp_api_key: string
+  has_misp_key: boolean
+  misp_url: string
+  sources: {
+    [key: string]: {
+      name: string
+      description: string
+      requires_key: boolean
+      key_url: string | null
+      benefits: string
+    }
+  }
+}
+
+interface ConnectionTestResult {
+  status: 'success' | 'error' | 'unknown'
+  message: string
 }
 
 export default function SettingsPage() {
@@ -28,8 +50,19 @@ export default function SettingsPage() {
   const [savingAi, setSavingAi] = useState(false)
   const [aiMessage, setAiMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Threat Intel Configuration
+  const [threatIntelSettings, setThreatIntelSettings] = useState<ThreatIntelSettings | null>(null)
+  const [nvdApiKey, setNvdApiKey] = useState('')
+  const [mispApiKey, setMispApiKey] = useState('')
+  const [mispUrl, setMispUrl] = useState('')
+  const [savingThreatIntel, setSavingThreatIntel] = useState(false)
+  const [threatIntelMessage, setThreatIntelMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [connectionResults, setConnectionResults] = useState<{ [key: string]: ConnectionTestResult } | null>(null)
+
   useEffect(() => {
     loadSettings()
+    loadThreatIntelSettings()
   }, [])
 
   const loadSettings = async () => {
@@ -59,6 +92,95 @@ export default function SettingsPage() {
       setMessage({ type: 'error', text: 'Failed to load settings' })
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadThreatIntelSettings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get('/api/settings/threat-intel', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setThreatIntelSettings(response.data)
+      if (response.data.misp_url) {
+        setMispUrl(response.data.misp_url)
+      }
+    } catch (error) {
+      console.error('Failed to load threat intel settings:', error)
+    }
+  }
+
+  const handleSaveThreatIntel = async () => {
+    setSavingThreatIntel(true)
+    setThreatIntelMessage(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const payload: { nvd_api_key?: string; misp_api_key?: string; misp_url?: string } = {}
+
+      if (nvdApiKey.trim()) {
+        payload.nvd_api_key = nvdApiKey.trim()
+      }
+      if (mispApiKey.trim()) {
+        payload.misp_api_key = mispApiKey.trim()
+      }
+      if (mispUrl.trim()) {
+        payload.misp_url = mispUrl.trim()
+      }
+
+      const response = await axios.put('/api/settings/threat-intel', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.data.success) {
+        setThreatIntelMessage({ type: 'success', text: response.data.message })
+        setNvdApiKey('')
+        setMispApiKey('')
+        await loadThreatIntelSettings()
+      }
+    } catch (error: any) {
+      setThreatIntelMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Failed to update threat intel settings',
+      })
+    } finally {
+      setSavingThreatIntel(false)
+    }
+  }
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true)
+    setConnectionResults(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/settings/threat-intel/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setConnectionResults(response.data.results)
+    } catch (error: any) {
+      setThreatIntelMessage({
+        type: 'error',
+        text: 'Failed to test connections',
+      })
+    } finally {
+      setTestingConnection(false)
+    }
+  }
+
+  const handleDeleteKey = async (keyType: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`/api/settings/threat-intel/${keyType}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setThreatIntelMessage({ type: 'success', text: `${keyType.toUpperCase()} key deleted` })
+      await loadThreatIntelSettings()
+    } catch (error: any) {
+      setThreatIntelMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Failed to delete key',
+      })
     }
   }
 
@@ -404,6 +526,233 @@ export default function SettingsPage() {
               <>
                 <Save className="h-4 w-4 mr-2" />
                 Save AI Configuration
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Threat Intelligence API Keys Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex items-center mb-4">
+          <Shield className="h-6 w-6 text-red-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">Threat Intelligence API Keys</h2>
+        </div>
+
+        <p className="text-gray-600 mb-4">
+          Configure API keys for threat intelligence sources. These keys enable enhanced threat data fetching with higher rate limits.
+        </p>
+
+        {/* Source Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* NVD */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">NVD</h3>
+              {threatIntelSettings?.has_nvd_key ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Configured
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Limited
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">National Vulnerability Database</p>
+            {threatIntelSettings?.has_nvd_key && (
+              <p className="text-xs text-gray-400 mt-1">Key: {threatIntelSettings.nvd_api_key}</p>
+            )}
+          </div>
+
+          {/* CISA KEV */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">CISA KEV</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Free
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">Known Exploited Vulnerabilities</p>
+            <p className="text-xs text-gray-400 mt-1">No API key required</p>
+          </div>
+
+          {/* MISP Galaxy */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">MISP Galaxy</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Free
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">Threat Actors & Malware</p>
+            <p className="text-xs text-gray-400 mt-1">Uses public GitHub data</p>
+          </div>
+        </div>
+
+        {/* Test Connection Button */}
+        <div className="mb-6">
+          <button
+            onClick={handleTestConnection}
+            disabled={testingConnection}
+            className="btn btn-secondary inline-flex items-center"
+          >
+            {testingConnection ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+                Testing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Test All Connections
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Connection Test Results */}
+        {connectionResults && (
+          <div className="mb-6 space-y-2">
+            {Object.entries(connectionResults).map(([source, result]) => (
+              <div
+                key={source}
+                className={`p-3 rounded-lg flex items-center justify-between ${
+                  result.status === 'success'
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}
+              >
+                <div className="flex items-center">
+                  {result.status === 'success' ? (
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                  )}
+                  <span className="font-medium text-gray-900">{source.toUpperCase()}</span>
+                </div>
+                <span className={result.status === 'success' ? 'text-green-700' : 'text-red-700'}>
+                  {result.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* API Key Inputs */}
+        <div className="space-y-4">
+          {/* NVD API Key */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="nvdApiKey" className="block text-sm font-medium text-gray-700">
+                NVD API Key
+              </label>
+              {threatIntelSettings?.has_nvd_key && (
+                <button
+                  onClick={() => handleDeleteKey('nvd')}
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              type="password"
+              id="nvdApiKey"
+              value={nvdApiKey}
+              onChange={(e) => setNvdApiKey(e.target.value)}
+              placeholder={threatIntelSettings?.has_nvd_key ? 'Enter new key to replace...' : 'Enter NVD API key...'}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Get a free key from{' '}
+              <a
+                href="https://nvd.nist.gov/developers/request-an-api-key"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-500"
+              >
+                NVD Developers Portal
+              </a>
+              . Increases rate limit from 5 to 50 requests per 30 seconds.
+            </p>
+          </div>
+
+          {/* MISP Private Instance (Optional) */}
+          <div className="border-t pt-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">MISP Private Instance (Optional)</h4>
+            <p className="text-xs text-gray-500 mb-3">
+              If you have a private MISP instance, configure it here for additional threat data.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="mispUrl" className="block text-sm font-medium text-gray-700 mb-1">
+                  MISP URL
+                </label>
+                <input
+                  type="text"
+                  id="mispUrl"
+                  value={mispUrl}
+                  onChange={(e) => setMispUrl(e.target.value)}
+                  placeholder="https://your-misp-instance.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+              <div>
+                <label htmlFor="mispApiKey" className="block text-sm font-medium text-gray-700 mb-1">
+                  MISP API Key
+                </label>
+                <input
+                  type="password"
+                  id="mispApiKey"
+                  value={mispApiKey}
+                  onChange={(e) => setMispApiKey(e.target.value)}
+                  placeholder="Enter MISP API key..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {threatIntelMessage && (
+            <div
+              className={`p-4 rounded-md ${
+                threatIntelMessage.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}
+            >
+              <div className="flex items-center">
+                {threatIntelMessage.type === 'success' ? (
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                )}
+                <span>{threatIntelMessage.text}</span>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveThreatIntel}
+            disabled={savingThreatIntel || (!nvdApiKey.trim() && !mispApiKey.trim() && !mispUrl.trim())}
+            className="btn btn-primary inline-flex items-center"
+          >
+            {savingThreatIntel ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save Threat Intel Settings
               </>
             )}
           </button>

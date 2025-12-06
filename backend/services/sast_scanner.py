@@ -757,8 +757,12 @@ if len(user_input) <= 100:
                                 continue
                             seen_findings.add(finding_key)
 
+                            # Add category prefix for better organization
+                            category = self._get_vulnerability_category(vuln_name)
+                            formatted_title = f"{category}: {vuln_name}" if category != vuln_name else vuln_name
+
                             findings.append({
-                                "title": vuln_name,
+                                "title": formatted_title,
                                 "description": vuln_info['description'],
                                 "severity": vuln_info['severity'],
                                 "cwe_id": vuln_info['cwe'],
@@ -827,6 +831,74 @@ if len(user_input) <= 100:
             "info": 0.0
         }
         return cvss_map.get(severity.lower(), 5.0)
+
+    def _get_vulnerability_category(self, vuln_name: str) -> str:
+        """Get high-level category for vulnerability"""
+        category_mapping = {
+            # Injection vulnerabilities
+            "SQL Injection": "Injection",
+            "NoSQL Injection": "Injection",
+            "Command Injection": "Injection",
+            "LDAP Injection": "Injection",
+            "XML Injection": "Injection",
+            "XSS (Cross-Site Scripting)": "Injection",
+            "Server-Side Template Injection (SSTI)": "Injection",
+            "Expression Language Injection": "Injection",
+
+            # Authentication & Access Control
+            "Hardcoded Credentials": "Authentication",
+            "Weak Password Storage": "Authentication",
+            "Insecure JWT": "Authentication",
+            "Broken Authentication": "Authentication",
+            "Broken Access Control": "Access Control",
+            "Insufficient Authorization": "Access Control",
+            "Missing Authentication": "Authentication",
+
+            # Cryptography
+            "Weak Cryptography": "Cryptography",
+            "Hardcoded Cryptographic Key": "Cryptography",
+            "Insecure Random": "Cryptography",
+            "SSL/TLS Verification Disabled": "Cryptography",
+            "Weak Hash Algorithm": "Cryptography",
+
+            # File Operations
+            "Path Traversal": "File Security",
+            "Unrestricted File Upload": "File Security",
+            "Arbitrary File Write": "File Security",
+            "Local File Inclusion (LFI)": "File Security",
+            "Remote File Inclusion (RFI)": "File Security",
+
+            # Data Handling
+            "Insecure Deserialization": "Data Handling",
+            "Mass Assignment": "Data Handling",
+            "Insufficient Input Validation": "Data Handling",
+            "XML External Entity (XXE)": "Data Handling",
+            "Insecure Data Storage": "Data Handling",
+
+            # Configuration
+            "Debug Mode Enabled": "Configuration",
+            "CORS Misconfiguration": "Configuration",
+            "Security Misconfiguration": "Configuration",
+            "Missing Security Headers": "Configuration",
+
+            # Information Disclosure
+            "Information Disclosure": "Information Disclosure",
+            "Sensitive Data in URL": "Information Disclosure",
+            "Sensitive Data Exposure": "Information Disclosure",
+            "Stack Trace Disclosure": "Information Disclosure",
+
+            # Denial of Service
+            "Regular Expression DoS (ReDoS)": "Denial of Service",
+            "Missing Rate Limiting": "Denial of Service",
+            "Resource Exhaustion": "Denial of Service",
+
+            # Other
+            "Time-of-Check Time-of-Use (TOCTOU)": "Race Condition",
+            "Use After Free": "Memory Safety",
+            "Buffer Overflow": "Memory Safety",
+            "Null Pointer Dereference": "Memory Safety",
+        }
+        return category_mapping.get(vuln_name, vuln_name)
 
     def _map_to_stride(self, vuln_name: str) -> str:
         """Map vulnerability to STRIDE threat category"""
@@ -1125,8 +1197,8 @@ if len(user_input) <= 100:
                             "category": rule.get('owasp', 'Custom Rule'),
                             "severity": rule['severity'],
                             "confidence": "medium",
-                            "file": file_path,
-                            "line": line_num,
+                            "file_path": file_path,
+                            "line_number": line_num,
                             "column": match.start() + 1,
                             "code_snippet": code_snippet,
                             "vulnerable_code": line.strip(),

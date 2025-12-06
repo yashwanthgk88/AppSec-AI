@@ -11,6 +11,7 @@ import SettingsPage from './pages/SettingsPage'
 import CustomRulesPage from './pages/CustomRulesPage'
 import RulePerformancePage from './pages/RulePerformancePage'
 import ScanMonitorPage from './pages/ScanMonitorPage'
+import ThreatIntelPage from './pages/ThreatIntelPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/projects/:id/threat-model" element={<ThreatModelPage />} />
           <Route path="/projects/:id/vulnerabilities" element={<VulnerabilitiesPage />} />
+          <Route path="/threat-intel" element={<ThreatIntelPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/custom-rules" element={<CustomRulesPage />} />
           <Route path="/rule-performance" element={<RulePerformancePage />} />

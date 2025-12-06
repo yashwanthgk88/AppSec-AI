@@ -1,264 +1,69 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Shield, AlertTriangle, Package, Key, FileText, TrendingUp } from 'lucide-react'
+import { Shield, AlertTriangle, FileText, TrendingUp, TrendingDown, Filter, Calendar, Activity, Clock, CheckCircle, ChevronLeft, ChevronRight, Zap, Target, ExternalLink, Users, Lock, Bug, Globe } from 'lucide-react'
 import axios from 'axios'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Line, Area, AreaChart } from 'recharts'
+import {
+  LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell
+} from 'recharts'
 
 const SEVERITY_COLORS = {
-  critical: '#dc2626',
-  high: '#ef4444',
-  medium: '#f97316',
-  low: '#fbbf24',
-  info: '#60a5fa',
+  critical: '#ef4444',
+  high: '#f97316',
+  medium: '#eab308',
+  low: '#3b82f6',
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<any>(null)
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [threatIntel, setThreatIntel] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null)
-  const [selectedScanType, setSelectedScanType] = useState<string | null>(null)
-  const [drillDownView, setDrillDownView] = useState<'none' | 'severity' | 'scanType'>('none')
+  const [selectedProject, setSelectedProject] = useState<number | null>(null)
+  const [timeRange, setTimeRange] = useState(30)
+  const [projectsPage, setProjectsPage] = useState(1)
+  const projectsPerPage = 10
 
   useEffect(() => {
-    fetchDashboardStats()
-  }, [])
+    fetchAnalytics()
+    fetchThreatIntel()
+  }, [selectedProject, timeRange])
 
-  const handlePieClick = (data: any) => {
-    setSelectedSeverity(data.name)
-    setDrillDownView('severity')
-  }
-
-  const handleBarClick = (data: any) => {
-    setSelectedScanType(data.name)
-    setDrillDownView('scanType')
-  }
-
-  const closeDrillDown = () => {
-    setDrillDownView('none')
-    setSelectedSeverity(null)
-    setSelectedScanType(null)
-  }
-
-  const fetchDashboardStats = async () => {
+  const fetchThreatIntel = async () => {
     try {
       const token = localStorage.getItem('token')
+      const [statsRes, correlationsRes] = await Promise.allSettled([
+        axios.get('/api/threat-intel/stats', {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
+        axios.get('/api/threat-intel/correlate', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      ])
 
-      // Fetch projects
-      const projectsRes = await axios.get('/api/projects', {
+      const stats = statsRes.status === 'fulfilled' ? statsRes.value.data : null
+      const correlations = correlationsRes.status === 'fulfilled' ? correlationsRes.value.data.correlations : []
+
+      setThreatIntel({ stats, correlations })
+    } catch (error) {
+      console.error('Failed to fetch threat intel:', error)
+    }
+  }
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const params = new URLSearchParams()
+      if (selectedProject) params.append('project_id', selectedProject.toString())
+      params.append('days', timeRange.toString())
+
+      const response = await axios.get(`/api/dashboard/analytics?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
 
-      // Mock stats for POC demo
-      const mockStats = {
-        totalProjects: projectsRes.data.length || 0,
-        totalVulnerabilities: 42,
-        criticalIssues: 8,
-        highIssues: 15,
-        mediumIssues: 12,
-        lowIssues: 7,
-        totalScans: 15,
-        averageRiskScore: 7.3,
-        recentProjects: projectsRes.data.slice(0, 5),
-        severityBreakdown: [
-          { name: 'Critical', value: 8, color: SEVERITY_COLORS.critical },
-          { name: 'High', value: 15, color: SEVERITY_COLORS.high },
-          { name: 'Medium', value: 12, color: SEVERITY_COLORS.medium },
-          { name: 'Low', value: 7, color: SEVERITY_COLORS.low },
-        ],
-        scanTypeData: [
-          { name: 'SAST', critical: 5, high: 8, medium: 6, low: 3 },
-          { name: 'SCA', critical: 3, high: 5, medium: 4, low: 2 },
-          { name: 'Secrets', critical: 5, high: 2, medium: 2, low: 2 },
-        ],
-        vulnerabilityDetails: {
-          Critical: [
-            { id: 1, title: 'SQL Injection in login endpoint', project: 'E-commerce API', cwe: 'CWE-89' },
-            { id: 2, title: 'Hardcoded AWS credentials', project: 'Mobile Backend', cwe: 'CWE-798' },
-            { id: 3, title: 'Remote Code Execution vulnerability', project: 'Admin Panel', cwe: 'CWE-94' },
-          ],
-          High: [
-            { id: 4, title: 'XSS in user profile page', project: 'User Portal', cwe: 'CWE-79' },
-            { id: 5, title: 'Insecure deserialization', project: 'API Gateway', cwe: 'CWE-502' },
-            { id: 6, title: 'Missing authentication check', project: 'Dashboard API', cwe: 'CWE-306' },
-          ],
-          Medium: [
-            { id: 7, title: 'Weak password policy', project: 'Auth Service', cwe: 'CWE-521' },
-            { id: 8, title: 'Missing CSRF protection', project: 'Admin Panel', cwe: 'CWE-352' },
-          ],
-          Low: [
-            { id: 9, title: 'Information disclosure in headers', project: 'Web Server', cwe: 'CWE-200' },
-            { id: 10, title: 'Outdated library version', project: 'Frontend App', cwe: 'CWE-1104' },
-          ]
-        },
-        scanTypeDetails: {
-          SAST: [
-            {
-              id: 1,
-              finding: 'SQL Injection Vulnerability',
-              file: 'src/auth.js:42',
-              severity: 'Critical',
-              description: 'User input is directly concatenated into SQL query without sanitization',
-              cwe: 'CWE-89',
-              impact: 'Attackers can read, modify, or delete database contents',
-              recommendation: 'Use parameterized queries or ORM with prepared statements'
-            },
-            {
-              id: 2,
-              finding: 'Cross-Site Scripting (XSS)',
-              file: 'src/components/profile.jsx:128',
-              severity: 'High',
-              description: 'User-controlled data rendered without HTML encoding',
-              cwe: 'CWE-79',
-              impact: 'Attackers can execute arbitrary JavaScript in victim browsers',
-              recommendation: 'Sanitize user input and use context-aware output encoding'
-            },
-            {
-              id: 3,
-              finding: 'Insecure Random Number Generation',
-              file: 'src/utils/token.js:15',
-              severity: 'Medium',
-              description: 'Math.random() used for security-sensitive token generation',
-              cwe: 'CWE-338',
-              impact: 'Tokens may be predictable, allowing session hijacking',
-              recommendation: 'Use crypto.randomBytes() for cryptographically secure random values'
-            },
-          ],
-          SCA: [
-            {
-              id: 3,
-              finding: 'lodash Prototype Pollution',
-              package: 'lodash',
-              version: '4.17.15',
-              installedVersion: '4.17.15',
-              fixedVersion: '4.17.21',
-              severity: 'High',
-              cve: 'CVE-2020-8203',
-              cvss: '7.4',
-              description: 'Vulnerable to prototype pollution via the setWith and set functions',
-              impact: 'Attackers can modify Object.prototype properties leading to RCE or DoS',
-              recommendation: 'Upgrade to lodash@4.17.21 or higher',
-              publishedDate: '2020-07-15',
-              references: [
-                'https://nvd.nist.gov/vuln/detail/CVE-2020-8203',
-                'https://github.com/lodash/lodash/pull/4874'
-              ]
-            },
-            {
-              id: 4,
-              finding: 'axios Server-Side Request Forgery (SSRF)',
-              package: 'axios',
-              version: '0.19.0',
-              installedVersion: '0.19.0',
-              fixedVersion: '0.21.1',
-              severity: 'Medium',
-              cve: 'CVE-2020-28168',
-              cvss: '5.9',
-              description: 'Insufficient validation of redirect URLs in axios HTTP client',
-              impact: 'Attackers can make server perform requests to arbitrary internal resources',
-              recommendation: 'Upgrade to axios@0.21.1 or higher',
-              publishedDate: '2020-11-06',
-              references: [
-                'https://nvd.nist.gov/vuln/detail/CVE-2020-28168',
-                'https://github.com/axios/axios/commit/5b457116e31db0e88fede6c428e969e87f290929'
-              ]
-            },
-            {
-              id: 5,
-              finding: 'minimist Prototype Pollution',
-              package: 'minimist',
-              version: '1.2.0',
-              installedVersion: '1.2.0',
-              fixedVersion: '1.2.6',
-              severity: 'Critical',
-              cve: 'CVE-2021-44906',
-              cvss: '9.8',
-              description: 'Prototype pollution vulnerability in argument parsing',
-              impact: 'Remote attackers can add or modify properties leading to code execution',
-              recommendation: 'Upgrade to minimist@1.2.6 or higher',
-              publishedDate: '2022-03-17',
-              references: [
-                'https://nvd.nist.gov/vuln/detail/CVE-2021-44906'
-              ]
-            },
-          ],
-          Secrets: [
-            {
-              id: 5,
-              finding: 'AWS Access Key Exposed',
-              file: 'config/config.yaml:23',
-              line: 'aws_access_key_id: AKIAIOSFODNN7EXAMPLE',
-              severity: 'Critical',
-              secretType: 'AWS Access Key',
-              entropy: 'High',
-              description: 'Hardcoded AWS access key found in configuration file',
-              impact: 'Full access to AWS resources under this account, potential data breach and resource abuse',
-              recommendation: 'Immediately rotate credentials, use AWS Secrets Manager or environment variables',
-              matchedPattern: 'AKIA[0-9A-Z]{16}',
-              commitHash: 'a3f8d9e',
-              author: 'developer@company.com',
-              dateFound: '2024-04-15'
-            },
-            {
-              id: 6,
-              finding: 'Private RSA Key Exposed',
-              file: 'deploy/deploy.sh:11',
-              line: '-----BEGIN RSA PRIVATE KEY-----',
-              severity: 'Critical',
-              secretType: 'RSA Private Key',
-              entropy: 'High',
-              description: 'Private RSA key stored in deployment script',
-              impact: 'Unauthorized SSH access to production servers, complete system compromise',
-              recommendation: 'Remove key from repository, rotate SSH keys on all servers, use SSH agent forwarding',
-              matchedPattern: 'BEGIN RSA PRIVATE KEY',
-              commitHash: 'b7e2c1a',
-              author: 'devops@company.com',
-              dateFound: '2024-04-12'
-            },
-            {
-              id: 7,
-              finding: 'Database Password in Source Code',
-              file: 'src/database/connection.js:8',
-              line: 'password: "MyS3cr3tP@ssw0rd!"',
-              severity: 'High',
-              secretType: 'Database Password',
-              entropy: 'Medium',
-              description: 'Database password hardcoded in source code',
-              impact: 'Unauthorized database access, data exfiltration, data manipulation',
-              recommendation: 'Use environment variables or secrets management system, rotate database credentials',
-              matchedPattern: 'password:\\s*["\'][^"\']+["\']',
-              commitHash: 'c4a9f2d',
-              author: 'backend-dev@company.com',
-              dateFound: '2024-04-10'
-            },
-            {
-              id: 8,
-              finding: 'Slack Webhook URL Exposed',
-              file: 'scripts/notify.py:5',
-              line: 'webhook_url = "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXX"',
-              severity: 'Medium',
-              secretType: 'Slack Webhook',
-              entropy: 'High',
-              description: 'Slack webhook URL exposed in notification script',
-              impact: 'Unauthorized messages to Slack channel, potential phishing or social engineering',
-              recommendation: 'Rotate webhook URL, store in environment variables, restrict webhook permissions',
-              matchedPattern: 'hooks\\.slack\\.com/services/T[0-9A-Z]+/B[0-9A-Z]+/[0-9A-Za-z]+',
-              commitHash: 'd1e7b3c',
-              author: 'automation@company.com',
-              dateFound: '2024-04-08'
-            },
-          ]
-        },
-        vulnerabilityTrend: [
-          { date: 'Jan', total: 52, critical: 12, high: 18, medium: 15, low: 7, fixed: 5 },
-          { date: 'Feb', total: 48, critical: 10, high: 17, medium: 14, low: 7, fixed: 8 },
-          { date: 'Mar', total: 45, critical: 9, high: 16, medium: 13, low: 7, fixed: 12 },
-          { date: 'Apr', total: 42, critical: 8, high: 15, medium: 12, low: 7, fixed: 15 },
-        ]
-      }
-
-      setStats(mockStats)
+      setAnalytics(response.data)
     } catch (error) {
-      console.error('Failed to fetch stats:', error)
+      console.error('Failed to fetch analytics:', error)
     } finally {
       setLoading(false)
     }
@@ -269,551 +74,635 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <p className="text-gray-600">Loading dashboard analytics...</p>
         </div>
       </div>
     )
   }
 
+  if (!analytics) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-600">Failed to load dashboard data</p>
+          <button onClick={fetchAnalytics} className="btn btn-primary mt-4">
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const { summary, trends, distributions, top_types, projects } = analytics
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Security Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your application security posture</p>
+      {/* Header with Filters */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Security Dashboard</h1>
+          <p className="text-gray-600 mt-1">Comprehensive security metrics and analytics</p>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center space-x-3">
+          {/* Project Filter */}
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <select
+              value={selectedProject || ''}
+              onChange={(e) => setSelectedProject(e.target.value ? Number(e.target.value) : null)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+            >
+              <option value="">All Projects</option>
+              {projects.map((project: any) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Time Range Filter */}
+          <div className="relative">
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(Number(e.target.value))}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Key Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Projects"
-          value={stats.totalProjects}
-          icon={<FileText className="w-8 h-8" />}
-          color="blue"
-        />
-        <StatCard
+        <MetricCard
           title="Total Vulnerabilities"
-          value={stats.totalVulnerabilities}
+          value={summary.total_vulnerabilities}
           icon={<AlertTriangle className="w-8 h-8" />}
           color="red"
+          subtitle={`${summary.critical} Critical • ${summary.high} High`}
         />
-        <StatCard
-          title="Critical Issues"
-          value={stats.criticalIssues}
-          icon={<Shield className="w-8 h-8" />}
-          color="red"
-          trend="-12%"
-          onClick={() => {
-            setSelectedSeverity('Critical')
-            setDrillDownView('severity')
-          }}
+        <MetricCard
+          title="False Positive Rate"
+          value={`${summary.false_positive_rate}%`}
+          icon={<CheckCircle className="w-8 h-8" />}
+          color="yellow"
+          subtitle="Lower is better"
         />
-        <StatCard
-          title="Risk Score"
-          value={`${stats.averageRiskScore}/10`}
+        <MetricCard
+          title="Remediation Velocity"
+          value={summary.remediation_velocity.toFixed(1)}
           icon={<TrendingUp className="w-8 h-8" />}
-          color="orange"
+          color="green"
+          subtitle="Fixes per day"
+        />
+        <MetricCard
+          title="Avg. Time to Fix"
+          value={`${summary.avg_time_to_fix} days`}
+          icon={<Clock className="w-8 h-8" />}
+          color="blue"
+          subtitle={`${summary.total_scans} scans completed`}
         />
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Severity Breakdown */}
-        <div className="card p-6">
+      {/* Threat Intelligence Overview */}
+      {threatIntel?.stats && (
+        <div className="card p-6 bg-gradient-to-r from-red-50 via-orange-50 to-yellow-50 border-l-4 border-red-500">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Severity Breakdown</h2>
-            <p className="text-xs text-gray-500">Click on chart to drill down</p>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Shield className="w-7 h-7 text-red-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Live Threat Intelligence</h2>
+                <p className="text-sm text-gray-600">Real-time threat data from CISA KEV, NVD, and Exploit-DB</p>
+              </div>
+            </div>
+            <Link
+              to="/threat-intel"
+              className="btn btn-primary inline-flex items-center space-x-2"
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>View All Threats</span>
+            </Link>
           </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Actively Exploited</p>
+                  <p className="text-2xl font-bold text-red-600">{threatIntel.stats.actively_exploited || 0}</p>
+                </div>
+                <Zap className="w-6 h-6 text-red-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-orange-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Critical CVEs</p>
+                  <p className="text-2xl font-bold text-orange-600">{threatIntel.stats.critical_threats || threatIntel.stats.by_severity?.critical || 0}</p>
+                </div>
+                <AlertTriangle className="w-6 h-6 text-orange-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-purple-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Threat Actors</p>
+                  <p className="text-2xl font-bold text-purple-600">{threatIntel.stats.threat_actors || 0}</p>
+                </div>
+                <Users className="w-6 h-6 text-purple-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-pink-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Ransomware</p>
+                  <p className="text-2xl font-bold text-pink-600">{threatIntel.stats.ransomware_families || 0}</p>
+                </div>
+                <Lock className="w-6 h-6 text-pink-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-indigo-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Exploit Kits</p>
+                  <p className="text-2xl font-bold text-indigo-600">{threatIntel.stats.exploit_kits || 0}</p>
+                </div>
+                <Bug className="w-6 h-6 text-indigo-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border border-blue-200 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-gray-600">Total Threats</p>
+                  <p className="text-2xl font-bold text-blue-600">{threatIntel.stats.total_threats || 0}</p>
+                </div>
+                <Globe className="w-6 h-6 text-blue-500" />
+              </div>
+            </div>
+          </div>
+
+          {/* Correlated Threats Alert */}
+          {threatIntel.correlations && threatIntel.correlations.length > 0 && (
+            <div className="mt-4 p-4 bg-red-100 border-2 border-red-300 rounded-lg animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <Zap className="w-6 h-6 text-red-600" />
+                  <div>
+                    <h3 className="font-semibold text-red-900">
+                      {threatIntel.correlations.filter((c: any) => c.risk_elevation).length} High-Risk Correlations Found
+                    </h3>
+                    <p className="text-sm text-red-700">
+                      Your vulnerabilities match {threatIntel.correlations.length} active threats being exploited in the wild
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/threat-intel"
+                  className="btn bg-red-600 hover:bg-red-700 text-white inline-flex items-center space-x-2"
+                >
+                  <Target className="w-4 h-4" />
+                  <span>View Details</span>
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Vulnerability Trend Over Time */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Vulnerability Trend</h2>
+            <p className="text-sm text-gray-600 mt-1">Track vulnerability discovery over time</p>
+          </div>
+        </div>
+        <ResponsiveContainer width="100%" height={350}>
+          <AreaChart data={trends.vulnerability_trend}>
+            <defs>
+              <linearGradient id="colorCritical" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1}/>
+              </linearGradient>
+              <linearGradient id="colorHigh" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#f97316" stopOpacity={0.1}/>
+              </linearGradient>
+              <linearGradient id="colorMedium" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#eab308" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#eab308" stopOpacity={0.1}/>
+              </linearGradient>
+              <linearGradient id="colorLow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 12 }}
+              tickFormatter={(value) => {
+                const date = new Date(value)
+                return `${date.getMonth() + 1}/${date.getDate()}`
+              }}
+            />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+              labelStyle={{ fontWeight: 'bold' }}
+            />
+            <Legend wrapperStyle={{ fontSize: '14px' }} />
+            <Area
+              type="monotone"
+              dataKey="critical"
+              stackId="1"
+              stroke="#ef4444"
+              fillOpacity={1}
+              fill="url(#colorCritical)"
+              name="Critical"
+            />
+            <Area
+              type="monotone"
+              dataKey="high"
+              stackId="1"
+              stroke="#f97316"
+              fillOpacity={1}
+              fill="url(#colorHigh)"
+              name="High"
+            />
+            <Area
+              type="monotone"
+              dataKey="medium"
+              stackId="1"
+              stroke="#eab308"
+              fillOpacity={1}
+              fill="url(#colorMedium)"
+              name="Medium"
+            />
+            <Area
+              type="monotone"
+              dataKey="low"
+              stackId="1"
+              stroke="#3b82f6"
+              fillOpacity={1}
+              fill="url(#colorLow)"
+              name="Low"
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Distributions Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Severity Distribution */}
+        <div className="card p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Severity Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={stats.severityBreakdown}
+                data={distributions.severity}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
-                onClick={handlePieClick}
-                cursor="pointer"
               >
-                {stats.severityBreakdown.map((entry: any, index: number) => (
+                {distributions.severity.map((entry: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-3 mt-6">
+            {distributions.severity.map((item: any) => (
+              <div key={item.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-sm font-medium text-gray-700">{item.name}</span>
+                </div>
+                <span className="text-lg font-bold text-gray-900">{item.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Scan Type Comparison */}
+        {/* Status Distribution */}
         <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Findings by Scan Type</h2>
-            <p className="text-xs text-gray-500">Click on bars to drill down</p>
-          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Status Distribution</h2>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stats.scanTypeData} onClick={handleBarClick}>
+            <BarChart data={distributions.status} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
+              <XAxis type="number" />
+              <YAxis dataKey="name" type="category" width={80} />
               <Tooltip />
-              <Legend />
-              <Bar dataKey="critical" fill={SEVERITY_COLORS.critical} name="Critical" cursor="pointer" />
-              <Bar dataKey="high" fill={SEVERITY_COLORS.high} name="High" cursor="pointer" />
-              <Bar dataKey="medium" fill={SEVERITY_COLORS.medium} name="Medium" cursor="pointer" />
-              <Bar dataKey="low" fill={SEVERITY_COLORS.low} name="Low" cursor="pointer" />
+              <Bar dataKey="value" fill="#6366f1" radius={[0, 8, 8, 0]}>
+                {distributions.status.map((entry: any, index: number) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={
+                      entry.name === 'Fixed' ? '#10b981' :
+                      entry.name === 'Open' ? '#ef4444' :
+                      entry.name === 'In_progress' ? '#f59e0b' : '#6b7280'
+                    }
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Drill-Down Modal/Panel */}
-      {drillDownView !== 'none' && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
-                    {drillDownView === 'severity' ? `${selectedSeverity} Severity Vulnerabilities` : `${selectedScanType} Scan Findings`}
-                  </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {drillDownView === 'severity'
-                      ? `Showing all ${selectedSeverity?.toLowerCase()} severity issues`
-                      : `Findings detected by ${selectedScanType} scan`}
-                  </p>
-                </div>
-                <button
-                  onClick={closeDrillDown}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
+      {/* Vulnerabilities by Category */}
+      <div className="card p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Top Vulnerability Categories</h2>
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={distributions.by_category}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="name"
+              angle={-45}
+              textAnchor="end"
+              height={100}
+              tick={{ fontSize: 11 }}
+            />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+            />
+            <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]}>
+              {distributions.by_category.map((entry: any, index: number) => (
+                <Cell key={`cell-${index}`} fill={`hsl(${270 - index * 20}, 70%, 50%)`} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
 
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
-              {drillDownView === 'severity' && stats.vulnerabilityDetails[selectedSeverity!] && (
-                <div className="space-y-3">
-                  {stats.vulnerabilityDetails[selectedSeverity!].map((vuln: any) => (
-                    <div key={vuln.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-900">{vuln.title}</h3>
-                          <div className="flex items-center space-x-3 mt-2">
-                            <span className="text-sm text-gray-600">Project: {vuln.project}</span>
-                            <span className="text-sm px-2 py-1 bg-gray-100 text-gray-700 rounded">
-                              {vuln.cwe}
-                            </span>
-                          </div>
-                        </div>
-                        <AlertTriangle className="w-5 h-5 text-orange-600" />
-                      </div>
+      {/* Project-wise Breakdown */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Vulnerabilities by Project</h2>
+          <p className="text-sm text-gray-600">
+            Showing {Math.min((projectsPage - 1) * projectsPerPage + 1, distributions.by_project.length)} - {Math.min(projectsPage * projectsPerPage, distributions.by_project.length)} of {distributions.by_project.length} projects
+          </p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Project
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Total
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Critical
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  High
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Medium
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Low
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Chart
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {distributions.by_project
+                .slice((projectsPage - 1) * projectsPerPage, projectsPage * projectsPerPage)
+                .map((project: any) => (
+                <tr key={project.project_id} className="hover:bg-gray-50">
+                  <td className="px-4 py-4">
+                    <Link
+                      to={`/projects/${project.project_id}`}
+                      className="font-medium text-gray-900 hover:text-primary-600"
+                    >
+                      {project.project_name}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <span className="text-lg font-bold text-gray-900">{project.total}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <span className="badge badge-critical">{project.critical}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <span className="badge badge-high">{project.high}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <span className="badge badge-medium">{project.medium}</span>
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <span className="badge badge-low">{project.low}</span>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex space-x-1">
+                      {project.critical > 0 && (
+                        <div
+                          className="h-6 bg-red-500 rounded"
+                          style={{ width: `${(project.critical / project.total) * 100}%`, minWidth: '4px' }}
+                          title={`${project.critical} Critical`}
+                        />
+                      )}
+                      {project.high > 0 && (
+                        <div
+                          className="h-6 bg-orange-500 rounded"
+                          style={{ width: `${(project.high / project.total) * 100}%`, minWidth: '4px' }}
+                          title={`${project.high} High`}
+                        />
+                      )}
+                      {project.medium > 0 && (
+                        <div
+                          className="h-6 bg-yellow-500 rounded"
+                          style={{ width: `${(project.medium / project.total) * 100}%`, minWidth: '4px' }}
+                          title={`${project.medium} Medium`}
+                        />
+                      )}
+                      {project.low > 0 && (
+                        <div
+                          className="h-6 bg-blue-500 rounded"
+                          style={{ width: `${(project.low / project.total) * 100}%`, minWidth: '4px' }}
+                          title={`${project.low} Low`}
+                        />
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-              {drillDownView === 'scanType' && stats.scanTypeDetails[selectedScanType!] && (
-                <div className="space-y-4">
-                  {stats.scanTypeDetails[selectedScanType!].map((finding: any) => (
-                    <div key={finding.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition">
-                      {/* Header */}
-                      <div className="bg-gradient-to-r from-gray-50 to-white p-4 border-b border-gray-200">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <h3 className="text-lg font-bold text-gray-900">{finding.finding}</h3>
-                              <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                                finding.severity === 'Critical' ? 'bg-red-100 text-red-800 border border-red-300' :
-                                finding.severity === 'High' ? 'bg-orange-100 text-orange-800 border border-orange-300' :
-                                finding.severity === 'Medium' ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-                                'bg-blue-100 text-blue-800 border border-blue-300'
-                              }`}>
-                                {finding.severity}
-                              </span>
-                            </div>
-
-                            {/* SAST Specific */}
-                            {finding.file && !finding.package && (
-                              <div className="flex items-center space-x-4 text-sm text-gray-600">
-                                <div className="flex items-center space-x-1">
-                                  <span className="font-medium">📄 File:</span>
-                                  <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">{finding.file}</code>
-                                </div>
-                                {finding.cwe && (
-                                  <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium">
-                                    {finding.cwe}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* SCA Specific */}
-                            {finding.package && (
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-4 text-sm">
-                                  <div className="flex items-center space-x-1">
-                                    <span className="font-medium text-gray-600">📦 Package:</span>
-                                    <code className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded font-mono">{finding.package}</code>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <span className="font-medium text-gray-600">🔖 Version:</span>
-                                    <code className="px-2 py-0.5 bg-red-50 text-red-700 rounded font-mono">{finding.installedVersion}</code>
-                                    <span className="text-gray-400">→</span>
-                                    <code className="px-2 py-0.5 bg-green-50 text-green-700 rounded font-mono">{finding.fixedVersion}</code>
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-3">
-                                  {finding.cve && (
-                                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-bold">
-                                      {finding.cve}
-                                    </span>
-                                  )}
-                                  {finding.cvss && (
-                                    <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-semibold">
-                                      CVSS: {finding.cvss}
-                                    </span>
-                                  )}
-                                  {finding.publishedDate && (
-                                    <span className="text-xs text-gray-500">
-                                      📅 Published: {finding.publishedDate}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Secrets Specific */}
-                            {finding.secretType && (
-                              <div className="space-y-2">
-                                <div className="flex items-center space-x-4 text-sm">
-                                  <div className="flex items-center space-x-1">
-                                    <span className="font-medium text-gray-600">🔐 Type:</span>
-                                    <span className="px-2 py-0.5 bg-red-50 text-red-700 rounded font-medium">{finding.secretType}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <span className="font-medium text-gray-600">📄 File:</span>
-                                    <code className="px-2 py-0.5 bg-gray-100 rounded text-xs">{finding.file}</code>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <span className="font-medium text-gray-600">📊 Entropy:</span>
-                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                      finding.entropy === 'High' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                                    }`}>
-                                      {finding.entropy}
-                                    </span>
-                                  </div>
-                                </div>
-                                {finding.line && (
-                                  <div className="mt-2">
-                                    <span className="text-xs font-medium text-gray-600">Matched Line:</span>
-                                    <pre className="mt-1 p-2 bg-gray-900 text-gray-100 rounded text-xs overflow-x-auto">{finding.line}</pre>
-                                  </div>
-                                )}
-                                <div className="flex items-center space-x-3 text-xs text-gray-500">
-                                  <span>🔍 Pattern: <code className="text-xs">{finding.matchedPattern}</code></span>
-                                  <span>📝 Commit: <code>{finding.commitHash}</code></span>
-                                  <span>👤 {finding.author}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <Shield className={`w-6 h-6 ${
-                            finding.severity === 'Critical' ? 'text-red-600' :
-                            finding.severity === 'High' ? 'text-orange-600' :
-                            finding.severity === 'Medium' ? 'text-yellow-600' :
-                            'text-blue-600'
-                          }`} />
-                        </div>
-                      </div>
-
-                      {/* Details */}
-                      <div className="p-4 space-y-3">
-                        {/* Description */}
-                        {finding.description && (
-                          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
-                            <p className="text-xs font-semibold text-blue-800 mb-1">📋 Description</p>
-                            <p className="text-sm text-blue-900">{finding.description}</p>
-                          </div>
-                        )}
-
-                        {/* Impact */}
-                        {finding.impact && (
-                          <div className="bg-red-50 border-l-4 border-red-400 p-3 rounded">
-                            <p className="text-xs font-semibold text-red-800 mb-1">⚠️ Security Impact</p>
-                            <p className="text-sm text-red-900">{finding.impact}</p>
-                          </div>
-                        )}
-
-                        {/* Recommendation */}
-                        {finding.recommendation && (
-                          <div className="bg-green-50 border-l-4 border-green-400 p-3 rounded">
-                            <p className="text-xs font-semibold text-green-800 mb-1">✅ Remediation</p>
-                            <p className="text-sm text-green-900 font-medium">{finding.recommendation}</p>
-                          </div>
-                        )}
-
-                        {/* References (SCA) */}
-                        {finding.references && finding.references.length > 0 && (
-                          <div className="bg-gray-50 border-l-4 border-gray-400 p-3 rounded">
-                            <p className="text-xs font-semibold text-gray-800 mb-2">🔗 References</p>
-                            <ul className="space-y-1">
-                              {finding.references.map((ref: string, idx: number) => (
-                                <li key={idx}>
-                                  <a
-                                    href={ref}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline break-all"
-                                  >
-                                    {ref}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Pagination Controls */}
+        {distributions.by_project.length > projectsPerPage && (
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200">
+            <div className="text-sm text-gray-600">
+              Page {projectsPage} of {Math.ceil(distributions.by_project.length / projectsPerPage)}
             </div>
-
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
+            <div className="flex items-center space-x-2">
               <button
-                onClick={closeDrillDown}
-                className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
+                onClick={() => setProjectsPage(Math.max(1, projectsPage - 1))}
+                disabled={projectsPage === 1}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
               >
-                Close
+                <ChevronLeft className="w-4 h-4" />
+                <span>Previous</span>
+              </button>
+
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.ceil(distributions.by_project.length / projectsPerPage) }, (_, i) => i + 1)
+                  .filter(page => {
+                    // Show first page, last page, current page, and pages around current
+                    return page === 1 ||
+                           page === Math.ceil(distributions.by_project.length / projectsPerPage) ||
+                           Math.abs(page - projectsPage) <= 1
+                  })
+                  .map((page, index, array) => (
+                    <div key={page} className="flex items-center">
+                      {index > 0 && array[index - 1] !== page - 1 && (
+                        <span className="px-2 text-gray-400">...</span>
+                      )}
+                      <button
+                        onClick={() => setProjectsPage(page)}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                          projectsPage === page
+                            ? 'bg-primary-600 text-white'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+
+              <button
+                onClick={() => setProjectsPage(Math.min(Math.ceil(distributions.by_project.length / projectsPerPage), projectsPage + 1))}
+                disabled={projectsPage === Math.ceil(distributions.by_project.length / projectsPerPage)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+              >
+                <span>Next</span>
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Vulnerability Trend Over Time */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Vulnerability Trend</h2>
-            <p className="text-sm text-gray-600">Track vulnerabilities and fixes over time</p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-green-600 font-medium">↓ 19% decrease</span>
-          </div>
-        </div>
-        <ResponsiveContainer width="100%" height={300}>
-          <AreaChart data={stats.vulnerabilityTrend}>
-            <defs>
-              <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-              </linearGradient>
-              <linearGradient id="colorFixed" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Area type="monotone" dataKey="critical" stackId="1" stroke="#dc2626" fill="#dc2626" name="Critical" />
-            <Area type="monotone" dataKey="high" stackId="1" stroke="#ef4444" fill="#ef4444" name="High" />
-            <Area type="monotone" dataKey="medium" stackId="1" stroke="#f97316" fill="#f97316" name="Medium" />
-            <Area type="monotone" dataKey="low" stackId="1" stroke="#fbbf24" fill="#fbbf24" name="Low" />
-            <Line type="monotone" dataKey="fixed" stroke="#10b981" strokeWidth={3} name="Fixed" />
-          </AreaChart>
-        </ResponsiveContainer>
-        <div className="grid grid-cols-4 gap-4 mt-4">
-          <div
-            className="text-center p-3 bg-red-50 rounded-lg cursor-pointer hover:shadow-md transition"
-            onClick={() => {
-              setSelectedSeverity('Critical')
-              setDrillDownView('severity')
-            }}
-          >
-            <p className="text-2xl font-bold text-red-600">{stats.criticalIssues}</p>
-            <p className="text-xs text-red-800">Critical</p>
-          </div>
-          <div
-            className="text-center p-3 bg-orange-50 rounded-lg cursor-pointer hover:shadow-md transition"
-            onClick={() => {
-              setSelectedSeverity('High')
-              setDrillDownView('severity')
-            }}
-          >
-            <p className="text-2xl font-bold text-orange-600">{stats.highIssues}</p>
-            <p className="text-xs text-orange-800">High</p>
-          </div>
-          <div
-            className="text-center p-3 bg-yellow-50 rounded-lg cursor-pointer hover:shadow-md transition"
-            onClick={() => {
-              setSelectedSeverity('Medium')
-              setDrillDownView('severity')
-            }}
-          >
-            <p className="text-2xl font-bold text-yellow-600">{stats.mediumIssues}</p>
-            <p className="text-xs text-yellow-800">Medium</p>
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg">
-            <p className="text-2xl font-bold text-green-600">15</p>
-            <p className="text-xs text-green-800">Fixed</p>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Projects */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Projects</h2>
-            <Link to="/projects" className="text-sm text-primary-600 hover:text-primary-700">
-              View all →
-            </Link>
+      {/* Scan Activity Trend */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Scan Activity</h2>
+            <p className="text-sm text-gray-600 mt-1">Number of security scans over time</p>
           </div>
-
-          {stats.recentProjects.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-600">No projects yet</p>
-              <Link to="/projects" className="btn btn-primary mt-4">
-                Create First Project
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {stats.recentProjects.map((project: any) => (
-                <div
-                  key={project.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-primary-600" />
-                    </div>
-                    <div>
-                      <Link
-                        to={`/projects/${project.id}`}
-                        className="font-medium text-gray-900 hover:text-primary-600"
-                      >
-                        {project.name}
-                      </Link>
-                      <p className="text-sm text-gray-500">{project.description || 'No description'}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-semibold text-gray-900">
-                      {project.risk_score?.toFixed(1) || '0.0'}
-                    </div>
-                    <div className="text-xs text-gray-500">Risk Score</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
+        <ResponsiveContainer width="100%" height={250}>
+          <LineChart data={trends.scan_activity}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 12 }}
+              tickFormatter={(value) => {
+                const date = new Date(value)
+                return `${date.getMonth() + 1}/${date.getDate()}`
+              }}
+            />
+            <YAxis tick={{ fontSize: 12 }} />
+            <Tooltip
+              contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+            />
+            <Line
+              type="monotone"
+              dataKey="scans"
+              stroke="#6366f1"
+              strokeWidth={3}
+              dot={{ fill: '#6366f1', r: 4 }}
+              activeDot={{ r: 6 }}
+              name="Scans"
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
-        {/* Quick Actions */}
-        <div className="card p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="space-y-3">
-            <QuickAction
-              icon={<FileText className="w-6 h-6" />}
-              title="Create New Project"
-              description="Upload architecture and start threat modeling"
-              link="/projects"
-              color="blue"
-            />
-            <QuickAction
-              icon={<Shield className="w-6 h-6" />}
-              title="Run Security Scan"
-              description="SAST, SCA, and secret detection"
-              link="/projects"
-              color="green"
-            />
-            <QuickAction
-              icon={<Package className="w-6 h-6" />}
-              title="Review Dependencies"
-              description="Check for vulnerable packages"
-              link="/projects"
-              color="orange"
-            />
-            <QuickAction
-              icon={<Key className="w-6 h-6" />}
-              title="AI Security Assistant"
-              description="Get help from multilingual chatbot"
-              link="/chat"
-              color="purple"
-            />
-          </div>
+      {/* Top Vulnerability Types */}
+      <div className="card p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Top 5 Vulnerability Types</h2>
+        <div className="space-y-4">
+          {top_types.map((item: any, index: number) => (
+            <div key={index} className="flex items-center">
+              <div className="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold text-sm mr-4">
+                {index + 1}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-gray-900">{item.type}</span>
+                  <span className="text-sm font-bold text-gray-700">{item.count}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(item.count / top_types[0].count) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   )
 }
 
-function StatCard({ title, value, icon, color, trend, onClick }: any) {
+function MetricCard({ title, value, icon, color, subtitle }: any) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
     red: 'bg-red-100 text-red-600',
+    yellow: 'bg-yellow-100 text-yellow-600',
     green: 'bg-green-100 text-green-600',
-    orange: 'bg-orange-100 text-orange-600',
+    blue: 'bg-blue-100 text-blue-600',
   }
 
   return (
-    <div
-      className={`card p-6 ${onClick ? 'cursor-pointer hover:shadow-lg transition-shadow' : ''}`}
-      onClick={onClick}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-          {trend && (
-            <p className="text-sm text-green-600 mt-1">
-              {trend} from last week
-            </p>
+    <div className="card p-6">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
+          <p className="text-3xl font-bold text-gray-900 mb-1">{value}</p>
+          {subtitle && (
+            <p className="text-xs text-gray-500">{subtitle}</p>
           )}
         </div>
         <div className={`p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
           {icon}
         </div>
       </div>
-      {onClick && (
-        <p className="text-xs text-gray-500 mt-2">Click to view details</p>
-      )}
     </div>
-  )
-}
-
-function QuickAction({ icon, title, description, link, color }: any) {
-  const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    orange: 'bg-orange-100 text-orange-600',
-    purple: 'bg-purple-100 text-purple-600',
-  }
-
-  return (
-    <Link
-      to={link}
-      className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-    >
-      <div className={`p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
-        {icon}
-      </div>
-      <div className="flex-1">
-        <h3 className="font-medium text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-600">{description}</p>
-      </div>
-      <div className="text-gray-400">→</div>
-    </Link>
   )
 }
