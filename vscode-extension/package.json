@@ -1,8 +1,8 @@
 {
   "name": "appsec-ai-scanner",
-  "displayName": "AppSec AI Security Scanner",
+  "displayName": "SecureDev AI Security Scanner",
   "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
@@ -28,101 +28,109 @@
   "contributes": {
     "commands": [
       {
+        "command": "appsec.configureServer",
+        "title": "SecureDev AI: Configure Server URL"
+      },
+      {
+        "command": "appsec.testConnection",
+        "title": "SecureDev AI: Test Server Connection"
+      },
+      {
         "command": "appsec.login",
-        "title": "AppSec: Login to Platform"
+        "title": "SecureDev AI: Login to Platform"
       },
       {
         "command": "appsec.logout",
-        "title": "AppSec: Logout"
+        "title": "SecureDev AI: Logout"
       },
       {
         "command": "appsec.scanWorkspace",
-        "title": "AppSec: Scan Workspace",
+        "title": "SecureDev AI: Scan Workspace",
         "icon": "$(shield)"
       },
       {
         "command": "appsec.scanFile",
-        "title": "AppSec: Scan Current File"
+        "title": "SecureDev AI: Scan Current File"
       },
       {
         "command": "appsec.viewOnWeb",
-        "title": "AppSec: View on Web Dashboard"
+        "title": "SecureDev AI: View on Web Dashboard"
       },
       {
         "command": "appsec.clearFindings",
-        "title": "AppSec: Clear Security Findings"
+        "title": "SecureDev AI: Clear Security Findings"
       },
       {
         "command": "appsec.refreshFindings",
-        "title": "AppSec: Refresh Findings",
+        "title": "SecureDev AI: Refresh Findings",
         "icon": "$(refresh)"
       },
       {
         "command": "appsec.applyFix",
-        "title": "AppSec: Apply AI-Suggested Fix"
+        "title": "SecureDev AI: Apply AI-Suggested Fix"
       },
       {
         "command": "appsec.markResolved",
-        "title": "AppSec: Mark as Resolved"
+        "title": "SecureDev AI: Mark as Resolved"
       },
       {
         "command": "appsec.markFalsePositive",
-        "title": "AppSec: Mark as False Positive"
+        "title": "SecureDev AI: Mark as False Positive"
       },
       {
         "command": "appsec.showDetails",
-        "title": "AppSec: Show Vulnerability Details"
+        "title": "SecureDev AI: Show Vulnerability Details"
       },
       {
         "command": "appsec.openChatbot",
-        "title": "AppSec: Open AI Assistant",
+        "title": "SecureDev AI: Open AI Assistant",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "appsec.discussWithAI",
-        "title": "AppSec: Discuss with AI Assistant",
+        "title": "SecureDev AI: Discuss with AI Assistant",
         "icon": "$(comment)"
       },
       {
         "command": "appsec.manageCustomRules",
-        "title": "AppSec: Manage Custom Rules",
+        "title": "SecureDev AI: Manage Custom Rules",
         "icon": "$(file-code)"
       },
       {
         "command": "appsec.viewRulePerformance",
-        "title": "AppSec: View Rule Performance Dashboard"
+        "title": "SecureDev AI: View Rule Performance Dashboard"
       },
       {
         "command": "appsec.generateRuleWithAI",
-        "title": "AppSec: Generate Rule with AI"
+        "title": "SecureDev AI: Generate Rule with AI"
       },
       {
         "command": "appsec.refreshCustomRules",
-        "title": "AppSec: Refresh Custom Rules",
+        "title": "SecureDev AI: Refresh Custom Rules",
         "icon": "$(refresh)"
       },
       {
         "command": "appsec.createCustomRule",
-        "title": "AppSec: Create Custom Rule"
+        "title": "SecureDev AI: Create Custom Rule"
       },
       {
         "command": "appsec.editCustomRule",
-        "title": "AppSec: Edit Rule"
+        "title": "SecureDev AI: Edit Rule"
       },
       {
         "command": "appsec.deleteCustomRule",
-        "title": "AppSec: Delete Rule"
+        "title": "SecureDev AI: Delete Rule"
       },
       {
         "command": "appsec.toggleCustomRule",
-        "title": "AppSec: Toggle Rule Enabled/Disabled"
+        "title": "SecureDev AI: Toggle Rule Enabled/Disabled"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "appsec-sidebar",
-          "title": "AppSec Security",
+          "title": "SecureDev AI",
           "icon": "$(shield)"
         }
       ]
@@ -223,12 +231,19 @@
       ]
     },
     "configuration": {
-      "title": "AppSec AI Scanner",
+      "title": "SecureDev AI Scanner",
       "properties": {
         "appsec.apiUrl": {
           "type": "string",
           "default": "http://localhost:8000",
-          "description": "AppSec Platform API URL"
+          "description": "SecureDev AI Platform API URL (e.g., http://localhost:8000 for local, https://your-domain.com for production)",
+          "order": 1
+        },
+        "appsec.frontendUrl": {
+          "type": "string",
+          "default": "http://localhost:5173",
+          "description": "SecureDev AI Web Dashboard URL (e.g., http://localhost:5173 for local, https://your-domain.com for production)",
+          "order": 2
         },
         "appsec.autoScan": {
           "type": "boolean",

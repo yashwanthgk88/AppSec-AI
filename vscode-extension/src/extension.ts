@@ -23,7 +23,7 @@ let inlineSecurityProvider: InlineSecurityProvider;
 let inlineDiagnostics: vscode.DiagnosticCollection;
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('AppSec AI Scanner extension activated');
+    console.log('SecureDev AI Scanner extension activated');
 
     apiClient = new ApiClient(context);
     diagnosticsManager = new DiagnosticsManager();
@@ -36,8 +36,8 @@ export async function activate(context: vscode.ExtensionContext) {
     inlineDiagnostics = vscode.languages.createDiagnosticCollection('appsec-inline');
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.text = "$(shield) AppSec";
-    statusBarItem.tooltip = "AppSec AI Scanner";
+    statusBarItem.text = "$(shield) SecureDev AI";
+    statusBarItem.tooltip = "SecureDev AI Scanner";
     statusBarItem.command = 'appsec.scanWorkspace';
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
@@ -46,6 +46,34 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.window.registerTreeDataProvider('appsecScaFindings', scaFindingsProvider);
     vscode.window.registerTreeDataProvider('appsecSecretsFindings', secretsFindingsProvider);
     vscode.window.registerTreeDataProvider('appsecCustomRules', customRulesProvider);
+
+    // Listen for configuration changes to reload API client
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('appsec.apiUrl') || e.affectsConfiguration('appsec.frontendUrl')) {
+                apiClient = new ApiClient(context);
+                findingsProvider = new FindingsProvider(apiClient);
+                scaFindingsProvider = new ScaFindingsProvider(apiClient);
+                secretsFindingsProvider = new SecretsFindingsProvider(apiClient);
+                customRulesProvider = new CustomRulesProvider(apiClient);
+                vscode.window.showInformationMessage('SecureDev AI: Server configuration updated. Please login again.');
+            }
+        })
+    );
+
+    // Configure Server URL Command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.configureServer', async () => {
+            await configureServerCommand();
+        })
+    );
+
+    // Test Connection Command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.testConnection', async () => {
+            await testConnectionCommand();
+        })
+    );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.login', async () => {
@@ -56,7 +84,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.logout', async () => {
             await apiClient.logout();
-            vscode.window.showInformationMessage('Logged out from AppSec platform');
+            vscode.window.showInformationMessage('Logged out from SecureDev AI platform');
             findingsProvider.refresh();
             updateStatusBar('disconnected');
         })
@@ -90,9 +118,8 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.viewOnDashboard', async () => {
             const config = vscode.workspace.getConfiguration('appsec');
-            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-            const webUrl = apiUrl.replace(':8000', ':5173');
-            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+            const frontendUrl = config.get<string>('frontendUrl', 'http://localhost:5173');
+            vscode.env.openExternal(vscode.Uri.parse(frontendUrl));
         })
     );
 
@@ -149,18 +176,16 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.viewOnWeb', () => {
             const config = vscode.workspace.getConfiguration('appsec');
-            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-            const webUrl = apiUrl.replace(':8000', ':5174');
-            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+            const frontendUrl = config.get<string>('frontendUrl', 'http://localhost:5173');
+            vscode.env.openExternal(vscode.Uri.parse(frontendUrl));
         })
     );
 
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.manageCustomRules', () => {
             const config = vscode.workspace.getConfiguration('appsec');
-            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-            const webUrl = apiUrl.replace(':8000', ':5174') + '/custom-rules';
-            vscode.env.openExternal(vscode.Uri.parse(webUrl));
+            const frontendUrl = config.get<string>('frontendUrl', 'http://localhost:5173');
+            vscode.env.openExternal(vscode.Uri.parse(frontendUrl + '/custom-rules'));
         })
     );
 
@@ -260,13 +285,153 @@ export async function activate(context: vscode.ExtensionContext) {
 
     if (await apiClient.isAuthenticated()) {
         updateStatusBar('connected');
-        vscode.window.showInformationMessage('Connected to AppSec platform');
+        vscode.window.showInformationMessage('Connected to SecureDev AI platform');
     }
+}
+
+// Configure Server URL Command
+async function configureServerCommand() {
+    const config = vscode.workspace.getConfiguration('appsec');
+    const currentApiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+    const currentFrontendUrl = config.get<string>('frontendUrl', 'http://localhost:5173');
+
+    const choice = await vscode.window.showQuickPick([
+        { label: 'Configure API URL', description: `Current: ${currentApiUrl}`, value: 'api' },
+        { label: 'Configure Web Dashboard URL', description: `Current: ${currentFrontendUrl}`, value: 'frontend' },
+        { label: 'Configure Both', description: 'Set both API and Web Dashboard URLs', value: 'both' },
+        { label: 'Use Local Development', description: 'localhost:8000 / localhost:5173', value: 'local' },
+        { label: 'Open Settings', description: 'Open VS Code settings for full configuration', value: 'settings' }
+    ], { placeHolder: 'Select configuration option' });
+
+    if (!choice) {return;}
+
+    switch (choice.value) {
+        case 'api':
+            const newApiUrl = await vscode.window.showInputBox({
+                prompt: 'Enter the SecureDev AI API URL',
+                placeHolder: 'https://your-domain.com or http://localhost:8000',
+                value: currentApiUrl,
+                validateInput: (value) => {
+                    try {
+                        new URL(value);
+                        return null;
+                    } catch {
+                        return 'Please enter a valid URL';
+                    }
+                }
+            });
+            if (newApiUrl) {
+                await config.update('apiUrl', newApiUrl, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`API URL updated to: ${newApiUrl}`);
+            }
+            break;
+
+        case 'frontend':
+            const newFrontendUrl = await vscode.window.showInputBox({
+                prompt: 'Enter the SecureDev AI Web Dashboard URL',
+                placeHolder: 'https://your-domain.com or http://localhost:5173',
+                value: currentFrontendUrl,
+                validateInput: (value) => {
+                    try {
+                        new URL(value);
+                        return null;
+                    } catch {
+                        return 'Please enter a valid URL';
+                    }
+                }
+            });
+            if (newFrontendUrl) {
+                await config.update('frontendUrl', newFrontendUrl, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Web Dashboard URL updated to: ${newFrontendUrl}`);
+            }
+            break;
+
+        case 'both':
+            const baseUrl = await vscode.window.showInputBox({
+                prompt: 'Enter your SecureDev AI server domain/IP (without port)',
+                placeHolder: 'https://your-domain.com or http://192.168.1.100',
+                validateInput: (value) => {
+                    try {
+                        new URL(value);
+                        return null;
+                    } catch {
+                        return 'Please enter a valid URL';
+                    }
+                }
+            });
+            if (baseUrl) {
+                const url = new URL(baseUrl);
+                const apiEndpoint = url.protocol === 'https:'
+                    ? `${url.origin}/api`
+                    : `${url.protocol}//${url.hostname}:8000`;
+                const frontendEndpoint = url.protocol === 'https:'
+                    ? url.origin
+                    : `${url.protocol}//${url.hostname}:5173`;
+
+                await config.update('apiUrl', apiEndpoint, vscode.ConfigurationTarget.Global);
+                await config.update('frontendUrl', frontendEndpoint, vscode.ConfigurationTarget.Global);
+                vscode.window.showInformationMessage(`Server configured: API=${apiEndpoint}, Web=${frontendEndpoint}`);
+            }
+            break;
+
+        case 'local':
+            await config.update('apiUrl', 'http://localhost:8000', vscode.ConfigurationTarget.Global);
+            await config.update('frontendUrl', 'http://localhost:5173', vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage('Configured for local development');
+            break;
+
+        case 'settings':
+            vscode.commands.executeCommand('workbench.action.openSettings', 'appsec');
+            break;
+    }
+}
+
+// Test Connection Command
+async function testConnectionCommand() {
+    const config = vscode.workspace.getConfiguration('appsec');
+    const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: 'Testing connection to SecureDev AI server...',
+        cancellable: false
+    }, async () => {
+        try {
+            const axios = require('axios');
+            const response = await axios.get(`${apiUrl}/health`, { timeout: 10000 });
+
+            if (response.status === 200) {
+                vscode.window.showInformationMessage(
+                    `✅ Successfully connected to SecureDev AI server at ${apiUrl}`,
+                    'Login Now'
+                ).then(selection => {
+                    if (selection === 'Login Now') {
+                        vscode.commands.executeCommand('appsec.login');
+                    }
+                });
+            }
+        } catch (error: any) {
+            const errorMessage = error.code === 'ECONNREFUSED'
+                ? 'Connection refused - Is the server running?'
+                : error.code === 'ETIMEDOUT'
+                ? 'Connection timed out - Check the URL'
+                : error.message;
+
+            vscode.window.showErrorMessage(
+                `❌ Failed to connect to ${apiUrl}: ${errorMessage}`,
+                'Configure Server'
+            ).then(selection => {
+                if (selection === 'Configure Server') {
+                    vscode.commands.executeCommand('appsec.configureServer');
+                }
+            });
+        }
+    });
 }
 
 async function loginCommand(context: vscode.ExtensionContext) {
     const username = await vscode.window.showInputBox({
-        prompt: 'Enter your AppSec platform username',
+        prompt: 'Enter your SecureDev AI platform username',
         placeHolder: 'username',
         ignoreFocusOut: true
     });
@@ -288,13 +453,13 @@ async function loginCommand(context: vscode.ExtensionContext) {
     try {
         await vscode.window.withProgress({
             location: vscode.ProgressLocation.Notification,
-            title: 'Logging in to AppSec platform...',
+            title: 'Logging in to SecureDev AI platform...',
             cancellable: false
         }, async () => {
             await apiClient.login(username, password);
         });
 
-        vscode.window.showInformationMessage('Successfully logged in to AppSec platform');
+        vscode.window.showInformationMessage('Successfully logged in to SecureDev AI platform');
         updateStatusBar('connected');
         await refreshFindingsCommand();
     } catch (error: any) {
@@ -305,7 +470,7 @@ async function loginCommand(context: vscode.ExtensionContext) {
 async function scanWorkspaceCommand() {
     if (!await apiClient.isAuthenticated()) {
         const login = await vscode.window.showWarningMessage(
-            'Please login to AppSec platform first',
+            'Please login to SecureDev AI platform first',
             'Login'
         );
         if (login === 'Login') {
@@ -326,7 +491,7 @@ async function scanWorkspaceCommand() {
         updateStatusBar('scanning');
 
         const results = await scanProgressManager.showScanProgress(
-            'AppSec Security Scan',
+            'SecureDev AI Security Scan',
             async (updateProgress) => {
                 const workspacePath = workspaceFolders[0].uri.fsPath;
 
@@ -411,7 +576,7 @@ async function scanWorkspaceCommand() {
 async function scanCurrentFileCommand() {
     if (!await apiClient.isAuthenticated()) {
         const login = await vscode.window.showWarningMessage(
-            'Please login to AppSec platform first',
+            'Please login to SecureDev AI platform first',
             'Login'
         );
         if (login === 'Login') {
@@ -595,22 +760,22 @@ function analyzeDocumentInline(document: vscode.TextDocument) {
 function updateStatusBar(status: 'connected' | 'disconnected' | 'scanning' | 'error') {
     switch (status) {
         case 'connected':
-            statusBarItem.text = "$(shield) AppSec";
-            statusBarItem.tooltip = "AppSec AI Scanner - Connected";
+            statusBarItem.text = "$(shield) SecureDev AI";
+            statusBarItem.tooltip = "SecureDev AI Scanner - Connected";
             statusBarItem.backgroundColor = undefined;
             break;
         case 'disconnected':
-            statusBarItem.text = "$(shield) AppSec (disconnected)";
+            statusBarItem.text = "$(shield) SecureDev AI (disconnected)";
             statusBarItem.tooltip = "Click to login";
             statusBarItem.command = 'appsec.login';
             break;
         case 'scanning':
             statusBarItem.text = "$(loading~spin) Scanning...";
-            statusBarItem.tooltip = "AppSec AI Scanner - Scanning";
+            statusBarItem.tooltip = "SecureDev AI Scanner - Scanning";
             break;
         case 'error':
-            statusBarItem.text = "$(shield) AppSec (error)";
-            statusBarItem.tooltip = "AppSec AI Scanner - Error";
+            statusBarItem.text = "$(shield) SecureDev AI (error)";
+            statusBarItem.tooltip = "SecureDev AI Scanner - Error";
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
             break;
     }

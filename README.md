@@ -13,7 +13,7 @@ A comprehensive application security platform featuring threat modeling, vulnera
 - **Rule Performance Dashboard:** Track detection rates and rule effectiveness
 - **AI Chatbot:** Security assistance powered by OpenAI
 - **Report Export:** Generate Excel, PDF, and XML reports
-- **VS Code Extension:** Real-time security feedback in your IDE (v1.4.0)
+- **VS Code Extension:** Real-time security feedback in your IDE (v1.5.0)
 - **Live Log Correlation:** Real-time threat detection and alerts
 
 ---
@@ -94,7 +94,7 @@ chmod +x deploy.sh
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000 |
 | API Docs | http://localhost:8000/docs |
-| VS Code Extension | http://localhost:3000/downloads/appsec-ai-scanner-1.4.0.vsix |
+| VS Code Extension | http://localhost:3000/downloads/appsec-ai-scanner-1.5.0.vsix |
 
 ---
 
@@ -666,15 +666,15 @@ sudo systemctl restart appsec-backend
 
 ### Installation
 1. Download the extension:
-   - Development: http://localhost:3000/downloads/appsec-ai-scanner-1.4.0.vsix
-   - Production: http://your-domain/downloads/appsec-ai-scanner-1.4.0.vsix
+   - Development: http://localhost:3000/downloads/appsec-ai-scanner-1.5.0.vsix
+   - Production: http://your-domain/downloads/appsec-ai-scanner-1.5.0.vsix
 
 2. Install in VS Code:
    ```bash
-   code --install-extension appsec-ai-scanner-1.4.0.vsix
+   code --install-extension appsec-ai-scanner-1.5.0.vsix
    ```
 
-### Features (v1.4.0)
+### Features (v1.5.0)
 - ✅ Separate SAST Findings view
 - ✅ Dedicated SCA Vulnerabilities view
 - ✅ Secret Detection view with type grouping
@@ -763,7 +763,7 @@ appsec-platform/
 │   │   └── services/     # API clients
 │   ├── nginx.conf        # Frontend nginx config
 │   └── Dockerfile        # Frontend container
-├── vscode-extension/     # VS Code extension v1.4.0
+├── vscode-extension/     # VS Code extension v1.5.0
 ├── nginx/                # Production reverse proxy
 │   └── nginx.conf        # Production nginx config
 ├── docker-compose.yml    # Multi-container orchestration

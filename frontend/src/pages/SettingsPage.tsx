@@ -799,34 +799,30 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.4.0.vsix"
+              href="/downloads/appsec-ai-scanner-1.5.0.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.4.0 • 957 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.5.0 • 960 KB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.4.0
+            What's New in v1.5.0
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+            <li><strong>🌐 Configurable Server URL:</strong> Easily configure your production server URL via Command Palette → "SecureDev AI: Configure Server URL"</li>
+            <li><strong>🔌 Test Connection:</strong> New command to verify connectivity to your SecureDev AI server before logging in</li>
+            <li><strong>♻️ Auto-Reload on Settings Change:</strong> Extension automatically reloads when you update server URLs - no restart needed</li>
+            <li><strong>🎨 SecureDev AI Branding:</strong> Updated branding throughout the extension</li>
             <li><strong>📦 Separate SCA Vulnerabilities View:</strong> Dedicated tree view for dependency vulnerabilities with package info, CVE details, CVSS scores, and fixed versions</li>
             <li><strong>🔐 Dedicated Secret Detection View:</strong> New tree view for exposed secrets grouped by type (API Keys, Passwords, Tokens) with critical security warnings</li>
-            <li><strong>📊 Rule Performance Dashboard:</strong> Inline VS Code panel to view rule statistics, precision metrics, top performers, and rules needing attention - no browser needed!</li>
-            <li><strong>🎯 Enhanced Findings Organization:</strong> SAST findings now in separate view from SCA and Secrets for better clarity and navigation</li>
-            <li><strong>🐛 Bug Fixes:</strong> Fixed missing command registration errors and improved error handling throughout the extension</li>
-            <li><strong>✅ Auto-Remediation with Git:</strong> One-click fix application with automatic git commit and customizable commit messages</li>
-            <li><strong>⚡ Real-Time Inline Security Suggestions:</strong> Get instant security warnings as you type - detects eval(), innerHTML, SQL injection, hardcoded secrets, weak crypto, and more</li>
-            <li><strong>🔍 Improved Findings Sidebar:</strong> Shows vulnerability counts per severity, rich tooltips with markdown, and organized tree view</li>
-            <li><strong>📁 File Navigation:</strong> Click file location to jump directly to vulnerable code in editor</li>
-            <li><strong>📋 Code Snippets:</strong> View vulnerable code and suggested fixes side-by-side with syntax highlighting</li>
-            <li><strong>💡 Quick Fixes:</strong> Hover over inline security warnings for suggested remediation steps</li>
+            <li><strong>📊 Rule Performance Dashboard:</strong> Inline VS Code panel to view rule statistics, precision metrics, and rules needing attention</li>
           </ul>
         </div>
 
@@ -839,7 +835,26 @@ export default function SettingsPage() {
             <li>Click the "..." menu → "Install from VSIX..."</li>
             <li>Select the downloaded .vsix file</li>
             <li>Reload VS Code when prompted</li>
-            <li>Use Command Palette (Ctrl+Shift+P) → "SecureDev AI: Login to Platform"</li>
+            <li>Use Command Palette (Ctrl+Shift+P) → "SecureDev AI: Configure Server URL" to set your production server</li>
+            <li>Use Command Palette (Ctrl+Shift+P) → "SecureDev AI: Test Server Connection" to verify connectivity</li>
+            <li>Use Command Palette (Ctrl+Shift+P) → "SecureDev AI: Login to Platform" to authenticate</li>
+          </ol>
+        </div>
+
+        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h4 className="font-semibold text-yellow-900 mb-2 flex items-center">
+            <Globe className="h-5 w-5 mr-2" />
+            Connecting to Production Server
+          </h4>
+          <p className="text-sm text-yellow-800 mb-2">
+            After deploying SecureDev AI to production, configure the VS Code extension to connect to your server:
+          </p>
+          <ol className="list-decimal list-inside text-sm text-yellow-800 space-y-1">
+            <li>Open Command Palette (Ctrl+Shift+P / Cmd+Shift+P)</li>
+            <li>Search for "SecureDev AI: Configure Server URL"</li>
+            <li>Choose "Configure Both" to set API and Web Dashboard URLs</li>
+            <li>Enter your production server URL (e.g., https://your-domain.com)</li>
+            <li>Test the connection, then login with your credentials</li>
           </ol>
         </div>
       </div>
