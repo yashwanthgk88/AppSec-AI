@@ -839,7 +839,7 @@ export default function SettingsPage() {
             <li>Click the "..." menu → "Install from VSIX..."</li>
             <li>Select the downloaded .vsix file</li>
             <li>Reload VS Code when prompted</li>
-            <li>Use Command Palette (Ctrl+Shift+P) → "AppSec: Login to Platform"</li>
+            <li>Use Command Palette (Ctrl+Shift+P) → "SecureDev AI: Login to Platform"</li>
           </ol>
         </div>
       </div>

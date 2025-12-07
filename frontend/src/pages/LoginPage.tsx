@@ -42,7 +42,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4">
             <Shield className="w-10 h-10 text-primary-600" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">AppSec Platform</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">SecureDev AI</h1>
           <p className="text-primary-200">AI-Enabled Application Security</p>
         </div>
 

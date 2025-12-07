@@ -50,7 +50,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
               <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
                 <Shield className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-gray-900">AppSec</span>
+              <span className="text-lg font-bold text-gray-900">SecureDev AI</span>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
