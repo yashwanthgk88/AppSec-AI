@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import axios, { AxiosInstance } from 'axios';
 
 export class ApiClient {
@@ -30,6 +32,10 @@ export class ApiClient {
 
     async login(username: string, password: string): Promise<void> {
         try {
+            const config = vscode.workspace.getConfiguration('appsec');
+            const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+            console.log(`[SecureDev AI] Attempting login to: ${apiUrl}/api/auth/login`);
+
             const response = await this.axiosInstance.post('/api/auth/login', {
                 username,
                 password
@@ -37,8 +43,19 @@ export class ApiClient {
 
             const token = response.data.access_token;
             await this.context.secrets.store(this.tokenKey, token);
+            console.log('[SecureDev AI] Login successful');
         } catch (error: any) {
-            throw new Error(error.response?.data?.detail || 'Login failed');
+            console.error('[SecureDev AI] Login error:', error.message);
+            if (error.code === 'ECONNREFUSED') {
+                throw new Error('Cannot connect to server. Is the backend running?');
+            }
+            if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+                throw new Error('Network error. Check your API URL in settings.');
+            }
+            if (error.response?.status === 401) {
+                throw new Error('Invalid username or password');
+            }
+            throw new Error(error.response?.data?.detail || error.message || 'Login failed');
         }
     }
 
@@ -48,11 +65,34 @@ export class ApiClient {
 
     async isAuthenticated(): Promise<boolean> {
         const token = await this.getToken();
-        return token !== undefined;
+        if (!token) {
+            return false;
+        }
+        // Validate token by calling /api/auth/me
+        try {
+            await this.axiosInstance.get('/api/auth/me');
+            return true;
+        } catch (error: any) {
+            // Token is invalid or expired
+            if (error.response?.status === 401) {
+                // Clear invalid token
+                await this.context.secrets.delete(this.tokenKey);
+                return false;
+            }
+            // Network error - assume authenticated if we have a token
+            return true;
+        }
     }
 
     private async getToken(): Promise<string | undefined> {
         return await this.context.secrets.get(this.tokenKey);
+    }
+
+    /**
+     * Clear stored authentication token
+     */
+    async clearToken(): Promise<void> {
+        await this.context.secrets.delete(this.tokenKey);
     }
 
     async scanWorkspace(workspacePath: string): Promise<any> {
@@ -70,9 +110,14 @@ export class ApiClient {
 
     async scanFile(filePath: string): Promise<any> {
         try {
+            // Read file content to send to remote backend
+            const fileContent = fs.readFileSync(filePath, 'utf-8');
+            const fileName = path.basename(filePath);
+
             // Try the new deep scan endpoint first (includes inter-procedural analysis)
             const response = await this.axiosInstance.post('/api/scan/deep', {
-                file_path: filePath,
+                source_code: fileContent,
+                file_name: fileName,
                 include_call_graph: true,
                 include_function_summaries: true,
                 include_taint_flows: true
@@ -80,13 +125,30 @@ export class ApiClient {
 
             return response.data;
         } catch (error: any) {
-            // Fallback to standard scan if deep scan fails
+            // Handle authentication errors
+            if (error.response?.status === 401) {
+                // Clear invalid token
+                await this.clearToken();
+                throw new Error('Session expired. Please login again.');
+            }
+            // Fallback to standard scan if deep scan endpoint not found
             if (error.response?.status === 404) {
-                const fallbackResponse = await this.axiosInstance.post('/api/scan/file', {
-                    file_path: filePath,
-                    scan_types: ['sast', 'secrets']
-                });
-                return fallbackResponse.data;
+                try {
+                    const fileContent = fs.readFileSync(filePath, 'utf-8');
+                    const fileName = path.basename(filePath);
+                    const fallbackResponse = await this.axiosInstance.post('/api/scan/file', {
+                        source_code: fileContent,
+                        file_name: fileName,
+                        scan_types: ['sast', 'secrets']
+                    });
+                    return fallbackResponse.data;
+                } catch (fallbackError: any) {
+                    if (fallbackError.response?.status === 401) {
+                        await this.clearToken();
+                        throw new Error('Session expired. Please login again.');
+                    }
+                    throw new Error(fallbackError.response?.data?.detail || 'File scan failed');
+                }
             }
             throw new Error(error.response?.data?.detail || 'File scan failed');
         }
@@ -98,8 +160,13 @@ export class ApiClient {
      */
     async deepScanFile(filePath: string): Promise<any> {
         try {
+            // Read file content to send to remote backend
+            const fileContent = fs.readFileSync(filePath, 'utf-8');
+            const fileName = path.basename(filePath);
+
             const response = await this.axiosInstance.post('/api/scan/deep', {
-                file_path: filePath,
+                source_code: fileContent,
+                file_name: fileName,
                 include_call_graph: true,
                 include_function_summaries: true,
                 include_taint_flows: true
@@ -117,8 +184,13 @@ export class ApiClient {
      */
     async interproceduralScan(filePath: string): Promise<any> {
         try {
+            // Read file content to send to remote backend
+            const fileContent = fs.readFileSync(filePath, 'utf-8');
+            const fileName = path.basename(filePath);
+
             const response = await this.axiosInstance.post('/api/scan/interprocedural', {
-                file_path: filePath,
+                source_code: fileContent,
+                file_name: fileName,
                 include_call_graph: true,
                 include_function_summaries: true,
                 include_taint_flows: true

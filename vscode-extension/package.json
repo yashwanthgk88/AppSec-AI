@@ -2,7 +2,7 @@
   "name": "appsec-ai-scanner",
   "displayName": "SecureDev AI Security Scanner",
   "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
-  "version": "1.8.6",
+  "version": "1.8.8",
   "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
@@ -139,6 +139,11 @@
         "command": "appsec.showFindingTaintFlow",
         "title": "SecureDev AI: Show Finding Taint Flow",
         "icon": "$(git-merge)"
+      },
+      {
+        "command": "appsec.deepScan",
+        "title": "SecureDev AI: Deep Inter-Procedural Scan",
+        "icon": "$(search-fuzzy)"
       }
     ],
     "viewsContainers": {
@@ -198,6 +203,11 @@
         },
         {
           "command": "appsec.showTaintFlow",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.deepScan",
           "when": "view == appsecFindings",
           "group": "navigation"
         },

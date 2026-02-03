@@ -1559,32 +1559,31 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.8.7.vsix"
+              href="/downloads/appsec-ai-scanner-1.8.8.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.8.7 • 4.3 MB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.8.8 • 140 KB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.8.7
+            What's New in v1.8.8
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+            <li><strong>🌐 REMOTE BACKEND SUPPORT:</strong> Scan files using cloud-hosted backend (Railway, AWS, etc.)</li>
+            <li><strong>🔐 Improved Authentication:</strong> Better token validation and automatic session refresh</li>
             <li><strong>🔗 DEEP INTER-PROCEDURAL ANALYSIS:</strong> Cross-function taint tracking that follows data flow across method boundaries</li>
             <li><strong>📊 Call Chain Visualization:</strong> Interactive SVG diagrams showing complete data flow from source to sink</li>
             <li><strong>🔍 Function Summaries:</strong> Detailed analysis of how each function processes and propagates tainted data</li>
             <li><strong>🎯 Enhanced Taint Flow Panel:</strong> Visualize inter-procedural flows with call chain sections</li>
             <li><strong>⚡ New Deep Scan Command:</strong> Dedicated command for comprehensive inter-procedural security analysis</li>
             <li><strong>🛡️ Complete OWASP Top 10 2021 Coverage:</strong> All 10 categories with 100+ security patterns</li>
-            <li><strong>💉 SQL Injection Detection:</strong> Catches string concatenation, template literals, f-strings, format()</li>
-            <li><strong>🔒 Cryptographic Failures:</strong> MD5, SHA1, weak ciphers, hardcoded secrets, API keys</li>
-            <li><strong>📂 ALL File Types Supported:</strong> JS, TS, Python, Java, Go, PHP, C#, Ruby, and more</li>
           </ul>
         </div>
 
