@@ -1551,21 +1551,21 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.8.3.vsix"
+              href="/downloads/appsec-ai-scanner-1.8.5.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.8.3 • 4.3 MB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.8.5 • 4.3 MB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.8.3
+            What's New in v1.8.5
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
             <li><strong>🔄 Taint Flow for All Findings:</strong> View taint flow visualization for any finding (no enhanced scan required)</li>
