@@ -2019,10 +2019,60 @@ class SCAScanner:
         return deps
 
     def parse_pom_xml(self, content: str) -> Dict[str, str]:
-        """Parse Maven pom.xml"""
+        """Parse Maven pom.xml with property resolution"""
         deps = {}
 
-        # More robust XML parsing with regex
+        # First extract Maven properties for version resolution
+        properties = {}
+
+        # Extract properties from <properties> section
+        props_pattern = re.compile(r'<properties>(.*?)</properties>', re.DOTALL)
+        props_match = props_pattern.search(content)
+        if props_match:
+            props_content = props_match.group(1)
+            # Extract each property
+            prop_pattern = re.compile(r'<([^>]+)>([^<]+)</\1>')
+            for prop_match in prop_pattern.finditer(props_content):
+                prop_name = prop_match.group(1).strip()
+                prop_value = prop_match.group(2).strip()
+                properties[prop_name] = prop_value
+
+        # Also check for parent version
+        parent_pattern = re.compile(
+            r'<parent>\s*.*?<version>([^<]+)</version>.*?</parent>',
+            re.DOTALL
+        )
+        parent_match = parent_pattern.search(content)
+        if parent_match:
+            properties['project.parent.version'] = parent_match.group(1).strip()
+
+        logger.debug(f"[SCA] Parsed Maven properties: {properties}")
+
+        def resolve_version(version_str: str) -> str:
+            """Resolve Maven property references like ${property.name}"""
+            if not version_str or not version_str.startswith('$'):
+                return version_str
+
+            # Extract property name from ${property.name}
+            prop_match = re.match(r'\$\{([^}]+)\}', version_str)
+            if prop_match:
+                prop_name = prop_match.group(1)
+                # Try direct match
+                if prop_name in properties:
+                    return properties[prop_name]
+                # Try with dots replaced (e.g., springboot.version)
+                for key, value in properties.items():
+                    if key.replace('.', '').lower() == prop_name.replace('.', '').lower():
+                        return value
+                    # Also try partial matches
+                    if prop_name.endswith('.version') and key.endswith('.version'):
+                        base_name = prop_name.replace('.version', '')
+                        if base_name in key.lower():
+                            return value
+
+            return version_str  # Return original if not resolved
+
+        # Parse dependencies
         dep_pattern = re.compile(
             r'<dependency>\s*'
             r'<groupId>([^<]+)</groupId>\s*'
@@ -2034,13 +2084,17 @@ class SCAScanner:
         for match in dep_pattern.finditer(content):
             group_id = match.group(1).strip()
             artifact_id = match.group(2).strip()
-            version = match.group(3).strip() if match.group(3) else "latest"
+            version_raw = match.group(3).strip() if match.group(3) else "latest"
+
+            # Resolve version if it's a property reference
+            version = resolve_version(version_raw)
 
             # Use artifact_id as primary key (most vuln DBs use this)
             deps[artifact_id] = version
             # Also store full coordinate
             deps[f"{group_id}:{artifact_id}"] = version
 
+        logger.info(f"[SCA] Parsed pom.xml: {len(deps)} dependencies")
         return deps
 
     def parse_gradle_build(self, content: str) -> Dict[str, str]:
