@@ -7,7 +7,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./appsec.db")
+# Use persistent storage path for Railway deployments
+# Falls back to local path for development
+def get_database_path():
+    """Get database path, preferring persistent storage if available"""
+    persistent_path = "/app/data/appsec.db"
+
+    # Check if running in Railway (persistent volume mounted)
+    if os.path.exists("/app/data"):
+        return f"sqlite:///{persistent_path}"
+
+    # Local development fallback
+    return "sqlite:///./appsec.db"
+
+DATABASE_URL = os.getenv("DATABASE_URL", get_database_path())
 
 # Create engine
 engine = create_engine(

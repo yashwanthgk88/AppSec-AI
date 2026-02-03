@@ -44,6 +44,13 @@ from pydantic import BaseModel, EmailStr
 
 load_dotenv()
 
+def get_db_path():
+    """Get database path, preferring persistent storage if available"""
+    persistent_path = "/app/data/appsec.db"
+    if os.path.exists("/app/data"):
+        return persistent_path
+    return "appsec.db"
+
 # Create FastAPI app
 # redirect_slashes=False prevents 307 redirects when URLs have trailing slashes
 app = FastAPI(
@@ -471,7 +478,7 @@ async def create_project(
             if finding.get('rule_id'):
                 try:
                     import sqlite3
-                    conn = sqlite3.connect('appsec.db')
+                    conn = sqlite3.connect(get_db_path())
                     cursor = conn.cursor()
                     # Update custom rule detection count
                     cursor.execute('''

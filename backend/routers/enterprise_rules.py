@@ -24,6 +24,7 @@ import logging
 
 from services.enterprise_rule_generator import EnterpriseRuleGenerator
 from core.security import get_current_user
+from utils.db_path import get_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class RuleTemplate(BaseModel):
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect('appsec.db')
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

@@ -5,7 +5,18 @@ Database migration script to add AI provider configuration fields
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "appsec.db")
+def get_db_path():
+    """Get database path, preferring persistent storage if available"""
+    persistent_path = "/app/data/appsec.db"
+
+    # Check if running in Railway (persistent volume mounted)
+    if os.path.exists("/app/data"):
+        return persistent_path
+
+    # Local development fallback
+    return os.path.join(os.path.dirname(__file__), "appsec.db")
+
+DB_PATH = get_db_path()
 
 def migrate():
     conn = sqlite3.connect(DB_PATH)

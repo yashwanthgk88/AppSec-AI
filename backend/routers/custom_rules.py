@@ -17,12 +17,13 @@ from models.custom_rule import (
 )
 from services.ruleset_enhancer import RulesetEnhancer
 from core.security import get_current_user
+from utils.db_path import get_db_path
 
 router = APIRouter(prefix="/api/rules", tags=["Custom Rules"])
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect('appsec.db')
+    conn = sqlite3.connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 
