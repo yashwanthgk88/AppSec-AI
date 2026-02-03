@@ -1,7 +1,7 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Cache bust: 2026-02-03-v1-owasp-inline
+# Cache bust: 2026-02-03-v2-extension-deploy
 ARG CACHEBUST=1
 
 WORKDIR /app
