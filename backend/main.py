@@ -284,6 +284,11 @@ async def startup_event():
 
     db.close()
 
+# Root endpoint for Railway healthcheck
+@app.get("/")
+async def root():
+    return {"status": "ok", "service": "AppSec AI Platform API", "version": "1.0.0"}
+
 # Health check
 @app.get("/health")
 async def health_check():
