@@ -213,6 +213,261 @@ class SCAScanner:
                 "ecosystem": "npm"
             },
         ],
+        "moment": [
+            {
+                "versions": ["<2.29.4"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2022-31129"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Moment.js has path traversal vulnerability through moment.locale().",
+                "remediation": "Upgrade to moment >= 2.29.4 or migrate to date-fns/dayjs",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2022-07-06",
+                "ecosystem": "npm"
+            },
+        ],
+        "shell-quote": [
+            {
+                "versions": ["<1.7.3"],
+                "vulnerability": "Command Injection",
+                "cve": ["CVE-2021-42740"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Shell-quote allows command injection via quote method.",
+                "remediation": "Upgrade to shell-quote >= 1.7.3",
+                "cwe": "CWE-78",
+                "owasp": "A03:2021 - Injection",
+                "published": "2021-10-21",
+                "ecosystem": "npm"
+            },
+        ],
+        "ua-parser-js": [
+            {
+                "versions": ["<0.7.33", ">=1.0.0,<1.0.33"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2022-25927"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "UA-Parser-JS vulnerable to ReDoS via malicious user-agent string.",
+                "remediation": "Upgrade to ua-parser-js >= 0.7.33 or >= 1.0.33",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-01-25",
+                "ecosystem": "npm"
+            },
+        ],
+        "glob-parent": [
+            {
+                "versions": ["<5.1.2"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2020-28469"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "ReDoS vulnerability in glob-parent.",
+                "remediation": "Upgrade to glob-parent >= 5.1.2",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-01-12",
+                "ecosystem": "npm"
+            },
+        ],
+        "trim-newlines": [
+            {
+                "versions": ["<3.0.1", ">=4.0.0,<4.0.1"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2021-33623"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "ReDoS vulnerability in trim-newlines.",
+                "remediation": "Upgrade to trim-newlines >= 3.0.1 or >= 4.0.1",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-05-28",
+                "ecosystem": "npm"
+            },
+        ],
+        "path-parse": [
+            {
+                "versions": ["<1.0.7"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2021-23343"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "ReDoS vulnerability in path-parse.",
+                "remediation": "Upgrade to path-parse >= 1.0.7",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-05-04",
+                "ecosystem": "npm"
+            },
+        ],
+        "tar": [
+            {
+                "versions": ["<6.1.11"],
+                "vulnerability": "Arbitrary File Overwrite",
+                "cve": ["CVE-2021-37713", "CVE-2021-37701", "CVE-2021-37712"],
+                "severity": "high",
+                "cvss": 8.1,
+                "description": "Tar allows arbitrary file creation/overwrite via symlink.",
+                "remediation": "Upgrade to tar >= 6.1.11",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2021-08-31",
+                "ecosystem": "npm"
+            },
+        ],
+        "semver": [
+            {
+                "versions": ["<5.7.2", ">=6.0.0,<6.3.1", ">=7.0.0,<7.5.2"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2022-25883"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "Semver vulnerable to ReDoS via malformed version string.",
+                "remediation": "Upgrade to semver >= 5.7.2, >= 6.3.1, or >= 7.5.2",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-06-23",
+                "ecosystem": "npm"
+            },
+        ],
+        "decode-uri-component": [
+            {
+                "versions": ["<0.2.1"],
+                "vulnerability": "Denial of Service via malformed URI",
+                "cve": ["CVE-2022-38900"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via malformed URI component.",
+                "remediation": "Upgrade to decode-uri-component >= 0.2.1",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-11-28",
+                "ecosystem": "npm"
+            },
+        ],
+        "json5": [
+            {
+                "versions": ["<2.2.2"],
+                "vulnerability": "Prototype Pollution",
+                "cve": ["CVE-2022-46175"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Prototype pollution in JSON5 parse method.",
+                "remediation": "Upgrade to json5 >= 2.2.2",
+                "cwe": "CWE-1321",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-12-24",
+                "ecosystem": "npm"
+            },
+        ],
+        "qs": [
+            {
+                "versions": ["<6.10.3"],
+                "vulnerability": "Prototype Pollution",
+                "cve": ["CVE-2022-24999"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Prototype pollution via the __proto__ key.",
+                "remediation": "Upgrade to qs >= 6.10.3",
+                "cwe": "CWE-1321",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-11-26",
+                "ecosystem": "npm"
+            },
+        ],
+        "nanoid": [
+            {
+                "versions": ["<3.1.31"],
+                "vulnerability": "Security Bypass",
+                "cve": ["CVE-2021-23566"],
+                "severity": "medium",
+                "cvss": 5.5,
+                "description": "Predictable ID generation in certain conditions.",
+                "remediation": "Upgrade to nanoid >= 3.1.31",
+                "cwe": "CWE-330",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2022-01-14",
+                "ecosystem": "npm"
+            },
+        ],
+        "nth-check": [
+            {
+                "versions": ["<2.0.1"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2021-3803"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "ReDoS vulnerability in nth-check.",
+                "remediation": "Upgrade to nth-check >= 2.0.1",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-09-17",
+                "ecosystem": "npm"
+            },
+        ],
+        "cached-path-relative": [
+            {
+                "versions": ["<1.1.0"],
+                "vulnerability": "Prototype Pollution",
+                "cve": ["CVE-2021-23518"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Prototype pollution vulnerability.",
+                "remediation": "Upgrade to cached-path-relative >= 1.1.0",
+                "cwe": "CWE-1321",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-01-21",
+                "ecosystem": "npm"
+            },
+        ],
+        "immer": [
+            {
+                "versions": ["<9.0.6"],
+                "vulnerability": "Prototype Pollution",
+                "cve": ["CVE-2021-23436"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Prototype pollution in Immer library.",
+                "remediation": "Upgrade to immer >= 9.0.6",
+                "cwe": "CWE-1321",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2021-09-01",
+                "ecosystem": "npm"
+            },
+        ],
+        "follow-redirects": [
+            {
+                "versions": ["<1.14.8"],
+                "vulnerability": "Information Disclosure",
+                "cve": ["CVE-2022-0155"],
+                "severity": "medium",
+                "cvss": 6.5,
+                "description": "Sensitive headers exposed on cross-origin redirect.",
+                "remediation": "Upgrade to follow-redirects >= 1.14.8",
+                "cwe": "CWE-200",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-01-10",
+                "ecosystem": "npm"
+            },
+        ],
+        "postcss": [
+            {
+                "versions": ["<8.4.31"],
+                "vulnerability": "Line Return Parsing Error",
+                "cve": ["CVE-2023-44270"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "Parsing error in external source maps.",
+                "remediation": "Upgrade to postcss >= 8.4.31",
+                "cwe": "CWE-74",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-09-29",
+                "ecosystem": "npm"
+            },
+        ],
 
         # ==================== PYTHON PACKAGES ====================
         "django": [
@@ -345,6 +600,186 @@ class SCAScanner:
                 "cwe": "CWE-79",
                 "owasp": "A03:2021 - Injection",
                 "published": "2024-01-11",
+                "ecosystem": "pip"
+            },
+        ],
+        "urllib3": [
+            {
+                "versions": ["<1.26.18", ">=2.0.0,<2.0.7"],
+                "vulnerability": "Request Smuggling",
+                "cve": ["CVE-2023-45803"],
+                "severity": "medium",
+                "cvss": 5.9,
+                "description": "HTTP request smuggling vulnerability.",
+                "remediation": "Upgrade to urllib3 >= 1.26.18 or >= 2.0.7",
+                "cwe": "CWE-444",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-10-17",
+                "ecosystem": "pip"
+            },
+        ],
+        "certifi": [
+            {
+                "versions": ["<2023.7.22"],
+                "vulnerability": "Removal of e-Tugra Root Certificate",
+                "cve": ["CVE-2023-37920"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Certifi includes revoked root certificate.",
+                "remediation": "Upgrade to certifi >= 2023.7.22",
+                "cwe": "CWE-295",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2023-07-25",
+                "ecosystem": "pip"
+            },
+        ],
+        "aiohttp": [
+            {
+                "versions": ["<3.9.0"],
+                "vulnerability": "HTTP Header Injection",
+                "cve": ["CVE-2023-49081"],
+                "severity": "medium",
+                "cvss": 6.5,
+                "description": "CRLF injection via improper validation.",
+                "remediation": "Upgrade to aiohttp >= 3.9.0",
+                "cwe": "CWE-113",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-11-28",
+                "ecosystem": "pip"
+            },
+        ],
+        "sqlalchemy": [
+            {
+                "versions": ["<1.4.49", ">=2.0.0,<2.0.21"],
+                "vulnerability": "SQL Injection",
+                "cve": ["CVE-2023-38325"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "SQL injection in text() function.",
+                "remediation": "Upgrade to sqlalchemy >= 1.4.49 or >= 2.0.21",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-08-01",
+                "ecosystem": "pip"
+            },
+        ],
+        "setuptools": [
+            {
+                "versions": ["<65.5.1"],
+                "vulnerability": "Regular Expression Denial of Service (ReDoS)",
+                "cve": ["CVE-2022-40897"],
+                "severity": "medium",
+                "cvss": 5.9,
+                "description": "ReDoS vulnerability in package_index.",
+                "remediation": "Upgrade to setuptools >= 65.5.1",
+                "cwe": "CWE-1333",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-12-23",
+                "ecosystem": "pip"
+            },
+        ],
+        "starlette": [
+            {
+                "versions": ["<0.36.2"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2024-24762"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Path traversal vulnerability in StaticFiles.",
+                "remediation": "Upgrade to starlette >= 0.36.2",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2024-02-05",
+                "ecosystem": "pip"
+            },
+        ],
+        "fastapi": [
+            {
+                "versions": ["<0.109.1"],
+                "vulnerability": "Denial of Service via Multipart",
+                "cve": ["CVE-2024-24763"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via malformed multipart form data.",
+                "remediation": "Upgrade to fastapi >= 0.109.1",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2024-02-05",
+                "ecosystem": "pip"
+            },
+        ],
+        "paramiko": [
+            {
+                "versions": ["<3.4.0"],
+                "vulnerability": "Authentication Bypass",
+                "cve": ["CVE-2023-48795"],
+                "severity": "medium",
+                "cvss": 5.9,
+                "description": "Terrapin attack - SSH prefix truncation.",
+                "remediation": "Upgrade to paramiko >= 3.4.0",
+                "cwe": "CWE-354",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2023-12-18",
+                "ecosystem": "pip"
+            },
+        ],
+        "lxml": [
+            {
+                "versions": ["<4.9.1"],
+                "vulnerability": "NULL Pointer Dereference",
+                "cve": ["CVE-2022-2309"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "NULL pointer dereference in iterparse.",
+                "remediation": "Upgrade to lxml >= 4.9.1",
+                "cwe": "CWE-476",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-07-05",
+                "ecosystem": "pip"
+            },
+        ],
+        "numpy": [
+            {
+                "versions": ["<1.22.0"],
+                "vulnerability": "Buffer Overflow",
+                "cve": ["CVE-2021-41496"],
+                "severity": "medium",
+                "cvss": 5.5,
+                "description": "Buffer overflow in array_from_pyobj.",
+                "remediation": "Upgrade to numpy >= 1.22.0",
+                "cwe": "CWE-120",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-12-17",
+                "ecosystem": "pip"
+            },
+        ],
+        "tornado": [
+            {
+                "versions": ["<6.3.3"],
+                "vulnerability": "HTTP Response Splitting",
+                "cve": ["CVE-2023-28370"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "CRLF injection in set_header.",
+                "remediation": "Upgrade to tornado >= 6.3.3",
+                "cwe": "CWE-113",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-05-25",
+                "ecosystem": "pip"
+            },
+        ],
+        "gunicorn": [
+            {
+                "versions": ["<22.0.0"],
+                "vulnerability": "HTTP Request Smuggling",
+                "cve": ["CVE-2024-1135"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "HTTP request smuggling via improper parsing.",
+                "remediation": "Upgrade to gunicorn >= 22.0.0",
+                "cwe": "CWE-444",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2024-04-16",
                 "ecosystem": "pip"
             },
         ],
@@ -679,20 +1114,25 @@ class SCAScanner:
             self._vuln_by_ecosystem[ecosystem] = {}
 
         for package_name, vuln_list in self.VULNERABLE_PACKAGES.items():
+            # Normalize package name to lowercase for consistent matching
+            package_name_normalized = package_name.lower()
+
             for vuln_info in vuln_list:
                 ecosystem = vuln_info.get('ecosystem', 'npm')
 
-                if package_name not in self._vuln_by_ecosystem[ecosystem]:
-                    self._vuln_by_ecosystem[ecosystem][package_name] = []
+                if package_name_normalized not in self._vuln_by_ecosystem[ecosystem]:
+                    self._vuln_by_ecosystem[ecosystem][package_name_normalized] = []
 
-                self._vuln_by_ecosystem[ecosystem][package_name].append(vuln_info)
+                self._vuln_by_ecosystem[ecosystem][package_name_normalized].append(vuln_info)
 
                 # Pre-compile version constraints for this vulnerability
-                constraint_key = f"{package_name}:{','.join(vuln_info['versions'])}"
+                constraint_key = f"{package_name_normalized}:{','.join(vuln_info['versions'])}"
                 if constraint_key not in self._compiled_constraints:
                     self._compiled_constraints[constraint_key] = [
                         self._compile_constraint(v) for v in vuln_info['versions']
                     ]
+
+        logger.info(f"[SCA] Built vulnerability indices for {len(self.VULNERABLE_PACKAGES)} packages")
 
     def _compile_constraint(self, constraint: str) -> CompiledConstraint:
         """Pre-compile a version constraint for efficient repeated use"""
@@ -984,12 +1424,23 @@ class SCAScanner:
         # Get ecosystem-specific vulnerability index
         ecosystem_vulns = self._vuln_by_ecosystem.get(ecosystem, {})
 
+        logger.info(f"[SCA] Scanning {total_packages} {ecosystem} dependencies against {len(ecosystem_vulns)} known vulnerable packages")
+
+        # Debug: Log first few dependencies being scanned
+        sample_deps = list(dependencies.items())[:5]
+        logger.debug(f"[SCA] Sample dependencies: {sample_deps}")
+
         for package, version in dependencies.items():
+            # Normalize package name for consistent matching
+            package_normalized = package.lower()
+
             # O(1) lookup for package vulnerabilities
-            if package not in ecosystem_vulns:
+            if package_normalized not in ecosystem_vulns:
                 continue
 
-            vuln_list = ecosystem_vulns[package]
+            logger.info(f"[SCA] Found potentially vulnerable package: {package} v{version}")
+
+            vuln_list = ecosystem_vulns[package_normalized]
             parsed_version = self._parse_version(version)
 
             for vuln_info in vuln_list:
@@ -1247,15 +1698,103 @@ class SCAScanner:
             deps.update(data.get("dependencies", {}))
             deps.update(data.get("devDependencies", {}))
 
-            # Clean version strings (remove ^, ~, etc.)
+            # Clean version strings (remove ^, ~, etc.) and normalize package names
             cleaned = {}
             for pkg, ver in deps.items():
                 if isinstance(ver, str):
-                    cleaned[pkg] = ver.lstrip('^~>=<')
+                    # Normalize package name (lowercase for consistent matching)
+                    pkg_normalized = pkg.lower()
+                    # Clean version string
+                    cleaned[pkg_normalized] = ver.lstrip('^~>=<').split(' ')[0]
 
+            logger.info(f"[SCA] Parsed package.json: {len(cleaned)} dependencies")
             return cleaned
         except Exception as e:
             self.errors.append(f"Error parsing package.json: {e}")
+            logger.error(f"[SCA] Error parsing package.json: {e}")
+            return {}
+
+    def parse_package_lock_json(self, content: str) -> Dict[str, str]:
+        """Parse package-lock.json (npm v2/v3 format)"""
+        try:
+            data = json.loads(content)
+            deps = {}
+
+            # NPM v3 format uses "packages" key
+            packages = data.get("packages", {})
+            if packages:
+                for pkg_path, pkg_info in packages.items():
+                    if pkg_path and "node_modules/" in pkg_path:
+                        # Extract package name from path
+                        pkg_name = pkg_path.split("node_modules/")[-1]
+                        # Handle scoped packages
+                        if "/" in pkg_name and not pkg_name.startswith("@"):
+                            pkg_name = pkg_name.split("/")[0]
+                        version = pkg_info.get("version", "")
+                        if version:
+                            deps[pkg_name.lower()] = version
+
+            # NPM v1/v2 format uses "dependencies" key
+            if not deps:
+                dependencies = data.get("dependencies", {})
+                for pkg_name, pkg_info in dependencies.items():
+                    if isinstance(pkg_info, dict):
+                        version = pkg_info.get("version", "")
+                        if version:
+                            deps[pkg_name.lower()] = version
+                    elif isinstance(pkg_info, str):
+                        deps[pkg_name.lower()] = pkg_info
+
+            logger.info(f"[SCA] Parsed package-lock.json: {len(deps)} dependencies")
+            return deps
+        except Exception as e:
+            self.errors.append(f"Error parsing package-lock.json: {e}")
+            logger.error(f"[SCA] Error parsing package-lock.json: {e}")
+            return {}
+
+    def parse_yarn_lock(self, content: str) -> Dict[str, str]:
+        """Parse yarn.lock format"""
+        deps = {}
+        try:
+            current_pkg = None
+
+            for line in content.split('\n'):
+                line = line.rstrip()
+
+                # Skip comments and empty lines
+                if not line or line.startswith('#'):
+                    continue
+
+                # Package definition line (e.g., "lodash@^4.17.0:")
+                if not line.startswith(' ') and line.endswith(':'):
+                    # Extract package name from definition
+                    pkg_def = line.rstrip(':').strip('"')
+                    # Handle multiple version specs (e.g., "lodash@^4.17.0, lodash@~4.17.0:")
+                    first_spec = pkg_def.split(',')[0].strip()
+                    # Extract package name (before the @version)
+                    if '@' in first_spec:
+                        # Handle scoped packages (@scope/name@version)
+                        if first_spec.startswith('@'):
+                            parts = first_spec.rsplit('@', 1)
+                            current_pkg = parts[0].lower()
+                        else:
+                            current_pkg = first_spec.split('@')[0].lower()
+                    else:
+                        current_pkg = first_spec.lower()
+
+                # Version line (e.g., "  version "4.17.21"")
+                elif current_pkg and '  version' in line:
+                    match = re.search(r'version\s+"?([^"]+)"?', line)
+                    if match:
+                        version = match.group(1).strip()
+                        deps[current_pkg] = version
+                        current_pkg = None
+
+            logger.info(f"[SCA] Parsed yarn.lock: {len(deps)} dependencies")
+            return deps
+        except Exception as e:
+            self.errors.append(f"Error parsing yarn.lock: {e}")
+            logger.error(f"[SCA] Error parsing yarn.lock: {e}")
             return {}
 
     def parse_requirements_txt(self, content: str) -> Dict[str, str]:

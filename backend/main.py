@@ -523,8 +523,15 @@ async def create_project(
                         # Parse dependencies based on type - supports all ecosystems
                         dependencies = {}
                         ecosystem = dep_type
+                        file_name = os.path.basename(file_path)
                         if dep_type == 'npm':
-                            dependencies = sca_scanner.parse_package_json(content)
+                            # Use correct parser based on file type
+                            if file_name == 'package-lock.json':
+                                dependencies = sca_scanner.parse_package_lock_json(content)
+                            elif file_name == 'yarn.lock':
+                                dependencies = sca_scanner.parse_yarn_lock(content)
+                            else:
+                                dependencies = sca_scanner.parse_package_json(content)
                         elif dep_type == 'pip':
                             dependencies = sca_scanner.parse_requirements_txt(content)
                         elif dep_type == 'maven':
@@ -1168,8 +1175,15 @@ async def run_security_scan(
                     # Parse dependencies - supports all ecosystems
                     dependencies = {}
                     ecosystem = dep_type
+                    file_name = os.path.basename(file_path)
                     if dep_type == 'npm':
-                        dependencies = sca_scanner.parse_package_json(content)
+                        # Use correct parser based on file type
+                        if file_name == 'package-lock.json':
+                            dependencies = sca_scanner.parse_package_lock_json(content)
+                        elif file_name == 'yarn.lock':
+                            dependencies = sca_scanner.parse_yarn_lock(content)
+                        else:
+                            dependencies = sca_scanner.parse_package_json(content)
                     elif dep_type == 'pip':
                         dependencies = sca_scanner.parse_requirements_txt(content)
                     elif dep_type == 'maven':
@@ -3003,11 +3017,10 @@ async def direct_workspace_scan(
                         deps = sca_scanner.parse_package_json(content)
                         ecosystem = 'npm'
                     elif file_name == 'package-lock.json':
-                        deps = sca_scanner.parse_package_json(content)
+                        deps = sca_scanner.parse_package_lock_json(content)
                         ecosystem = 'npm'
                     elif file_name == 'yarn.lock':
-                        # Parse yarn.lock format
-                        deps = sca_scanner.parse_package_json(content)
+                        deps = sca_scanner.parse_yarn_lock(content)
                         ecosystem = 'npm'
 
                     # Python (pip/pipenv/poetry)
