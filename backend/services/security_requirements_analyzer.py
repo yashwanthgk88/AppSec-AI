@@ -271,15 +271,15 @@ Return this JSON structure:
       "id": "AC-001",
       "title": "Clear attack title",
       "threat_actor": "External Attacker / Malicious Insider / Automated Bot",
-      "description": "DETAILED multi-line description (5-10 lines):\n• Step 1: How attacker discovers the vulnerability\n• Step 2: Tools used (Burp Suite, SQLMap, etc.)\n• Step 3: Attack execution methodology\n• Step 4: Data exfiltration or damage caused\n• Step 5: Potential business impact and consequences",
+      "description": "• Discovery: Attacker identifies the vulnerability through reconnaissance\\n• Tools: Uses Burp Suite, SQLMap, or similar tools for exploitation\\n• Methodology: Executes the attack step-by-step\\n• Impact: Data exfiltration, privilege escalation, or system compromise\\n• Business Impact: Financial loss, reputation damage, compliance violations",
       "impact": "Critical/High/Medium/Low",
       "likelihood": "High/Medium/Low",
       "stride_category": "Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege",
       "mitigations": [
-        "Mitigation 1: Specific control with implementation details",
-        "Mitigation 2: Library or framework to use (e.g., use helmet.js for headers)",
-        "Mitigation 3: Configuration or code pattern",
-        "Mitigation 4: Testing/verification approach"
+        "Implement specific security control with exact implementation steps",
+        "Use security library (e.g., helmet.js, bcrypt, prepared statements)",
+        "Configure security settings (e.g., CSP headers, HTTPS only)",
+        "Verify with security testing (e.g., OWASP ZAP scan, penetration test)"
       ]
     }}
   ],
@@ -292,16 +292,21 @@ Return this JSON structure:
       "requirement": "Clear, actionable requirement title",
       "priority": "Critical/High/Medium/Low",
       "category": "Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection",
-      "rationale": "DETAILED multi-line rationale (5-8 lines):\n• Why this requirement is critical\n• Threats mitigated by this control\n• CWE Reference: CWE-XXX\n• OWASP Reference: A01:2021\n• Compliance: PCI-DSS Req X, GDPR Article Y\n• Business impact if not implemented",
-      "acceptance_criteria": "DETAILED acceptance criteria (3-5 lines):\n• Criterion 1: Specific testable condition\n• Criterion 2: Measurable verification step\n• Criterion 3: Pass/fail condition"
+      "rationale": "• Purpose: Why this control is essential for security\\n• Threats Mitigated: SQL Injection, XSS, CSRF attacks\\n• CWE Reference: CWE-89, CWE-79\\n• OWASP: A03:2021 Injection\\n• Compliance: PCI-DSS Req 6, GDPR Article 32\\n• Business Risk: Data breach, regulatory fines, reputation damage",
+      "acceptance_criteria": "• All user inputs are validated against whitelist patterns\\n• SQL queries use parameterized statements or ORM\\n• Security scan shows zero injection vulnerabilities\\n• Code review confirms no dynamic query construction"
     }}
   ],
   "risk_score": 75
 }}
 
+CRITICAL FORMATTING RULES:
+1. Use \\n to separate bullet points in description, rationale, and acceptance_criteria
+2. Start each bullet point with • (bullet character)
+3. Each field must have 4-6 detailed bullet points
+4. Be specific - mention actual tools, libraries, standards, and techniques
+
 Generate 5-7 detailed abuse_cases and 8-10 security_requirements specific to: {title}
-Each description, rationale, and acceptance_criteria MUST be detailed with multiple bullet points.
-Return ONLY valid JSON."""
+Return ONLY valid JSON with proper escaping."""
 
     def _template_analyze(self, title: str, description: str, acceptance_criteria: str) -> Dict[str, Any]:
         """Template-based analysis when AI is not available"""

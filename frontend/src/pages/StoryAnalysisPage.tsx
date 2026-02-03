@@ -33,19 +33,44 @@ interface AbuseCase {
 // Helper function to format text as bullet points
 const formatAsBulletPoints = (text: string): string[] => {
   if (!text) return []
-  // Split by common delimiters: newlines, numbered lists, or sentences
-  const lines = text
-    .split(/[\n\r]+|(?:\d+\.\s*)|(?:•\s*)|(?:-\s*)/)
+
+  // First, normalize the text - replace escaped newlines with actual newlines
+  let normalizedText = text
+    .replace(/\\n/g, '\n')  // Convert escaped \n to actual newlines
+    .replace(/\\r/g, '')    // Remove escaped \r
+    .replace(/\n{3,}/g, '\n\n')  // Normalize multiple newlines
+
+  // Split by various delimiters
+  const lines = normalizedText
+    .split(/[\n\r]+/)  // Split by newlines first
+    .flatMap(line => {
+      // Then split by bullet points and numbered items
+      return line.split(/(?:^|\s)(?:•|●|◦|▪|‣|\*|-|–|—)\s*|(?:^\d+[\.\)]\s*)/gm)
+    })
     .map(line => line.trim())
-    .filter(line => line.length > 0)
-  // If no splits found, split by periods (sentences)
-  if (lines.length <= 1 && text.includes('.')) {
-    return text
-      .split(/(?<=[.!?])\s+/)
+    .filter(line => line.length > 0 && line !== '•' && line !== '-')
+
+  // If still just one line with multiple sentences, split by sentences
+  if (lines.length <= 1 && normalizedText.length > 100 && normalizedText.includes('.')) {
+    const sentences = normalizedText
+      .split(/(?<=[.!?])\s+(?=[A-Z])/)
       .map(s => s.trim())
-      .filter(s => s.length > 0)
+      .filter(s => s.length > 10)  // Filter very short fragments
+
+    if (sentences.length > 1) {
+      return sentences
+    }
   }
-  return lines
+
+  // If we have good content but formatting stripped it to one line, try markdown headers
+  if (lines.length === 1 && lines[0].includes(':')) {
+    const parts = lines[0].split(/(?=[A-Z][a-z]+:)/)
+    if (parts.length > 1) {
+      return parts.map(p => p.trim()).filter(p => p.length > 0)
+    }
+  }
+
+  return lines.length > 0 ? lines : [text]
 }
 
 interface StrideThreat {
