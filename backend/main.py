@@ -62,17 +62,31 @@ app = FastAPI(
     redirect_slashes=False
 )
 
-# CORS middleware
-# Allow both frontend ports for development
+# CORS middleware - Production ready
+# Set CORS_ORIGINS env var for production, e.g., "https://your-domain.com,https://app.railway.app"
 cors_origins = os.getenv("CORS_ORIGINS")
 if cors_origins:
     allowed_origins = [origin.strip() for origin in cors_origins.split(",")]
 else:
-    allowed_origins = ["http://localhost:5173", "http://localhost:5174"]
+    # Default origins for development and Railway
+    allowed_origins = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        # Railway domains - add your specific domain here
+        "https://*.railway.app",
+        "https://*.up.railway.app",
+    ]
+
+# Check if we should allow all origins (for development/testing)
+allow_all = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"] if allow_all else allowed_origins,
+    allow_origin_regex=r"https://.*\.railway\.app" if not allow_all else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

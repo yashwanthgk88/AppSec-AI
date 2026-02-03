@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Cache bust: 2026-02-03-v2
+# Cache bust: 2026-02-03-v3-owasp-inline
 ARG CACHEBUST=1
 
 WORKDIR /app
