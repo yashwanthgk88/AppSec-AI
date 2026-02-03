@@ -3013,7 +3013,9 @@ class DirectScanRequest(BaseModel):
     scan_types: List[str] = ["sast", "sca", "secrets"]
 
 class DirectFileScanRequest(BaseModel):
-    file_path: str
+    file_path: Optional[str] = None  # Local file path (for local backend)
+    source_code: Optional[str] = None  # File content (for remote backend)
+    file_name: Optional[str] = None  # Original filename when source_code is provided
     scan_types: List[str] = ["sast", "secrets"]
 
 @app.post("/api/scan")
@@ -3233,7 +3235,12 @@ async def direct_file_scan(
     request: DirectFileScanRequest,
     current_user: User = Depends(get_current_active_user)
 ):
-    """Direct file scan for VS Code extension"""
+    """Direct file scan for VS Code extension.
+
+    Accepts either:
+    - file_path: Path to local file (for local backend)
+    - source_code + file_name: File content (for remote backend / VS Code extension)
+    """
     results = {
         "sast": {"findings": []},
         "secrets": {"findings": []}
@@ -3241,20 +3248,33 @@ async def direct_file_scan(
 
     try:
         import os
-        if not os.path.exists(request.file_path):
-            raise HTTPException(status_code=404, detail="File not found")
+
+        # Determine source code and file path
+        if request.source_code:
+            # Source code provided directly (VS Code extension / remote client)
+            source_code = request.source_code
+            file_path = request.file_name or "untitled"
+        elif request.file_path:
+            # Read from local file path
+            if not os.path.exists(request.file_path):
+                raise HTTPException(status_code=404, detail=f"Path not found: {request.file_path}")
+            with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                source_code = f.read()
+            file_path = request.file_path
+        else:
+            raise HTTPException(status_code=400, detail="Either file_path or source_code must be provided")
 
         # Run SAST scan on single file
         if "sast" in request.scan_types:
-            scan_results = sast_scanner.scan_file(request.file_path)
-            findings = scan_results.get('findings', [])
+            scan_results = sast_scanner.scan_code(source_code, file_path)
+            findings = scan_results if isinstance(scan_results, list) else scan_results.get('findings', [])
             results["sast"]["findings"] = [
                 {
                     "id": f"sast-{i}",
                     "title": f.get('title', 'Security Issue'),
                     "description": f.get('description', 'Security vulnerability detected'),
                     "severity": f.get('severity', 'medium'),
-                    "file": f.get('file_path', request.file_path),
+                    "file": f.get('file_path', file_path),
                     "line": f.get('line_number', 0),
                     "category": f.get('owasp_category', 'Security'),
                     "cwe_id": f.get('cwe_id', ''),
@@ -3269,15 +3289,15 @@ async def direct_file_scan(
 
         # Run Secret scan on single file
         if "secrets" in request.scan_types:
-            scan_results = secret_scanner.scan_file(request.file_path)
-            findings = scan_results.get('findings', [])
+            scan_results = secret_scanner.scan_code(source_code, file_path)
+            findings = scan_results if isinstance(scan_results, list) else scan_results.get('findings', [])
             results["secrets"]["findings"] = [
                 {
                     "id": f"secret-{i}",
                     "title": f.get('title', 'Exposed Secret'),
                     "description": f.get('description', 'Potential secret detected'),
                     "severity": f.get('severity', 'high'),
-                    "file": f.get('file_path', request.file_path),
+                    "file": f.get('file_path', file_path),
                     "line": f.get('line_number', 0),
                     "category": "Exposed Secret",
                     "secret_type": f.get('secret_type', 'Unknown'),
@@ -3452,7 +3472,9 @@ async def enhanced_directory_scan(
 
 class InterproceduralScanRequest(BaseModel):
     """Request model for inter-procedural analysis"""
-    file_path: str
+    file_path: Optional[str] = None  # Local file path (for local backend)
+    source_code: Optional[str] = None  # File content (for remote backend)
+    file_name: Optional[str] = None  # Original filename when source_code is provided
     include_call_graph: bool = True
     include_function_summaries: bool = True
     include_taint_flows: bool = True
@@ -3483,22 +3505,35 @@ async def interprocedural_scan(
 
     This goes beyond single-function analysis to detect vulnerabilities
     that span multiple functions (e.g., user input in handler → helper → sink)
+
+    Accepts either:
+    - file_path: Path to local file (for local backend)
+    - source_code + file_name: File content (for remote backend / VS Code extension)
     """
     try:
         import os
-        if not os.path.exists(request.file_path):
-            raise HTTPException(status_code=404, detail="File not found")
 
-        # Read file content
-        with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            source_code = f.read()
+        # Determine source code and file path
+        if request.source_code:
+            # Source code provided directly (VS Code extension / remote client)
+            source_code = request.source_code
+            file_path = request.file_name or "untitled"
+        elif request.file_path:
+            # Read from local file path
+            if not os.path.exists(request.file_path):
+                raise HTTPException(status_code=404, detail=f"Path not found: {request.file_path}")
+            with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                source_code = f.read()
+            file_path = request.file_path
+        else:
+            raise HTTPException(status_code=400, detail="Either file_path or source_code must be provided")
 
         # Run inter-procedural analysis
-        analysis_result = analyze_code_interprocedural(source_code, request.file_path)
+        analysis_result = analyze_code_interprocedural(source_code, file_path)
 
         # Build response
         response = {
-            "file_path": request.file_path,
+            "file_path": file_path,
             "language": analysis_result.get("language", "unknown"),
             "analysis_type": "inter-procedural",
             "vulnerabilities": analysis_result.get("vulnerabilities", []),
@@ -3641,27 +3676,40 @@ async def deep_security_scan(
     5. Secret scanning
 
     Returns comprehensive results from all scanners.
+    Accepts either:
+    - file_path: Path to local file (for local backend)
+    - source_code + file_name: File content (for remote backend / VS Code extension)
     """
     try:
         import os
-        if not os.path.exists(request.file_path):
-            raise HTTPException(status_code=404, detail="File not found")
 
-        with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
-            source_code = f.read()
+        # Determine source code and file path
+        if request.source_code:
+            # Source code provided directly (VS Code extension / remote client)
+            source_code = request.source_code
+            file_path = request.file_name or "untitled"
+        elif request.file_path:
+            # Read from local file path
+            if not os.path.exists(request.file_path):
+                raise HTTPException(status_code=404, detail=f"Path not found: {request.file_path}")
+            with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                source_code = f.read()
+            file_path = request.file_path
+        else:
+            raise HTTPException(status_code=400, detail="Either file_path or source_code must be provided")
 
         # Run all analysis types in parallel conceptually
         # 1. Intra-procedural AST analysis
-        ast_result = ast_analyzer.analyze_file(source_code, request.file_path)
+        ast_result = ast_analyzer.analyze_file(source_code, file_path)
 
         # 2. Inter-procedural analysis
-        interprocedural_result = analyze_code_interprocedural(source_code, request.file_path)
+        interprocedural_result = analyze_code_interprocedural(source_code, file_path)
 
         # 3. Pattern-based SAST
-        sast_findings = sast_scanner.scan_code(source_code, request.file_path)
+        sast_findings = sast_scanner.scan_code(source_code, file_path)
 
         # 4. Secret scanning
-        secret_findings = secret_scanner.scan_code(source_code, request.file_path)
+        secret_findings = secret_scanner.scan_code(source_code, file_path)
 
         # Combine and deduplicate findings
         all_findings = []
@@ -3704,7 +3752,7 @@ async def deep_security_scan(
         all_findings.sort(key=lambda x: severity_order.get(x.get('severity', 'info'), 5))
 
         return {
-            "file_path": request.file_path,
+            "file_path": file_path,
             "analysis_type": "deep_combined",
             "total_findings": len(all_findings),
             "findings": all_findings,

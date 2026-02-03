@@ -1531,6 +1531,14 @@ export default function SettingsPage() {
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+              <span>Deep inter-procedural analysis with cross-function taint tracking</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+              <span>Interactive taint flow visualization with call chain diagrams</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
               <span>Inline diagnostics with squiggly lines for security issues</span>
             </li>
             <li className="flex items-start">
@@ -1551,32 +1559,32 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.8.6.vsix"
+              href="/downloads/appsec-ai-scanner-1.8.7.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.8.6 • 4.5 MB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.8.7 • 4.3 MB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.8.6
+            What's New in v1.8.7
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-            <li><strong>🔴 REAL-TIME INLINE SECURITY:</strong> Instant vulnerability detection as you type - no scan needed!</li>
+            <li><strong>🔗 DEEP INTER-PROCEDURAL ANALYSIS:</strong> Cross-function taint tracking that follows data flow across method boundaries</li>
+            <li><strong>📊 Call Chain Visualization:</strong> Interactive SVG diagrams showing complete data flow from source to sink</li>
+            <li><strong>🔍 Function Summaries:</strong> Detailed analysis of how each function processes and propagates tainted data</li>
+            <li><strong>🎯 Enhanced Taint Flow Panel:</strong> Visualize inter-procedural flows with call chain sections</li>
+            <li><strong>⚡ New Deep Scan Command:</strong> Dedicated command for comprehensive inter-procedural security analysis</li>
             <li><strong>🛡️ Complete OWASP Top 10 2021 Coverage:</strong> All 10 categories with 100+ security patterns</li>
             <li><strong>💉 SQL Injection Detection:</strong> Catches string concatenation, template literals, f-strings, format()</li>
             <li><strong>🔒 Cryptographic Failures:</strong> MD5, SHA1, weak ciphers, hardcoded secrets, API keys</li>
-            <li><strong>⚙️ Security Misconfigurations:</strong> Debug mode, CORS, CSRF, insecure cookies</li>
-            <li><strong>🌐 SSRF & Path Traversal:</strong> Dynamic URLs, file operations, internal IP detection</li>
             <li><strong>📂 ALL File Types Supported:</strong> JS, TS, Python, Java, Go, PHP, C#, Ruby, and more</li>
-            <li><strong>💣 ReDoS & Race Conditions:</strong> Regex DoS, TOCTOU patterns</li>
-            <li><strong>🔑 Authentication Failures:</strong> JWT issues, weak passwords, session problems</li>
           </ul>
         </div>
 
