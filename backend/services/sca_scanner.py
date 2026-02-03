@@ -860,6 +860,201 @@ class SCAScanner:
                 "ecosystem": "maven"
             },
         ],
+        "commons-fileupload": [
+            {
+                "versions": ["<1.5"],
+                "vulnerability": "Denial of Service via FileUpload",
+                "cve": ["CVE-2023-24998"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Apache Commons FileUpload DoS via malicious upload.",
+                "remediation": "Upgrade to commons-fileupload >= 1.5",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-02-20",
+                "ecosystem": "maven"
+            },
+        ],
+        "commons-io": [
+            {
+                "versions": ["<2.7"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2021-29425"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "Limited path traversal vulnerability.",
+                "remediation": "Upgrade to commons-io >= 2.7",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2021-04-13",
+                "ecosystem": "maven"
+            },
+        ],
+        "commons-collections4": [
+            {
+                "versions": ["<4.1"],
+                "vulnerability": "Deserialization of Untrusted Data",
+                "cve": ["CVE-2015-7501"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Java deserialization vulnerability enabling RCE.",
+                "remediation": "Upgrade to commons-collections4 >= 4.1",
+                "cwe": "CWE-502",
+                "owasp": "A08:2021 - Software and Data Integrity Failures",
+                "published": "2015-11-06",
+                "ecosystem": "maven"
+            },
+        ],
+        "mysql-connector-java": [
+            {
+                "versions": ["<8.0.28"],
+                "vulnerability": "Improper Access Control",
+                "cve": ["CVE-2022-21363"],
+                "severity": "medium",
+                "cvss": 6.6,
+                "description": "Connector/J vulnerability allowing unauthorized access.",
+                "remediation": "Upgrade to mysql-connector-java >= 8.0.28",
+                "cwe": "CWE-284",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2022-01-18",
+                "ecosystem": "maven"
+            },
+        ],
+        "spring-boot-starter-web": [
+            {
+                "versions": ["<2.5.12", ">=2.6.0,<2.6.6"],
+                "vulnerability": "Spring4Shell RCE",
+                "cve": ["CVE-2022-22965"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "RCE via data binding on JDK 9+.",
+                "remediation": "Upgrade to spring-boot >= 2.5.12 or >= 2.6.6",
+                "cwe": "CWE-94",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-04-01",
+                "ecosystem": "maven"
+            },
+        ],
+        "keycloak-saml-core": [
+            {
+                "versions": ["<20.0.0"],
+                "vulnerability": "SAML Signature Validation Bypass",
+                "cve": ["CVE-2023-0091"],
+                "severity": "high",
+                "cvss": 8.1,
+                "description": "SAML signature validation can be bypassed.",
+                "remediation": "Upgrade to keycloak >= 20.0.0",
+                "cwe": "CWE-347",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2023-01-13",
+                "ecosystem": "maven"
+            },
+        ],
+        "slf4j-log4j12": [
+            {
+                "versions": ["<1.7.35"],
+                "vulnerability": "Log4j Dependency Vulnerability",
+                "cve": ["CVE-2021-44228"],
+                "severity": "critical",
+                "cvss": 10.0,
+                "description": "Transitive Log4j vulnerability via SLF4J binding.",
+                "remediation": "Upgrade to slf4j-log4j12 >= 1.7.35 or use slf4j-reload4j",
+                "cwe": "CWE-502",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2021-12-10",
+                "ecosystem": "maven"
+            },
+        ],
+        "spring-webmvc": [
+            {
+                "versions": ["<5.3.18", ">=5.2.0,<5.2.20"],
+                "vulnerability": "Remote Code Execution (Spring4Shell)",
+                "cve": ["CVE-2022-22965"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "RCE via data binding on JDK 9+.",
+                "remediation": "Upgrade to spring-webmvc >= 5.3.18",
+                "cwe": "CWE-94",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-04-01",
+                "ecosystem": "maven"
+            },
+        ],
+        "hibernate-core": [
+            {
+                "versions": ["<5.4.24", ">=5.5.0,<5.6.1"],
+                "vulnerability": "SQL Injection",
+                "cve": ["CVE-2020-25638"],
+                "severity": "high",
+                "cvss": 7.4,
+                "description": "SQL injection via DML statements.",
+                "remediation": "Upgrade to hibernate-core >= 5.4.24 or >= 5.6.1",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2020-12-02",
+                "ecosystem": "maven"
+            },
+        ],
+        "gson": [
+            {
+                "versions": ["<2.8.9"],
+                "vulnerability": "Deserialization of Untrusted Data",
+                "cve": ["CVE-2022-25647"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Unsafe deserialization can lead to DoS.",
+                "remediation": "Upgrade to gson >= 2.8.9",
+                "cwe": "CWE-502",
+                "owasp": "A08:2021 - Software and Data Integrity Failures",
+                "published": "2022-05-01",
+                "ecosystem": "maven"
+            },
+        ],
+        "tomcat-embed-core": [
+            {
+                "versions": ["<9.0.43", ">=10.0.0,<10.0.2"],
+                "vulnerability": "HTTP Request Smuggling",
+                "cve": ["CVE-2021-25122"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "HTTP request smuggling vulnerability.",
+                "remediation": "Upgrade to tomcat >= 9.0.43 or >= 10.0.2",
+                "cwe": "CWE-444",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-03-01",
+                "ecosystem": "maven"
+            },
+        ],
+        "snakeyaml": [
+            {
+                "versions": ["<1.32"],
+                "vulnerability": "Denial of Service via YAML Parsing",
+                "cve": ["CVE-2022-25857"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via deeply nested YAML documents.",
+                "remediation": "Upgrade to snakeyaml >= 1.32",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-08-30",
+                "ecosystem": "maven"
+            },
+        ],
+        "h2": [
+            {
+                "versions": ["<2.1.210"],
+                "vulnerability": "Remote Code Execution",
+                "cve": ["CVE-2021-42392"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "JNDI injection via H2 Console.",
+                "remediation": "Upgrade to h2 >= 2.1.210",
+                "cwe": "CWE-502",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-01-06",
+                "ecosystem": "maven"
+            },
+        ],
 
         # ==================== PHP PACKAGES ====================
         "symfony/http-kernel": [
