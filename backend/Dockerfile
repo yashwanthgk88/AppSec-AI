@@ -8,14 +8,14 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from backend directory
-COPY backend/requirements.txt .
+# Copy requirements (local path since build context is backend/)
+COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend application code
-COPY backend/ .
+# Copy application code (local path since build context is backend/)
+COPY . .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
