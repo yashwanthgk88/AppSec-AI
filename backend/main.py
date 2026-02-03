@@ -24,6 +24,8 @@ from services.threat_modeling import ThreatModelingService
 from services.sast_scanner import SASTScanner
 from services.sca_scanner import SCAScanner
 from services.secret_scanner import SecretScanner
+from services.enhanced_sast_scanner import EnhancedSASTScanner
+from services.enhanced_sca_scanner import EnhancedSCAScanner
 from services.chatbot_service import ChatbotService
 from services.report_service import ReportService
 from services.repository_scanner import RepositoryScanner
@@ -121,6 +123,10 @@ sast_scanner = SASTScanner(ai_impact_service=ai_impact_service, ai_impact_enable
 sca_scanner = SCAScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 secret_scanner = SecretScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 report_service = ReportService()
+
+# Initialize Enhanced Scanners (multi-language with live vulnerability feeds)
+enhanced_sast_scanner = EnhancedSASTScanner()
+enhanced_sca_scanner = EnhancedSCAScanner()
 
 # Lazy initialization for chatbot
 _chatbot_service = None
@@ -1108,12 +1114,12 @@ async def run_security_scan(
             print(f"Warning: Failed to clone repository: {e}")
             repo_scanner = None
 
-    # Run SAST scan
+    # Run SAST scan using Enhanced Scanner (multi-language AST parsing)
     if repo_scanner and repo_scanner.repo_path:
-        scan_results_data = sast_scanner.scan_directory(repo_scanner.repo_path)
+        scan_results_data = enhanced_sast_scanner.scan_directory(repo_scanner.repo_path)
         sast_findings = scan_results_data['findings']
     else:
-        sast_findings = sast_scanner.generate_sample_findings()
+        sast_findings = []  # No demo findings - only real scans
 
     sast_scan = Scan(
         project_id=project_id,
@@ -1167,7 +1173,7 @@ async def run_security_scan(
 
     scan_results["sast"] = len(sast_findings)
 
-    # Run SCA scan
+    # Run SCA scan using Enhanced Scanner (live OSV/NVD vulnerability feeds)
     sca_findings = []
     if repo_scanner and repo_scanner.repo_path:
         dep_files = repo_scanner.get_dependency_files()
@@ -1178,49 +1184,55 @@ async def run_security_scan(
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
-                    # Parse dependencies - supports all ecosystems
+                    # Parse dependencies using enhanced SCA scanner
                     dependencies = {}
                     ecosystem = dep_type
                     file_name = os.path.basename(file_path)
+
                     if dep_type == 'npm':
-                        # Use correct parser based on file type
                         if file_name == 'package-lock.json':
-                            dependencies = sca_scanner.parse_package_lock_json(content)
-                        elif file_name == 'yarn.lock':
-                            dependencies = sca_scanner.parse_yarn_lock(content)
+                            dependencies = enhanced_sca_scanner.parse_package_lock_json(content)
                         else:
-                            dependencies = sca_scanner.parse_package_json(content)
+                            dependencies = enhanced_sca_scanner.parse_package_json(content)
                     elif dep_type == 'pip':
-                        dependencies = sca_scanner.parse_requirements_txt(content)
+                        if file_name == 'Pipfile.lock':
+                            dependencies = enhanced_sca_scanner.parse_pipfile_lock(content)
+                        else:
+                            dependencies = enhanced_sca_scanner.parse_requirements_txt(content)
                     elif dep_type == 'maven':
-                        dependencies = sca_scanner.parse_pom_xml(content)
+                        dependencies = enhanced_sca_scanner.parse_pom_xml(content)
                     elif dep_type == 'gradle':
-                        dependencies = sca_scanner.parse_gradle_build(content)
+                        dependencies = enhanced_sca_scanner.parse_build_gradle(content)
                     elif dep_type == 'composer':
-                        dependencies = sca_scanner.parse_composer_json(content)
+                        if file_name == 'composer.lock':
+                            dependencies = enhanced_sca_scanner.parse_composer_lock(content)
+                        else:
+                            dependencies = enhanced_sca_scanner.parse_composer_json(content)
                     elif dep_type == 'nuget':
-                        dependencies = sca_scanner.parse_csproj(content)
-                    elif dep_type == 'bundler':
-                        dependencies = sca_scanner.parse_gemfile_lock(content)
+                        if file_name == 'packages.config':
+                            dependencies = enhanced_sca_scanner.parse_packages_config(content)
+                        else:
+                            dependencies = enhanced_sca_scanner.parse_csproj(content)
                     elif dep_type == 'go':
-                        dependencies = sca_scanner.parse_go_mod(content)
-                    elif dep_type == 'cargo':
-                        dependencies = sca_scanner.parse_cargo_toml(content)
+                        if file_name == 'go.sum':
+                            dependencies = enhanced_sca_scanner.parse_go_sum(content)
+                        else:
+                            dependencies = enhanced_sca_scanner.parse_go_mod(content)
                     else:
                         continue
 
                     if dependencies:
-                        # Use live feeds if available
+                        # Use async live vulnerability feeds from OSV
                         try:
-                            results = await sca_scanner.scan_with_live_feeds(
-                                dependencies, ecosystem,
-                                use_local_db=True,
-                                use_live_feeds=True
+                            results = await enhanced_sca_scanner.scan_dependencies_async(
+                                dependencies, ecosystem
                             )
+                            sca_findings.extend(results['findings'])
                         except Exception as feed_error:
-                            print(f"Live feed scan failed, falling back to local: {feed_error}")
-                            results = sca_scanner.scan_dependencies(dependencies, ecosystem)
-                        sca_findings.extend(results['findings'])
+                            print(f"Enhanced SCA scan failed: {feed_error}")
+                            # Fallback to sync scan
+                            results = enhanced_sca_scanner.scan_dependencies(dependencies, ecosystem)
+                            sca_findings.extend(results['findings'])
                 except Exception as e:
                     print(f"Warning: Failed to scan {file_path}: {e}")
     # No demo/sample fallback - only show real vulnerabilities

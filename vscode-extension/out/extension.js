@@ -278,9 +278,11 @@ async function activate(context) {
                 await scanFile(document.uri);
             }
         }));
-        // Inline security analysis as you type
+        // Inline security analysis as you type - REAL-TIME DETECTION
+        console.log('[SecureDev AI] Registering inline security analysis...');
         context.subscriptions.push(vscode.workspace.onDidChangeTextDocument(e => {
-            if (e.document.uri.scheme === 'file') {
+            // Analyze on EVERY text change
+            if (e.document.uri.scheme === 'file' && e.contentChanges.length > 0) {
                 analyzeDocumentInline(e.document);
             }
         }));
@@ -289,14 +291,27 @@ async function activate(context) {
                 analyzeDocumentInline(document);
             }
         }));
-        // Register code action provider for inline suggestions
-        context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ scheme: 'file' }, inlineSecurityProvider, {
+        // Also trigger on active editor change
+        context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor && editor.document.uri.scheme === 'file') {
+                analyzeDocumentInline(editor.document);
+            }
+        }));
+        // Register code action provider for ALL languages
+        context.subscriptions.push(vscode.languages.registerCodeActionsProvider({ scheme: 'file', pattern: '**/*' }, inlineSecurityProvider, {
             providedCodeActionKinds: inlineSecurityProvider_1.InlineSecurityProvider.providedCodeActionKinds
         }));
-        // Analyze currently open documents
+        // Analyze ALL currently open documents
+        vscode.workspace.textDocuments.forEach(document => {
+            if (document.uri.scheme === 'file') {
+                analyzeDocumentInline(document);
+            }
+        });
+        // Also analyze active editor
         if (vscode.window.activeTextEditor) {
             analyzeDocumentInline(vscode.window.activeTextEditor.document);
         }
+        console.log('[SecureDev AI] Inline security analysis registered successfully!');
         context.subscriptions.push(inlineDiagnostics);
         if (await apiClient.isAuthenticated()) {
             updateStatusBar('connected');
@@ -956,14 +971,50 @@ async function markStatusCommand(finding, status) {
         vscode.window.showErrorMessage('Failed to update status: ' + error.message);
     }
 }
+// Debounce timer for inline analysis
+let analyzeDebounceTimer;
 function analyzeDocumentInline(document) {
-    // Only analyze source code files
-    const supportedLanguages = ['javascript', 'typescript', 'python', 'java', 'csharp', 'php', 'ruby', 'go'];
-    if (!supportedLanguages.includes(document.languageId)) {
+    // Clear previous timer
+    if (analyzeDebounceTimer) {
+        clearTimeout(analyzeDebounceTimer);
+    }
+    // Debounce analysis to avoid too many calls while typing
+    analyzeDebounceTimer = setTimeout(() => {
+        performInlineAnalysis(document);
+    }, 300); // 300ms debounce
+}
+function performInlineAnalysis(document) {
+    // Analyze ALL text files - no restrictions!
+    // Only skip binary files and very large files for performance
+    // Skip if file is too large (> 1MB)
+    if (document.getText().length > 1000000) {
         return;
     }
-    const diagnostics = inlineSecurityProvider.analyzeDocument(document);
-    inlineDiagnostics.set(document.uri, diagnostics);
+    // Only skip obvious binary/media files
+    const skipExtensions = [
+        '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp', '.svg',
+        '.mp3', '.mp4', '.avi', '.mov', '.wav', '.flac', '.ogg',
+        '.zip', '.tar', '.gz', '.rar', '.7z', '.jar', '.war',
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+        '.exe', '.dll', '.so', '.dylib', '.bin', '.class',
+        '.woff', '.woff2', '.ttf', '.eot', '.otf',
+        '.min.js', '.min.css', // Skip minified files
+        '.map' // Skip source maps
+    ];
+    const fileName = document.fileName.toLowerCase();
+    if (skipExtensions.some(ext => fileName.endsWith(ext))) {
+        return;
+    }
+    try {
+        const diagnostics = inlineSecurityProvider.analyzeDocument(document);
+        inlineDiagnostics.set(document.uri, diagnostics);
+        if (diagnostics.length > 0) {
+            console.log(`[SecureDev AI] Found ${diagnostics.length} security issues in ${document.fileName}`);
+        }
+    }
+    catch (error) {
+        console.error('[SecureDev AI] Error analyzing document:', error);
+    }
 }
 /**
  * Run enhanced AST-based security scan with taint analysis

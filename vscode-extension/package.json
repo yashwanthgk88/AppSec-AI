@@ -2,7 +2,7 @@
   "name": "appsec-ai-scanner",
   "displayName": "SecureDev AI Security Scanner",
   "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
-  "version": "1.8.5",
+  "version": "1.8.6",
   "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
