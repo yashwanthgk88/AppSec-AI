@@ -38,3 +38,4 @@ beautifulsoup4==4.12.3
 # Date/Time
 python-dateutil==2.8.2
 gunicorn==21.2.0
+email-validator==2.1.0

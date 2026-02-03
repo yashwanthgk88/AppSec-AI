@@ -25,5 +25,7 @@ ENV PORT=8000
 # Expose port
 EXPOSE 8000
 
-# Run migrations and start server with dynamic port
-CMD python3 migrate_db.py && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+# Initialize database and start server with dynamic port
+CMD python3 -c "from models.database import engine, Base; Base.metadata.create_all(bind=engine); print('Database initialized')" && \
+    python3 migrate_db.py || echo "Migration skipped" && \
+    gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
