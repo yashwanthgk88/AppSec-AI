@@ -3,6 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies including curl for healthcheck and git for repo cloning
+# Force rebuild: 2026-02-03
 RUN apt-get update && apt-get install -y \
     curl \
     git \
