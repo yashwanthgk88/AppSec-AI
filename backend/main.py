@@ -1,12 +1,9 @@
 """
 FastAPI Main Application
 """
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
-import threading
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
@@ -286,272 +283,6 @@ async def startup_event():
             print(f"Loaded {key} from database")
 
     db.close()
-
-# Background task executor for long-running scans
-scan_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="scan_worker")
-
-# Track running scans
-running_scans = {}
-
-def run_background_scan(project_id: int, user_id: int, scan_ids: dict):
-    """Run security scans in background thread"""
-    from models.database import SessionLocal
-    db = SessionLocal()
-
-    try:
-        project = db.query(Project).filter(Project.id == project_id).first()
-        if not project:
-            print(f"[BackgroundScan] Project {project_id} not found")
-            return
-
-        print(f"[BackgroundScan] Starting scans for project {project_id}")
-
-        # Clone repository
-        repo_scanner = None
-        if project.repository_url:
-            try:
-                repo_scanner = RepositoryScanner()
-                repo_path = repo_scanner.clone_repository(project.repository_url)
-                print(f"[BackgroundScan] Repository cloned successfully")
-            except Exception as e:
-                print(f"[BackgroundScan] Failed to clone repository: {e}")
-                repo_scanner = None
-
-        # Run SAST scan
-        sast_scan = db.query(Scan).filter(Scan.id == scan_ids.get('sast')).first()
-        if sast_scan:
-            try:
-                if repo_scanner and repo_scanner.repo_path:
-                    scan_results_data = sast_scanner.scan_directory(repo_scanner.repo_path)
-                    sast_findings = scan_results_data['findings']
-                else:
-                    sast_findings = sast_scanner.generate_sample_findings()
-
-                sast_scan.status = ScanStatus.COMPLETED
-                sast_scan.total_findings = len(sast_findings)
-                sast_scan.critical_count = len([f for f in sast_findings if f['severity'] == 'critical'])
-                sast_scan.high_count = len([f for f in sast_findings if f['severity'] == 'high'])
-                sast_scan.medium_count = len([f for f in sast_findings if f['severity'] == 'medium'])
-                sast_scan.low_count = len([f for f in sast_findings if f['severity'] == 'low'])
-
-                for finding in sast_findings:
-                    file_path = finding.get('file_path', 'unknown')
-                    if repo_scanner and repo_scanner.repo_path:
-                        file_path = repo_scanner.get_relative_path(file_path)
-
-                    vuln = Vulnerability(
-                        scan_id=sast_scan.id,
-                        rule_id=finding.get('rule_id'),
-                        title=finding.get('title', 'Security Issue'),
-                        description=finding.get('description', 'Security vulnerability detected'),
-                        severity=SeverityLevel[finding.get('severity', 'medium').upper()],
-                        cwe_id=finding.get('cwe_id', ''),
-                        owasp_category=finding.get('owasp_category', 'Security'),
-                        file_path=file_path,
-                        line_number=finding.get('line_number', 0),
-                        code_snippet=finding.get('code_snippet', ''),
-                        remediation=finding.get('remediation', ''),
-                        remediation_code=finding.get('remediation_code'),
-                        cvss_score=finding.get('cvss_score', 0.0),
-                        stride_category=finding.get('stride_category'),
-                        mitre_attack_id=finding.get('mitre_attack_id')
-                    )
-                    db.add(vuln)
-
-                db.commit()
-                print(f"[BackgroundScan] SAST scan completed: {len(sast_findings)} findings")
-            except Exception as e:
-                print(f"[BackgroundScan] SAST scan failed: {e}")
-                sast_scan.status = ScanStatus.FAILED
-                db.commit()
-
-        # Run SCA scan
-        sca_scan = db.query(Scan).filter(Scan.id == scan_ids.get('sca')).first()
-        if sca_scan:
-            try:
-                sca_findings = []
-                if repo_scanner and repo_scanner.repo_path:
-                    dep_files = repo_scanner.get_dependency_files()
-                    print(f"[BackgroundScan] Found dependency files: {dep_files}")
-
-                    for dep_type, file_paths in dep_files.items():
-                        print(f"[BackgroundScan] Processing {dep_type} files: {file_paths}")
-                        for file_path in file_paths:
-                            try:
-                                with open(file_path, 'r', encoding='utf-8') as f:
-                                    content = f.read()
-
-                                dependencies = {}
-                                ecosystem = dep_type
-                                file_name = os.path.basename(file_path)
-
-                                if dep_type == 'npm':
-                                    if file_name == 'package-lock.json':
-                                        dependencies = sca_scanner.parse_package_lock_json(content)
-                                    elif file_name == 'yarn.lock':
-                                        dependencies = sca_scanner.parse_yarn_lock(content)
-                                    else:
-                                        dependencies = sca_scanner.parse_package_json(content)
-                                elif dep_type == 'pip':
-                                    dependencies = sca_scanner.parse_requirements_txt(content)
-                                elif dep_type == 'maven':
-                                    dependencies = sca_scanner.parse_pom_xml(content)
-                                elif dep_type == 'gradle':
-                                    dependencies = sca_scanner.parse_gradle_build(content)
-                                elif dep_type == 'composer':
-                                    dependencies = sca_scanner.parse_composer_json(content)
-                                elif dep_type == 'nuget':
-                                    dependencies = sca_scanner.parse_csproj(content)
-                                elif dep_type == 'bundler':
-                                    dependencies = sca_scanner.parse_gemfile_lock(content)
-                                elif dep_type == 'go':
-                                    dependencies = sca_scanner.parse_go_mod(content)
-                                elif dep_type == 'cargo':
-                                    dependencies = sca_scanner.parse_cargo_toml(content)
-
-                                if dependencies:
-                                    print(f"[BackgroundScan] Found {len(dependencies)} {dep_type} dependencies")
-                                    sample = list(dependencies.items())[:5]
-                                    print(f"[BackgroundScan] Sample deps: {sample}")
-
-                                    # Use live feeds for better vulnerability coverage
-                                    try:
-                                        # Run async scan in thread using asyncio
-                                        loop = asyncio.new_event_loop()
-                                        asyncio.set_event_loop(loop)
-                                        results = loop.run_until_complete(
-                                            sca_scanner.scan_with_live_feeds(
-                                                dependencies, ecosystem,
-                                                use_local_db=True,
-                                                use_live_feeds=True
-                                            )
-                                        )
-                                        loop.close()
-                                        print(f"[BackgroundScan] Live feed scan found {len(results.get('findings', []))} vulnerabilities")
-                                    except Exception as live_err:
-                                        print(f"[BackgroundScan] Live feeds failed, using local DB: {live_err}")
-                                        results = sca_scanner.scan_dependencies(dependencies, ecosystem)
-                                        print(f"[BackgroundScan] Local DB scan found {len(results.get('findings', []))} vulnerabilities")
-                                    sca_findings.extend(results.get('findings', []))
-                            except Exception as e:
-                                print(f"[BackgroundScan] Failed to scan {file_path}: {e}")
-
-                sca_scan.status = ScanStatus.COMPLETED
-                sca_scan.total_findings = len(sca_findings)
-                sca_scan.critical_count = len([f for f in sca_findings if f.get('severity', '').lower() == 'critical'])
-                sca_scan.high_count = len([f for f in sca_findings if f.get('severity', '').lower() == 'high'])
-                sca_scan.medium_count = len([f for f in sca_findings if f.get('severity', '').lower() == 'medium'])
-                sca_scan.low_count = len([f for f in sca_findings if f.get('severity', '').lower() == 'low'])
-
-                for finding in sca_findings:
-                    package_name = finding.get('package', 'unknown')
-                    installed_version = finding.get('installed_version') or finding.get('version') or 'unknown'
-                    vulnerability = finding.get('vulnerability') or finding.get('title') or finding.get('cve') or 'Vulnerability'
-                    source = finding.get('source', 'local')
-                    fixed_versions = finding.get('fixed_versions', [])
-                    fixed_version_str = ', '.join(fixed_versions) if fixed_versions else finding.get('remediation', '')
-
-                    is_direct = finding.get('is_direct_dependency', True)
-                    dependency_depth = finding.get('dependency_depth', 0)
-                    introduced_by = finding.get('introduced_by')
-                    dep_type = "DIRECT" if is_direct else "TRANSITIVE"
-
-                    code_snippet_parts = [
-                        f"Package: {package_name}@{installed_version}",
-                        f"Type: {dep_type} DEPENDENCY",
-                        f"Source: {source.upper() if source else 'LOCAL'}",
-                    ]
-                    if finding.get('cve'):
-                        code_snippet_parts.append(f"CVE: {finding.get('cve')}")
-
-                    file_path_str = f"{finding.get('ecosystem', 'package')} dependency: {package_name} {installed_version} [{dep_type}]"
-
-                    vuln = Vulnerability(
-                        scan_id=sca_scan.id,
-                        title=f"{vulnerability} in {package_name}",
-                        description=finding.get('description', 'Vulnerability in dependency'),
-                        severity=SeverityLevel[finding.get('severity', 'medium').upper()],
-                        cwe_id=finding.get('cwe_id') or 'CWE-1035',
-                        owasp_category=finding.get('owasp_category', 'A06:2021 - Vulnerable and Outdated Components'),
-                        file_path=file_path_str,
-                        line_number=dependency_depth,
-                        code_snippet='\n'.join(code_snippet_parts),
-                        remediation=finding.get('remediation') or f"Upgrade to {fixed_version_str}" if fixed_version_str else 'Update to latest version',
-                        cvss_score=finding.get('cvss_score') or 0.0
-                    )
-                    db.add(vuln)
-
-                db.commit()
-                print(f"[BackgroundScan] SCA scan completed: {len(sca_findings)} findings")
-            except Exception as e:
-                print(f"[BackgroundScan] SCA scan failed: {e}")
-                sca_scan.status = ScanStatus.FAILED
-                db.commit()
-
-        # Run Secret scan
-        secret_scan = db.query(Scan).filter(Scan.id == scan_ids.get('secret')).first()
-        if secret_scan:
-            try:
-                if repo_scanner and repo_scanner.repo_path:
-                    scan_results_data = secret_scanner.scan_directory(repo_scanner.repo_path)
-                    secret_findings = scan_results_data['findings']
-                else:
-                    secret_findings = secret_scanner.generate_sample_findings()
-
-                secret_scan.status = ScanStatus.COMPLETED
-                secret_scan.total_findings = len(secret_findings)
-                secret_scan.critical_count = len([f for f in secret_findings if f.get('severity', '').lower() == 'critical'])
-                secret_scan.high_count = len([f for f in secret_findings if f.get('severity', '').lower() == 'high'])
-                secret_scan.medium_count = len([f for f in secret_findings if f.get('severity', '').lower() == 'medium'])
-                secret_scan.low_count = len([f for f in secret_findings if f.get('severity', '').lower() == 'low'])
-
-                for finding in secret_findings:
-                    file_path = finding.get('file_path', 'unknown')
-                    if repo_scanner and repo_scanner.repo_path:
-                        file_path = repo_scanner.get_relative_path(file_path)
-
-                    vuln = Vulnerability(
-                        scan_id=secret_scan.id,
-                        title=finding.get('title', 'Exposed Secret'),
-                        description=finding.get('description', 'Sensitive information exposed'),
-                        severity=SeverityLevel[finding.get('severity', 'high').upper()],
-                        cwe_id=finding.get('cwe_id', 'CWE-798'),
-                        owasp_category=finding.get('owasp_category', 'A07:2021'),
-                        file_path=file_path,
-                        line_number=finding.get('line_number', 0),
-                        code_snippet=finding.get('code_snippet', ''),
-                        remediation=finding.get('remediation', 'Remove and rotate the secret'),
-                        cvss_score=finding.get('cvss_score', 7.5)
-                    )
-                    db.add(vuln)
-
-                db.commit()
-                print(f"[BackgroundScan] Secret scan completed: {len(secret_findings)} findings")
-            except Exception as e:
-                print(f"[BackgroundScan] Secret scan failed: {e}")
-                secret_scan.status = ScanStatus.FAILED
-                db.commit()
-
-        # Calculate risk score
-        calculate_risk_score(project_id, db)
-
-        # Cleanup
-        if repo_scanner:
-            repo_scanner.cleanup()
-
-        print(f"[BackgroundScan] All scans completed for project {project_id}")
-
-    except Exception as e:
-        print(f"[BackgroundScan] Error: {e}")
-    finally:
-        db.close()
-        if project_id in running_scans:
-            del running_scans[project_id]
-
-# Root endpoint for Railway healthcheck
-@app.get("/")
-async def root():
-    return {"status": "ok", "service": "AppSec AI Platform API", "version": "1.0.0"}
 
 # Health check
 @app.get("/health")
@@ -1345,73 +1076,6 @@ async def run_demo_scan(
         "total_scans": 3
     }
 
-@app.get("/api/projects/{project_id}/scan/status")
-async def get_scan_status(
-    project_id: int,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """Get the status of scans for a project"""
-    project = db.query(Project).filter(
-        Project.id == project_id,
-        Project.owner_id == current_user.id
-    ).first()
-
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    # Get the most recent scans
-    sast_scan = db.query(Scan).filter(
-        Scan.project_id == project_id,
-        Scan.scan_type == ScanType.SAST
-    ).order_by(Scan.created_at.desc()).first()
-
-    sca_scan = db.query(Scan).filter(
-        Scan.project_id == project_id,
-        Scan.scan_type == ScanType.SCA
-    ).order_by(Scan.created_at.desc()).first()
-
-    secret_scan = db.query(Scan).filter(
-        Scan.project_id == project_id,
-        Scan.scan_type == ScanType.SECRET
-    ).order_by(Scan.created_at.desc()).first()
-
-    def scan_info(scan):
-        if not scan:
-            return {"status": "not_started", "findings": 0}
-        return {
-            "id": scan.id,
-            "status": scan.status.value,
-            "findings": scan.total_findings,
-            "critical": scan.critical_count,
-            "high": scan.high_count,
-            "medium": scan.medium_count,
-            "low": scan.low_count
-        }
-
-    all_completed = all([
-        sast_scan and sast_scan.status == ScanStatus.COMPLETED,
-        sca_scan and sca_scan.status == ScanStatus.COMPLETED,
-        secret_scan and secret_scan.status == ScanStatus.COMPLETED
-    ])
-
-    any_running = any([
-        sast_scan and sast_scan.status == ScanStatus.RUNNING,
-        sca_scan and sca_scan.status == ScanStatus.RUNNING,
-        secret_scan and secret_scan.status == ScanStatus.RUNNING
-    ])
-
-    overall_status = "completed" if all_completed else ("running" if any_running else "pending")
-
-    return {
-        "project_id": project_id,
-        "overall_status": overall_status,
-        "sast": scan_info(sast_scan),
-        "sca": scan_info(sca_scan),
-        "secret": scan_info(secret_scan),
-        "is_running": project_id in running_scans
-    }
-
 @app.post("/api/projects/{project_id}/scan")
 async def run_security_scan(
     project_id: int,
@@ -1433,76 +1097,21 @@ async def run_security_scan(
         "secret": 0
     }
 
-    print(f"[SCAN] Starting security scan for project {project_id}: {project.name}")
-    print(f"[SCAN] Repository URL: {project.repository_url}")
-
     # Clone repository if URL provided
     repo_scanner = None
     if project.repository_url:
         try:
-            print(f"[SCAN] Cloning repository...")
             repo_scanner = RepositoryScanner()
             repo_path = repo_scanner.clone_repository(project.repository_url)
-            print(f"[SCAN] Repository cloned successfully to: {repo_path}")
         except Exception as e:
             # If cloning fails, log error and fall back to demo scans
-            print(f"[SCAN] ERROR: Failed to clone repository: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Warning: Failed to clone repository: {e}")
             repo_scanner = None
-    else:
-        print(f"[SCAN] No repository URL provided, using demo scans")
 
-    # Run SAST scan with both regex and AST analysis
+    # Run SAST scan
     if repo_scanner and repo_scanner.repo_path:
-        print(f"[SAST] Starting scan of repository: {repo_scanner.repo_path}")
-
-        # Run regex-based SAST scanner
         scan_results_data = sast_scanner.scan_directory(repo_scanner.repo_path)
         sast_findings = scan_results_data['findings']
-        print(f"[SAST] Regex scanner found {len(sast_findings)} findings")
-
-        # Also run AST-based analysis for better accuracy
-        ast_findings = []
-        try:
-            for root, dirs, files in os.walk(repo_scanner.repo_path):
-                # Skip common non-source directories
-                dirs[:] = [d for d in dirs if d not in ['node_modules', 'venv', '.git', '__pycache__', 'dist', 'build', '.venv', 'vendor', 'target']]
-
-                for file in files:
-                    ext = os.path.splitext(file)[1]
-                    if ext in ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.php', '.go', '.rb', '.cs']:
-                        file_path = os.path.join(root, file)
-                        try:
-                            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                                source_code = f.read()
-                                if len(source_code) > 500 * 1024:  # Skip very large files
-                                    continue
-
-                            analysis_result = ast_analyzer.analyze_file(source_code, file_path)
-                            for finding in analysis_result.get("findings", []):
-                                # Add relative path
-                                finding['file_path'] = repo_scanner.get_relative_path(file_path)
-                                ast_findings.append(finding)
-                        except Exception as e:
-                            pass  # Skip files that can't be analyzed
-            print(f"[SAST] AST analyzer found {len(ast_findings)} findings")
-
-            # Merge findings, avoiding duplicates
-            existing_keys = set()
-            for f in sast_findings:
-                key = f"{f.get('file_path', '')}:{f.get('line_number', 0)}:{f.get('cwe_id', '')}"
-                existing_keys.add(key)
-
-            for f in ast_findings:
-                key = f"{f.get('file_path', '')}:{f.get('line_number', 0)}:{f.get('cwe_id', '')}"
-                if key not in existing_keys:
-                    sast_findings.append(f)
-                    existing_keys.add(key)
-
-            print(f"[SAST] Total combined findings: {len(sast_findings)}")
-        except Exception as e:
-            print(f"[SAST] AST analysis error (continuing with regex results): {e}")
     else:
         sast_findings = sast_scanner.generate_sample_findings()
 
@@ -1559,14 +1168,11 @@ async def run_security_scan(
     scan_results["sast"] = len(sast_findings)
 
     # Run SCA scan
-    print(f"[SCA] Starting SCA scan...")
     sca_findings = []
     if repo_scanner and repo_scanner.repo_path:
         dep_files = repo_scanner.get_dependency_files()
-        print(f"[SCA] Found dependency files: {dep_files}")
 
         for dep_type, file_paths in dep_files.items():
-            print(f"[SCA] Processing {dep_type} files: {file_paths}")
             for file_path in file_paths:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
