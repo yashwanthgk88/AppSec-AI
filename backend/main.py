@@ -76,7 +76,7 @@ else:
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         # Railway production frontend
-        "https://securedev-frontend.railway.app",
+        "https://frontend-production-838e.up.railway.app",
     ]
 
 # Check if we should allow all origins (for development/testing)
