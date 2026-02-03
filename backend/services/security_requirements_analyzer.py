@@ -28,9 +28,45 @@ class SecurityRequirementsAnalyzer:
     """Analyzes user stories to generate security requirements using AI"""
 
     # Default prompt instructions that can be customized via settings
-    DEFAULT_ABUSE_CASE_PROMPT = """Generate 4-5 abuse cases. Each must have: threat title, actor, 2-3 sentence description with attack tools (Burp Suite, SQLMap, etc.), impact level, STRIDE category, and 3 specific mitigations."""
+    DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 detailed abuse cases. For EACH abuse case provide:
 
-    DEFAULT_SECURITY_REQ_PROMPT = """Generate 6-8 security requirements covering: Authentication, Input Validation, Cryptography, Logging, Rate Limiting, API Security. Each must include: requirement title, priority, category, and implementation details with library names (bcrypt, argon2), CWE-XXX reference, and OWASP reference."""
+1. **Threat Title**: Clear, specific attack name
+2. **Threat Actor**: Who performs this attack (e.g., External Attacker, Malicious Insider, Automated Bot)
+3. **Detailed Attack Description** (MUST be 5-10 lines with bullet points):
+   • Step-by-step attack methodology
+   • Specific tools used (Burp Suite, SQLMap, Metasploit, Hydra, etc.)
+   • Attack vectors and entry points
+   • Data or assets targeted
+   • Potential damage and business impact
+4. **Impact Level**: Critical/High/Medium/Low with justification
+5. **Likelihood**: High/Medium/Low
+6. **STRIDE Category**: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
+7. **Mitigations** (provide 4-5 specific mitigations):
+   • Each mitigation must include specific implementation details
+   • Reference security controls, libraries, or frameworks
+   • Include verification/testing approach"""
+
+    DEFAULT_SECURITY_REQ_PROMPT = """Generate 8-10 detailed security requirements. For EACH requirement provide:
+
+1. **Requirement ID**: Unique identifier (SR-001, SR-002, etc.)
+2. **Requirement Title**: Clear, actionable security control
+3. **Priority**: Critical/High/Medium/Low
+4. **Category**: Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection
+5. **Detailed Rationale** (MUST be 5-8 lines):
+   • Why this requirement is necessary
+   • What threats it mitigates
+   • CWE reference (e.g., CWE-89, CWE-79)
+   • OWASP reference (e.g., OWASP Top 10 A01:2021)
+   • Compliance mapping (PCI-DSS, GDPR, etc.)
+   • Business impact if not implemented
+6. **Implementation Details**:
+   • Specific libraries/frameworks to use (bcrypt, argon2, helmet.js, etc.)
+   • Code patterns or configurations
+   • Integration points
+7. **Acceptance Criteria** (MUST be 3-5 specific, testable criteria):
+   • Each criterion must be measurable and verifiable
+   • Include specific test scenarios
+   • Define pass/fail conditions"""
 
     STRIDE_CATEGORIES = [
         {"id": "S", "name": "Spoofing", "description": "Pretending to be something or someone else"},
@@ -233,31 +269,38 @@ Return this JSON structure:
   "abuse_cases": [
     {{
       "id": "AC-001",
-      "threat": "Short threat title",
-      "actor": "Who performs the attack",
-      "description": "2-3 sentence attack description with tools used",
+      "title": "Clear attack title",
+      "threat_actor": "External Attacker / Malicious Insider / Automated Bot",
+      "description": "DETAILED multi-line description (5-10 lines):\n• Step 1: How attacker discovers the vulnerability\n• Step 2: Tools used (Burp Suite, SQLMap, etc.)\n• Step 3: Attack execution methodology\n• Step 4: Data exfiltration or damage caused\n• Step 5: Potential business impact and consequences",
       "impact": "Critical/High/Medium/Low",
       "likelihood": "High/Medium/Low",
       "stride_category": "Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege",
-      "mitigations": ["Specific mitigation 1", "Specific mitigation 2", "Specific mitigation 3"]
+      "mitigations": [
+        "Mitigation 1: Specific control with implementation details",
+        "Mitigation 2: Library or framework to use (e.g., use helmet.js for headers)",
+        "Mitigation 3: Configuration or code pattern",
+        "Mitigation 4: Testing/verification approach"
+      ]
     }}
   ],
   "stride_threats": [
-    {{"category": "Spoofing", "threat": "Threat name", "description": "Brief description", "risk_level": "Critical/High/Medium/Low"}}
+    {{"category": "Spoofing", "threat": "Threat name", "description": "Detailed description", "risk_level": "Critical/High/Medium/Low"}}
   ],
   "security_requirements": [
     {{
       "id": "SR-001",
-      "text": "Requirement title",
+      "requirement": "Clear, actionable requirement title",
       "priority": "Critical/High/Medium/Low",
-      "category": "Authentication/Input Validation/Cryptography/Logging/Rate Limiting/API Security",
-      "details": "Implementation details with library names, CWE-XXX, OWASP reference"
+      "category": "Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection",
+      "rationale": "DETAILED multi-line rationale (5-8 lines):\n• Why this requirement is critical\n• Threats mitigated by this control\n• CWE Reference: CWE-XXX\n• OWASP Reference: A01:2021\n• Compliance: PCI-DSS Req X, GDPR Article Y\n• Business impact if not implemented",
+      "acceptance_criteria": "DETAILED acceptance criteria (3-5 lines):\n• Criterion 1: Specific testable condition\n• Criterion 2: Measurable verification step\n• Criterion 3: Pass/fail condition"
     }}
   ],
   "risk_score": 75
 }}
 
-Generate 4-5 abuse_cases and 6-8 security_requirements specific to: {title}
+Generate 5-7 detailed abuse_cases and 8-10 security_requirements specific to: {title}
+Each description, rationale, and acceptance_criteria MUST be detailed with multiple bullet points.
 Return ONLY valid JSON."""
 
     def _template_analyze(self, title: str, description: str, acceptance_criteria: str) -> Dict[str, Any]:
