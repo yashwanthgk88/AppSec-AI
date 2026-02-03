@@ -108,12 +108,11 @@ load_ai_config_from_database()
 ai_impact_service = get_ai_impact_service()
 
 # Initialize services with AI impact integration
-# NOTE: AI impact is disabled by default for faster scans. Static templates are used instead.
-# Set ai_impact_enabled=True to use AI-generated impact (slower but more contextual)
+# AI impact is enabled for richer, contextual vulnerability analysis
 threat_service = ThreatModelingService()
-sast_scanner = SASTScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=False)
-sca_scanner = SCAScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=False)
-secret_scanner = SecretScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=False)
+sast_scanner = SASTScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
+sca_scanner = SCAScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
+secret_scanner = SecretScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 report_service = ReportService()
 
 # Lazy initialization for chatbot
