@@ -1,9 +1,2 @@
-# Railway configuration for backend service
-[build]
-builder = "dockerfile"
-dockerfilePath = "backend/Dockerfile"
-watchPatterns = ["backend/**"]
-
-[deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 300
+# This file is for the root - Railway should use backend/ as root directory
+# Go to Railway Settings > Root Directory and set it to "backend"
