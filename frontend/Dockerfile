@@ -1,7 +1,7 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Cache bust: 2026-02-03-v2-extension-deploy
+# Cache bust: 2026-02-03-v3-debug-copy
 ARG CACHEBUST=1
 
 WORKDIR /app
@@ -34,8 +34,14 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
+# Debug: List files in public/downloads before copying
+RUN echo "=== Listing source context ===" && ls -la /tmp || true
+
 # Copy VS Code extension to be served
 COPY public/downloads /usr/share/nginx/html/downloads
+
+# Debug: List copied files
+RUN echo "=== Files in downloads folder ===" && ls -la /usr/share/nginx/html/downloads/
 
 # Default port (Railway will override with PORT env var)
 ENV PORT=80
