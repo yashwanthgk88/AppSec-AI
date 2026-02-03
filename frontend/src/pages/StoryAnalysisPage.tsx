@@ -27,6 +27,25 @@ interface AbuseCase {
   threat_actor: string
   impact: string
   likelihood: string
+  mitigations?: string[]
+}
+
+// Helper function to format text as bullet points
+const formatAsBulletPoints = (text: string): string[] => {
+  if (!text) return []
+  // Split by common delimiters: newlines, numbered lists, or sentences
+  const lines = text
+    .split(/[\n\r]+|(?:\d+\.\s*)|(?:•\s*)|(?:-\s*)/)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+  // If no splits found, split by periods (sentences)
+  if (lines.length <= 1 && text.includes('.')) {
+    return text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+  }
+  return lines
 }
 
 interface StrideThreat {
@@ -386,20 +405,48 @@ export default function StoryAnalysisPage() {
             </div>
             <div className="divide-y divide-gray-100">
               {analysis.abuse_cases.map((abuse) => (
-                <div key={abuse.id} className="p-4">
+                <div key={abuse.id} className="p-4 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-mono text-gray-400">{abuse.id}</span>
-                        <h4 className="font-medium text-gray-900">{abuse.title}</h4>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{abuse.id}</span>
+                        <h4 className="font-semibold text-gray-900">{abuse.title}</h4>
                       </div>
-                      <p className="text-sm text-gray-600 mt-1">{abuse.description}</p>
-                      <div className="flex items-center space-x-3 mt-2">
-                        <span className="text-xs text-gray-500">Actor: {abuse.threat_actor}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${getImpactColor(abuse.impact)}`}>
+
+                      {/* Description as bullet points */}
+                      <div className="mt-2 mb-3">
+                        <h5 className="text-sm font-medium text-gray-700 mb-1">Attack Description:</h5>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-2">
+                          {formatAsBulletPoints(abuse.description).map((point, idx) => (
+                            <li key={idx}>{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {/* Mitigations if available */}
+                      {abuse.mitigations && abuse.mitigations.length > 0 && (
+                        <div className="mt-3 mb-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                          <h5 className="text-sm font-medium text-green-800 mb-2 flex items-center">
+                            <Shield className="w-4 h-4 mr-1" />
+                            Recommended Mitigations:
+                          </h5>
+                          <ul className="list-disc list-inside text-sm text-green-700 space-y-1 ml-2">
+                            {abuse.mitigations.map((mitigation, idx) => (
+                              <li key={idx}>{mitigation}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      <div className="flex items-center flex-wrap gap-2 mt-3">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs flex items-center">
+                          <Target className="w-3 h-3 mr-1" />
+                          Actor: {abuse.threat_actor}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.impact)}`}>
                           Impact: {abuse.impact}
                         </span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${getImpactColor(abuse.likelihood)}`}>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.likelihood)}`}>
                           Likelihood: {abuse.likelihood}
                         </span>
                       </div>
@@ -470,25 +517,41 @@ export default function StoryAnalysisPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {analysis.security_requirements.map((req) => (
-              <div key={req.id} className="p-4">
+              <div key={req.id} className="p-4 hover:bg-gray-50">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <span className="text-xs font-mono bg-gray-100 px-2 py-0.5 rounded">{req.id}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium border ${getPriorityColor(req.priority)}`}>
-                        {req.priority.toUpperCase()}
+                    <div className="flex items-center flex-wrap gap-2 mb-3">
+                      <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-0.5 rounded">{req.id}</span>
+                      <span className={`px-2 py-1 rounded text-xs font-semibold border ${getPriorityColor(req.priority)}`}>
+                        {req.priority.toUpperCase()} PRIORITY
                       </span>
-                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
                         {req.category}
                       </span>
                     </div>
-                    <p className="font-medium text-gray-900 mt-2">{req.requirement}</p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Rationale:</span> {req.rationale}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      <span className="font-medium">Acceptance:</span> {req.acceptance_criteria}
-                    </p>
+
+                    {/* Requirement Title */}
+                    <h4 className="font-semibold text-gray-900 text-base mb-3">{req.requirement}</h4>
+
+                    {/* Rationale as bullet points */}
+                    <div className="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <h5 className="text-sm font-medium text-blue-800 mb-2">📋 Rationale:</h5>
+                      <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 ml-2">
+                        {formatAsBulletPoints(req.rationale).map((point, idx) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Acceptance Criteria as bullet points */}
+                    <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <h5 className="text-sm font-medium text-green-800 mb-2">✅ Acceptance Criteria:</h5>
+                      <ul className="list-disc list-inside text-sm text-green-700 space-y-1 ml-2">
+                        {formatAsBulletPoints(req.acceptance_criteria).map((point, idx) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
