@@ -1,8 +1,18 @@
 """Initialize custom rules database tables in SQLite"""
 import sqlite3
+import os
+
+# Use consistent database path (same as utils/db_path.py)
+def get_db_path():
+    persistent_path = "/app/data/appsec.db"
+    if os.path.exists("/app/data"):
+        return persistent_path
+    return "appsec.db"
 
 # Connect to SQLite database
-conn = sqlite3.connect('appsec.db')
+db_path = get_db_path()
+print(f"Using database at: {db_path}")
+conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 # Custom rules table
