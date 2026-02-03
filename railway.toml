@@ -1,0 +1,9 @@
+# Railway configuration for backend service
+[build]
+builder = "dockerfile"
+dockerfilePath = "backend/Dockerfile"
+watchPatterns = ["backend/**"]
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 300
