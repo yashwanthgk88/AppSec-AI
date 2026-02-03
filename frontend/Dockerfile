@@ -1,23 +1,26 @@
 # Build stage
 FROM node:18-alpine AS builder
 
+# Cache bust: 2026-02-03-v1-owasp-inline
+ARG CACHEBUST=1
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --legacy-peer-deps
 
 # Copy application code
 COPY . .
 
-# Build argument for API URL
-ARG VITE_API_URL=http://localhost:8000
+# Build argument for API URL - MUST be set in Railway
+ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
 
 # Build the application
-RUN npm run build
+RUN echo "Building with API URL: $VITE_API_URL" && npm run build
 
 # Production stage
 FROM nginx:alpine
