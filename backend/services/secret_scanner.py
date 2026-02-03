@@ -4,9 +4,12 @@ Detects hardcoded credentials, API keys, private keys, and sensitive data with e
 """
 import re
 import math
-from typing import List, Dict, Any, Set, Tuple
+import logging
+from typing import List, Dict, Any, Set, Tuple, Optional
 from collections import Counter
 import os
+
+logger = logging.getLogger(__name__)
 
 class SecretScanner:
     """
@@ -419,12 +422,22 @@ class SecretScanner:
         "sha256", "md5", "base64",
     }
 
-    def __init__(self):
-        """Initialize the secret scanner"""
+    def __init__(self, ai_impact_service=None, ai_impact_enabled: bool = True):
+        """
+        Initialize the secret scanner
+
+        Args:
+            ai_impact_service: Optional AI impact service for dynamic impact generation
+            ai_impact_enabled: Whether to use AI for impact generation (default True)
+        """
         self.scanned_files = 0
         self.skipped_files = 0
         self.errors = []
         self.false_positives_filtered = 0
+
+        # AI Impact Service configuration
+        self.ai_impact_service = ai_impact_service
+        self.ai_impact_enabled = ai_impact_enabled
 
     def calculate_shannon_entropy(self, string: str) -> float:
         """
@@ -585,6 +598,17 @@ class SecretScanner:
                         # Mask the secret value
                         masked_value = self._mask_secret(secret_value)
 
+                        # Generate AI-powered impact statement
+                        impact_data = self._generate_impact(
+                            secret_type=secret_type,
+                            severity=secret_info['severity'],
+                            file_path=file_path,
+                            confidence=confidence,
+                            entropy=entropy,
+                            description=secret_info['description'],
+                            fallback_remediation=secret_info['remediation']
+                        )
+
                         findings.append({
                             "title": f"{secret_type} Detected",
                             "description": secret_info['description'],
@@ -598,11 +622,15 @@ class SecretScanner:
                             "secret_type": secret_type,
                             "masked_value": masked_value,
                             "entropy": round(entropy, 2) if entropy else None,
+                            "business_impact": impact_data.get('business_impact', ''),
+                            "technical_impact": impact_data.get('technical_impact', ''),
+                            "recommendations": impact_data.get('recommendations', secret_info['remediation']),
                             "remediation": secret_info['remediation'],
                             "cvss_score": self._calculate_cvss(secret_info['severity']),
                             "stride_category": "Information Disclosure",
                             "mitre_attack_id": "T1552.001",  # Unsecured Credentials: Credentials In Files
-                            "is_test_file": self.is_test_file(file_path)
+                            "is_test_file": self.is_test_file(file_path),
+                            "impact_generated_by": impact_data.get('generated_by', 'static')
                         })
                 except re.error as e:
                     self.errors.append(f"Regex error in pattern '{pattern}': {e}")
@@ -628,6 +656,100 @@ class SecretScanner:
             "info": 0.0
         }
         return cvss_map.get(severity.lower(), 5.0)
+
+    def _generate_impact(
+        self,
+        secret_type: str,
+        severity: str,
+        file_path: str,
+        confidence: str,
+        entropy: Optional[float],
+        description: str,
+        fallback_remediation: str
+    ) -> Dict[str, str]:
+        """
+        Generate AI-powered impact statement for a secret finding.
+
+        Args:
+            secret_type: Type of secret detected
+            severity: Severity level
+            file_path: Path to the file containing the secret
+            confidence: Confidence level of detection
+            entropy: Shannon entropy of the secret (if calculated)
+            description: Description of the secret type
+            fallback_remediation: Fallback remediation text
+
+        Returns:
+            Dictionary with 'impact', 'recommendations', and 'generated_by' keys
+        """
+        # If AI is enabled and service is available, use it
+        if self.ai_impact_enabled and self.ai_impact_service:
+            try:
+                vuln_info = {
+                    "secret_type": secret_type,
+                    "pattern_name": secret_type,
+                    "severity": severity,
+                    "file_path": file_path,
+                    "confidence": confidence,
+                    "entropy": entropy,
+                    "description": description
+                }
+
+                ai_result = self.ai_impact_service.generate_impact_statement(
+                    finding_type="secret",
+                    vulnerability_info=vuln_info,
+                    fallback_recommendations=fallback_remediation
+                )
+
+                return {
+                    "business_impact": ai_result.get('business_impact', 'Impact assessment unavailable'),
+                    "technical_impact": ai_result.get('technical_impact', 'Technical impact unavailable'),
+                    "recommendations": ai_result.get('recommendations', fallback_remediation),
+                    "generated_by": ai_result.get('generated_by', 'ai')
+                }
+
+            except Exception as e:
+                logger.warning(f"[SecretScanner] AI impact generation failed: {e}")
+                # Fall through to static fallback
+
+        # Static fallback
+        return self._generate_static_impact(secret_type, severity, fallback_remediation)
+
+    def _generate_static_impact(
+        self,
+        secret_type: str,
+        severity: str,
+        fallback_remediation: str
+    ) -> Dict[str, str]:
+        """Generate static impact statement when AI is unavailable."""
+        severity_impacts = {
+            "critical": {
+                "business": "- Immediate compromise risk for cloud resources or systems\n- High-value credential with broad access scope\n- Automated scanning likely to detect and exploit\n- Immediate rotation required",
+                "technical": "- Full system or service access possible\n- Potential for persistent backdoor installation\n- Lateral movement capability\n- Data exfiltration risk"
+            },
+            "high": {
+                "business": "- Significant compromise risk\n- Valuable credential with notable access\n- Should be rotated within hours\n- May require incident response",
+                "technical": "- Service or component access\n- Potential for data access\n- May enable further attacks\n- Exploitation tools available"
+            },
+            "medium": {
+                "business": "- Moderate risk requiring attention\n- Limited scope credential\n- Should be addressed promptly\n- Track for compliance",
+                "technical": "- Limited service access\n- Constrained exploitation potential\n- May require chaining\n- Lower value target"
+            },
+            "low": {
+                "business": "- Low immediate risk\n- Test or development credential\n- Should still be removed\n- Security hygiene issue",
+                "technical": "- Minimal production impact\n- Test environment risk\n- May indicate process gaps\n- Training opportunity"
+            }
+        }
+
+        sev_lower = severity.lower()
+        impact_info = severity_impacts.get(sev_lower, severity_impacts['medium'])
+
+        return {
+            "business_impact": impact_info['business'],
+            "technical_impact": impact_info['technical'],
+            "recommendations": fallback_remediation,
+            "generated_by": "static"
+        }
 
     def scan_file(self, file_path: str) -> Dict[str, Any]:
         """

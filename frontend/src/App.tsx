@@ -12,6 +12,9 @@ import CustomRulesPage from './pages/CustomRulesPage'
 import RulePerformancePage from './pages/RulePerformancePage'
 import ScanMonitorPage from './pages/ScanMonitorPage'
 import ThreatIntelPage from './pages/ThreatIntelPage'
+import ApplicationIntelligencePage from './pages/ApplicationIntelligencePage'
+import SecurityRequirementsPage from './pages/SecurityRequirementsPage'
+import StoryAnalysisPage from './pages/StoryAnalysisPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -53,11 +56,14 @@ function App() {
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           <Route path="/projects/:id/threat-model" element={<ThreatModelPage />} />
           <Route path="/projects/:id/vulnerabilities" element={<VulnerabilitiesPage />} />
+          <Route path="/projects/:id/security-requirements" element={<SecurityRequirementsPage />} />
+          <Route path="/projects/:id/stories/:storyId" element={<StoryAnalysisPage />} />
           <Route path="/threat-intel" element={<ThreatIntelPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/custom-rules" element={<CustomRulesPage />} />
           <Route path="/rule-performance" element={<RulePerformancePage />} />
           <Route path="/scan-monitor" element={<ScanMonitorPage />} />
+          <Route path="/application-intelligence" element={<ApplicationIntelligencePage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

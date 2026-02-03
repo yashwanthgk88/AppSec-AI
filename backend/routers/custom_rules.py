@@ -28,7 +28,7 @@ def get_db():
 
 # Custom Rules CRUD
 
-@router.get("/", response_model=List[dict])
+@router.get("", response_model=List[dict])
 async def get_all_rules(
     enabled_only: bool = False,
     severity: Optional[str] = None,
@@ -74,7 +74,7 @@ async def get_rule_by_id(rule_id: int):
 
     return dict(rule)
 
-@router.post("/", response_model=dict)
+@router.post("", response_model=dict)
 async def create_custom_rule(
     rule: CreateCustomRuleRequest,
     current_user: dict = Depends(get_current_user)
@@ -495,7 +495,7 @@ async def run_rule_refinement(job_id: int, rule_id: int, fp_examples: List[dict]
 
 # Enhancement Jobs
 
-@router.get("/jobs/", response_model=List[dict])
+@router.get("/jobs", response_model=List[dict])
 async def get_enhancement_jobs(
     status: Optional[str] = None,
     limit: int = 50

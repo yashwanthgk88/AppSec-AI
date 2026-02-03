@@ -1,27 +1,73 @@
 """
-AI Chatbot Service using OpenAI API
-Provides security assistance in English
+AI Chatbot Service
+Provides security assistance using the configured AI provider.
+Supports: OpenAI, Anthropic, Azure, Google, Ollama
 """
-import os
+import logging
 from typing import Dict, Any, Optional
-from openai import OpenAI
-from dotenv import load_dotenv
 
-load_dotenv()
+logger = logging.getLogger(__name__)
+
 
 class ChatbotService:
-    """Security chatbot powered by OpenAI (English only)"""
+    """
+    Security chatbot powered by the user's configured AI provider.
+    Uses the unified AI client factory for multi-provider support.
+    """
 
-    def __init__(self):
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY not found in environment variables")
-        self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4o-mini"
+    def __init__(self, ai_config=None):
+        """
+        Initialize the chatbot service.
+
+        Args:
+            ai_config: Optional AIConfig object. If None, uses global settings.
+        """
+        self._ai_client = None
+        self.enabled = False
+        self.provider = "none"
+        self.model = "none"
+
+        try:
+            from services.ai_client_factory import get_ai_client, get_global_ai_config, AIConfig
+
+            # Use provided config or fall back to global
+            config = ai_config if ai_config else get_global_ai_config()
+
+            if config.api_key:
+                self._ai_client = get_ai_client(config)
+                self.enabled = self._ai_client.is_configured
+                self.provider = config.provider
+                self.model = self._ai_client.model
+                logger.info(f"[ChatbotService] Initialized with {self.provider}, model={self.model}")
+            else:
+                logger.warning("[ChatbotService] No API key configured")
+
+        except Exception as e:
+            logger.error(f"[ChatbotService] Failed to initialize: {e}")
+            raise ValueError(f"Failed to initialize chatbot: {e}")
+
+    def update_config(self, ai_config) -> None:
+        """
+        Update the AI configuration.
+
+        Args:
+            ai_config: AIConfig object with new settings
+        """
+        try:
+            from services.ai_client_factory import AIClientFactory
+
+            self._ai_client = AIClientFactory(ai_config)
+            self.enabled = self._ai_client.is_configured
+            self.provider = ai_config.provider
+            self.model = self._ai_client.model
+            logger.info(f"[ChatbotService] Config updated: {self.provider}, model={self.model}")
+        except Exception as e:
+            logger.error(f"[ChatbotService] Failed to update config: {e}")
+            self.enabled = False
 
     def chat(self, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Process chat message and return response in English
+        Process chat message and return response.
 
         Args:
             message: User's message
@@ -30,6 +76,17 @@ class ChatbotService:
         Returns:
             Dict with response and metadata
         """
+        if not self.enabled or not self._ai_client:
+            return {
+                "response": "AI service is not configured. Please configure your AI provider in Settings.",
+                "detected_language": "en",
+                "language_name": "English",
+                "tokens_used": 0,
+                "model": self.model,
+                "provider": self.provider,
+                "error": "AI not configured"
+            }
+
         # Build system prompt
         system_prompt = self._build_system_prompt(context)
 
@@ -37,41 +94,40 @@ class ChatbotService:
         user_message = self._build_user_message(message, context)
 
         try:
-            # Call OpenAI API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=2048,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_message}
-                ]
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ]
+
+            response = self._ai_client.chat_completion(
+                messages=messages,
+                max_tokens=2048
             )
 
-            response_text = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens
-
             return {
-                "response": response_text,
+                "response": response['content'],
                 "detected_language": "en",
                 "language_name": "English",
-                "tokens_used": tokens_used,
-                "model": self.model,
+                "tokens_used": response.get('tokens_used', 0),
+                "model": response.get('model', self.model),
+                "provider": response.get('provider', self.provider),
                 "context_type": context.get("type") if context else None
             }
 
         except Exception as e:
-            # Fallback response
+            logger.error(f"[ChatbotService] Chat failed: {e}")
             return {
                 "response": f"I apologize, but I encountered an error processing your request: {str(e)}",
                 "detected_language": "en",
                 "language_name": "English",
                 "tokens_used": 0,
                 "model": self.model,
+                "provider": self.provider,
                 "error": str(e)
             }
 
     def _build_system_prompt(self, context: Optional[Dict[str, Any]]) -> str:
-        """Build system prompt for OpenAI"""
+        """Build system prompt"""
         base_prompt = """You are an application security expert assistant. Your role is to:
 
 1. Provide security guidance and vulnerability remediation assistance
@@ -129,6 +185,9 @@ My question: {message}"""
 
     def generate_remediation_guide(self, vulnerability: Dict[str, Any]) -> str:
         """Generate detailed remediation guide for a vulnerability"""
+        if not self.enabled or not self._ai_client:
+            return "AI service is not configured. Please configure your AI provider in Settings."
+
         prompt = f"""Generate a comprehensive remediation guide for this vulnerability:
 
 Title: {vulnerability.get('title')}
@@ -147,19 +206,20 @@ Please provide:
 5. Testing recommendations"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=2048,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+            response = self._ai_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2048
             )
-            return response.choices[0].message.content
+            return response['content']
         except Exception as e:
+            logger.error(f"[ChatbotService] Remediation guide failed: {e}")
             return f"Error generating remediation guide: {str(e)}"
 
     def explain_stride_threat(self, threat: Dict[str, Any]) -> str:
         """Explain a STRIDE threat"""
+        if not self.enabled or not self._ai_client:
+            return "AI service is not configured. Please configure your AI provider in Settings."
+
         prompt = f"""Explain this security threat in simple terms:
 
 STRIDE Category: {threat.get('stride_category')}
@@ -175,19 +235,20 @@ Please provide:
 4. Additional security measures to consider"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=1024,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+            response = self._ai_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1024
             )
-            return response.choices[0].message.content
+            return response['content']
         except Exception as e:
+            logger.error(f"[ChatbotService] Explain threat failed: {e}")
             return f"Error explaining threat: {str(e)}"
 
     def get_security_tips(self, technology: str) -> str:
         """Get proactive security tips for a specific technology"""
+        if not self.enabled or not self._ai_client:
+            return "AI service is not configured. Please configure your AI provider in Settings."
+
         prompt = f"""Provide 5 important security tips for developers working with {technology}.
 
 Focus on:
@@ -197,19 +258,25 @@ Focus on:
 - Actionable advice"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=1024,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+            response = self._ai_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1024
             )
-            return response.choices[0].message.content
+            return response['content']
         except Exception as e:
+            logger.error(f"[ChatbotService] Security tips failed: {e}")
             return f"Error generating security tips: {str(e)}"
 
     def answer_compliance_question(self, question: str, framework: str = "OWASP Top 10") -> Dict[str, Any]:
         """Answer compliance-related questions"""
+        if not self.enabled or not self._ai_client:
+            return {
+                "response": "AI service is not configured. Please configure your AI provider in Settings.",
+                "detected_language": "en",
+                "framework": framework,
+                "error": "AI not configured"
+            }
+
         prompt = f"""Answer this compliance question about {framework}:
 
 {question}
@@ -221,23 +288,30 @@ Provide:
 4. Evidence/documentation recommendations"""
 
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                max_tokens=1536,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+            response = self._ai_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1536
             )
 
             return {
-                "response": response.choices[0].message.content,
+                "response": response['content'],
                 "detected_language": "en",
-                "framework": framework
+                "framework": framework,
+                "provider": response.get('provider', self.provider)
             }
         except Exception as e:
+            logger.error(f"[ChatbotService] Compliance question failed: {e}")
             return {
                 "response": f"Error: {str(e)}",
                 "detected_language": "en",
                 "framework": framework,
                 "error": str(e)
             }
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get service statistics"""
+        return {
+            "enabled": self.enabled,
+            "provider": self.provider,
+            "model": self.model
+        }

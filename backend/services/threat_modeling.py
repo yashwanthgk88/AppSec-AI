@@ -5,30 +5,65 @@ Enhanced Threat Modeling Service
 - Comprehensive MITRE ATT&CK Mapping
 - Professional DFD Generation
 - Attack Path Analysis
+- Multi-Provider Support (OpenAI, Anthropic, Azure, Google, Ollama)
 """
 from typing import Dict, List, Any, Optional, Tuple
 import re
 import json
 import os
+import logging
 from datetime import datetime
-from anthropic import Anthropic
+
+logger = logging.getLogger(__name__)
+
 
 class ThreatModelingService:
     """Professional threat modeling with AI-powered analysis"""
 
-    def __init__(self):
-        self.anthropic_client = None
-        self._init_client()
+    def __init__(self, ai_config=None):
+        """
+        Initialize threat modeling service.
 
-    def _init_client(self):
-        """Initialize Anthropic client if API key available"""
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key:
-            self.anthropic_client = Anthropic(api_key=api_key)
+        Args:
+            ai_config: Optional AIConfig object. If None, uses global settings.
+        """
+        self._ai_client = None
+        self.enabled = False
+        self.provider = "none"
+        self.model = "none"
+        self._init_client(ai_config)
+
+    def _init_client(self, ai_config=None):
+        """Initialize AI client from config or global settings"""
+        try:
+            from services.ai_client_factory import get_ai_client, get_global_ai_config
+
+            config = ai_config if ai_config else get_global_ai_config()
+
+            if config.api_key:
+                self._ai_client = get_ai_client(config)
+                self.enabled = self._ai_client.is_configured
+                self.provider = config.provider
+                self.model = self._ai_client.model
+                logger.info(f"[ThreatModelingService] Initialized with {self.provider}, model={self.model}")
+            else:
+                logger.warning("[ThreatModelingService] No API key configured, using fallback templates")
+        except Exception as e:
+            logger.warning(f"[ThreatModelingService] Failed to initialize AI client: {e}")
+
+    def update_config(self, ai_config) -> None:
+        """Update AI configuration"""
+        self._init_client(ai_config)
+
+    # Legacy property for backward compatibility
+    @property
+    def anthropic_client(self):
+        """Backward compatibility - returns True if AI is configured"""
+        return self._ai_client if self.enabled else None
 
     def _enrich_threat_with_ai(self, threat: Dict, component: Dict, system_context: str) -> Dict:
         """Use AI to generate rich, contextual threat details"""
-        if not self.anthropic_client:
+        if not self.enabled or not self._ai_client:
             return self._get_fallback_threat_details(threat, component)
 
         prompt = f"""You are a senior application security expert performing threat modeling. Analyze this specific threat and provide detailed, contextual information.
@@ -85,19 +120,19 @@ Provide a detailed JSON response with the following structure. Be SPECIFIC to th
 Be specific and technical. Reference the actual component name and technology."""
 
         try:
-            response = self.anthropic_client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=2000,
-                messages=[{"role": "user", "content": prompt}]
+            messages = [{"role": "user", "content": prompt}]
+            response = self._ai_client.chat_completion(
+                messages=messages,
+                max_tokens=2000
             )
 
-            response_text = response.content[0].text
+            response_text = response['content']
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 enriched = json.loads(json_match.group())
                 return enriched
         except Exception as e:
-            print(f"AI threat enrichment failed: {e}")
+            logger.warning(f"[ThreatModelingService] AI threat enrichment failed: {e}")
 
         return self._get_fallback_threat_details(threat, component)
 
@@ -117,7 +152,7 @@ Be specific and technical. Reference the actual component name and technology.""
     def _generate_attack_path_with_ai(self, path_names: List[str], threats: List[Dict],
                                        entry: Dict, target: Dict, system_context: str) -> Dict:
         """Use AI to generate detailed attack path analysis"""
-        if not self.anthropic_client:
+        if not self.enabled or not self._ai_client:
             return self._get_fallback_attack_path(path_names, threats, entry, target)
 
         threats_summary = "\n".join([
@@ -183,18 +218,18 @@ Generate a detailed JSON response:
 Be specific to this system and path. Reference actual component names."""
 
         try:
-            response = self.anthropic_client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=3000,
-                messages=[{"role": "user", "content": prompt}]
+            messages = [{"role": "user", "content": prompt}]
+            response = self._ai_client.chat_completion(
+                messages=messages,
+                max_tokens=3000
             )
 
-            response_text = response.content[0].text
+            response_text = response['content']
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 return json.loads(json_match.group())
         except Exception as e:
-            print(f"AI attack path generation failed: {e}")
+            logger.warning(f"[ThreatModelingService] AI attack path generation failed: {e}")
 
         return self._get_fallback_attack_path(path_names, threats, entry, target)
 

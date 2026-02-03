@@ -28,6 +28,10 @@ class ThreatIntelSettings(BaseModel):
     misp_api_key: Optional[str] = None
     misp_url: Optional[str] = None
 
+class ScaFeedsSettings(BaseModel):
+    github_token: Optional[str] = None
+    snyk_token: Optional[str] = None
+
 
 # Helper functions for SystemSettings
 def get_setting(db: Session, key: str) -> Optional[str]:
@@ -129,13 +133,13 @@ async def update_ai_provider(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Update AI provider configuration"""
+    """Update AI provider configuration and reload all AI services"""
     # Validate provider
     valid_providers = ["anthropic", "openai", "azure", "google", "ollama"]
     if settings.ai_provider not in valid_providers:
         raise HTTPException(status_code=400, detail=f"Invalid provider. Must be one of: {', '.join(valid_providers)}")
 
-    # Update user settings
+    # Update user settings in database
     current_user.ai_provider = settings.ai_provider
     current_user.ai_api_key = settings.ai_api_key  # TODO: Encrypt this
     current_user.ai_model = settings.ai_model
@@ -144,10 +148,31 @@ async def update_ai_provider(
 
     db.commit()
 
-    return {
-        "success": True,
-        "message": f"{settings.ai_provider.title()} configuration saved successfully"
-    }
+    # Reload AI services with new configuration
+    try:
+        from services.ai_client_factory import AIConfig
+        from main import reload_ai_services
+
+        new_config = AIConfig(
+            provider=settings.ai_provider,
+            api_key=settings.ai_api_key,
+            model=settings.ai_model,
+            base_url=settings.ai_base_url,
+            api_version=settings.ai_api_version
+        )
+        reload_ai_services(new_config)
+
+        return {
+            "success": True,
+            "message": f"{settings.ai_provider.title()} configuration saved and applied to all services"
+        }
+    except Exception as e:
+        # Settings saved but services not reloaded - will take effect on restart
+        return {
+            "success": True,
+            "message": f"{settings.ai_provider.title()} configuration saved. Some services may require restart.",
+            "warning": str(e)
+        }
 
 
 # ==================== THREAT INTEL SETTINGS ====================
@@ -387,4 +412,340 @@ async def test_threat_intel_connection(
     return {
         "success": all_success,
         "results": results
+    }
+
+
+# ==================== SCA VULNERABILITY FEEDS SETTINGS ====================
+
+@router.get("/sca-feeds")
+async def get_sca_feeds_settings(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get SCA vulnerability feeds API settings"""
+    # Get from database first, fallback to environment variables
+    github_token = get_setting(db, "GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN", "")
+    snyk_token = get_setting(db, "SNYK_TOKEN") or os.getenv("SNYK_TOKEN", "")
+
+    # Mask tokens for display
+    def mask_token(token: str) -> str:
+        if token and len(token) > 8:
+            return token[:4] + "*" * (len(token) - 8) + token[-4:]
+        return "***" if token else ""
+
+    return {
+        "has_github_token": bool(github_token),
+        "has_snyk_token": bool(snyk_token),
+        "github_token_masked": mask_token(github_token) if github_token else None,
+        "snyk_token_masked": mask_token(snyk_token) if snyk_token else None,
+        "feeds": {
+            "github_advisory": {
+                "name": "GitHub Advisory Database",
+                "description": "GitHub's security advisory database with CVE and GHSA identifiers",
+                "requires_key": True,
+                "key_url": "https://github.com/settings/tokens",
+                "benefits": "Access to GitHub Security Advisories via GraphQL API"
+            },
+            "osv": {
+                "name": "OSV (Open Source Vulnerabilities)",
+                "description": "Google's open source vulnerability database",
+                "requires_key": False,
+                "key_url": None,
+                "benefits": "No API key required - free public access"
+            },
+            "snyk": {
+                "name": "Snyk Vulnerability Database",
+                "description": "Snyk's comprehensive vulnerability database",
+                "requires_key": True,
+                "key_url": "https://app.snyk.io/account",
+                "benefits": "Access to Snyk's curated vulnerability data"
+            }
+        }
+    }
+
+
+@router.put("/sca-feeds")
+async def update_sca_feeds_settings(
+    settings: ScaFeedsSettings,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update SCA vulnerability feeds API settings"""
+    updated = []
+
+    # Update GitHub token
+    if settings.github_token is not None:
+        set_setting(
+            db,
+            "GITHUB_TOKEN",
+            settings.github_token,
+            "GitHub Personal Access Token for Advisory Database",
+            is_secret=True,
+            category="sca_feeds"
+        )
+        os.environ["GITHUB_TOKEN"] = settings.github_token
+        updated.append("GitHub Token")
+
+    # Update Snyk token
+    if settings.snyk_token is not None:
+        set_setting(
+            db,
+            "SNYK_TOKEN",
+            settings.snyk_token,
+            "Snyk API Token for vulnerability lookups",
+            is_secret=True,
+            category="sca_feeds"
+        )
+        os.environ["SNYK_TOKEN"] = settings.snyk_token
+        updated.append("Snyk Token")
+
+    return {
+        "success": True,
+        "message": f"Updated: {', '.join(updated)}" if updated else "No changes made",
+        "updated_fields": updated
+    }
+
+
+@router.delete("/sca-feeds/{key_type}")
+async def delete_sca_feeds_key(
+    key_type: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete an SCA feeds API key"""
+    key_map = {
+        "github_token": "GITHUB_TOKEN",
+        "snyk_token": "SNYK_TOKEN"
+    }
+
+    if key_type not in key_map:
+        raise HTTPException(status_code=400, detail=f"Invalid key type. Must be one of: {', '.join(key_map.keys())}")
+
+    db_key = key_map[key_type]
+
+    # Delete from database
+    setting = db.query(SystemSettings).filter(SystemSettings.key == db_key).first()
+    if setting:
+        db.delete(setting)
+        db.commit()
+
+    # Remove from environment
+    if db_key in os.environ:
+        del os.environ[db_key]
+
+    return {
+        "success": True,
+        "message": f"{key_type.replace('_', ' ').title()} deleted successfully"
+    }
+
+
+@router.post("/sca-feeds/test")
+async def test_sca_feeds_connection(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Test SCA vulnerability feed API connections"""
+    import httpx
+
+    results = {
+        "GitHub Advisory": {"status": "unknown", "message": ""},
+        "OSV": {"status": "unknown", "message": ""},
+        "NVD": {"status": "unknown", "message": ""},
+        "Snyk": {"status": "unknown", "message": ""}
+    }
+
+    # Get current tokens
+    github_token = get_setting(db, "GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN", "")
+    snyk_token = get_setting(db, "SNYK_TOKEN") or os.getenv("SNYK_TOKEN", "")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Test GitHub Advisory (GraphQL API)
+            if github_token:
+                try:
+                    query = """
+                    query {
+                        securityAdvisories(first: 1) {
+                            nodes {
+                                ghsaId
+                            }
+                        }
+                    }
+                    """
+                    response = await client.post(
+                        "https://api.github.com/graphql",
+                        headers={
+                            "Authorization": f"Bearer {github_token}",
+                            "Content-Type": "application/json"
+                        },
+                        json={"query": query}
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "data" in data and "securityAdvisories" in data["data"]:
+                            results["GitHub Advisory"] = {
+                                "status": "success",
+                                "message": "Connected successfully"
+                            }
+                        elif "errors" in data:
+                            results["GitHub Advisory"] = {
+                                "status": "error",
+                                "message": data["errors"][0].get("message", "Unknown error")
+                            }
+                        else:
+                            results["GitHub Advisory"] = {
+                                "status": "error",
+                                "message": "Unexpected response format"
+                            }
+                    else:
+                        results["GitHub Advisory"] = {"status": "error", "message": f"HTTP {response.status_code}"}
+                except Exception as e:
+                    results["GitHub Advisory"] = {"status": "error", "message": str(e)}
+            else:
+                results["GitHub Advisory"] = {"status": "error", "message": "No token configured"}
+
+            # Test OSV (no auth required)
+            try:
+                response = await client.post(
+                    "https://api.osv.dev/v1/query",
+                    json={"package": {"name": "lodash", "ecosystem": "npm"}}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    vuln_count = len(data.get("vulns", []))
+                    results["OSV"] = {
+                        "status": "success",
+                        "message": f"Connected successfully ({vuln_count} vulnerabilities for test package)"
+                    }
+                else:
+                    results["OSV"] = {"status": "error", "message": f"HTTP {response.status_code}"}
+            except Exception as e:
+                results["OSV"] = {"status": "error", "message": str(e)}
+
+            # Test Snyk
+            if snyk_token:
+                try:
+                    # Use the orgs endpoint to validate the token
+                    response = await client.get(
+                        "https://api.snyk.io/v1/orgs",
+                        headers={
+                            "Authorization": f"token {snyk_token}",
+                        }
+                    )
+                    if response.status_code == 200:
+                        data = response.json()
+                        org_count = len(data.get("orgs", []))
+                        results["Snyk"] = {
+                            "status": "success",
+                            "message": f"Connected successfully ({org_count} org(s) accessible)"
+                        }
+                    elif response.status_code == 401:
+                        results["Snyk"] = {"status": "error", "message": "Invalid or expired token"}
+                    else:
+                        # Token might still work for vulnerability lookups
+                        results["Snyk"] = {
+                            "status": "success",
+                            "message": "Token configured (validation limited)"
+                        }
+                except Exception as e:
+                    results["Snyk"] = {"status": "error", "message": str(e)}
+            else:
+                results["Snyk"] = {"status": "error", "message": "No token configured"}
+
+            # Test NVD (always available, API key optional for better rate limits)
+            try:
+                nvd_api_key = get_setting(db, "NVD_API_KEY") or os.getenv("NVD_API_KEY", "")
+                headers = {}
+                if nvd_api_key:
+                    headers["apiKey"] = nvd_api_key
+
+                response = await client.get(
+                    "https://services.nvd.nist.gov/rest/json/cves/2.0",
+                    headers=headers,
+                    params={"keywordSearch": "lodash", "resultsPerPage": 1}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    total_results = data.get("totalResults", 0)
+                    rate_info = "with API key (50 req/30s)" if nvd_api_key else "without API key (5 req/30s)"
+                    results["NVD"] = {
+                        "status": "success",
+                        "message": f"Connected successfully ({total_results} CVEs found for test, {rate_info})"
+                    }
+                else:
+                    results["NVD"] = {"status": "error", "message": f"HTTP {response.status_code}"}
+            except Exception as e:
+                results["NVD"] = {"status": "error", "message": str(e)}
+
+    except Exception as e:
+        return {"success": False, "error": str(e), "results": results}
+
+    # Count successes
+    success_count = sum(1 for r in results.values() if r["status"] == "success")
+
+    return {
+        "success": success_count > 0,
+        "results": results
+    }
+
+
+# ==================== SECUREREQ PROMPT SETTINGS ====================
+
+class SecureReqPromptSettings(BaseModel):
+    use_custom_prompts: bool = False
+    custom_abuse_case_prompt: Optional[str] = None
+    custom_security_req_prompt: Optional[str] = None
+
+
+@router.get("/securereq-prompts")
+async def get_securereq_prompts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get SecureReq analysis prompt settings"""
+    from services.security_requirements_analyzer import SecurityRequirementsAnalyzer
+
+    return {
+        "use_custom_prompts": current_user.use_custom_prompts or False,
+        "custom_abuse_case_prompt": current_user.custom_abuse_case_prompt,
+        "custom_security_req_prompt": current_user.custom_security_req_prompt,
+        "default_abuse_case_prompt": SecurityRequirementsAnalyzer.DEFAULT_ABUSE_CASE_PROMPT,
+        "default_security_req_prompt": SecurityRequirementsAnalyzer.DEFAULT_SECURITY_REQ_PROMPT
+    }
+
+
+@router.put("/securereq-prompts")
+async def update_securereq_prompts(
+    settings: SecureReqPromptSettings,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update SecureReq analysis prompt settings"""
+    current_user.use_custom_prompts = settings.use_custom_prompts
+    current_user.custom_abuse_case_prompt = settings.custom_abuse_case_prompt
+    current_user.custom_security_req_prompt = settings.custom_security_req_prompt
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "SecureReq prompt settings saved successfully"
+    }
+
+
+@router.post("/securereq-prompts/reset")
+async def reset_securereq_prompts(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Reset SecureReq prompts to defaults"""
+    current_user.use_custom_prompts = False
+    current_user.custom_abuse_case_prompt = None
+    current_user.custom_security_req_prompt = None
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": "SecureReq prompts reset to defaults"
     }

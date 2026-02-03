@@ -12,6 +12,7 @@ import {
   Key,
   CheckCircle,
   Trash2,
+  ClipboardCheck,
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -127,6 +128,24 @@ export default function ProjectDetailPage() {
     }
   }
 
+  const deleteScan = async (scanId: number, scanType: string) => {
+    if (!window.confirm(`Are you sure you want to delete this ${scanType.toUpperCase()} scan? This will also delete all vulnerabilities found in this scan.`)) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`/api/scans/${scanId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      // Refresh the project data to update the scans list
+      await fetchProjectData()
+    } catch (error) {
+      console.error('Delete scan failed:', error)
+      alert('Failed to delete scan. Please try again.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -220,7 +239,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <QuickLink
           to={`/projects/${id}/threat-model`}
           icon={<Network className="w-6 h-6" />}
@@ -248,6 +267,13 @@ export default function ProjectDetailPage() {
           title="Secrets"
           description="Detected credentials"
           color="purple"
+        />
+        <QuickLink
+          to={`/projects/${id}/security-requirements`}
+          icon={<ClipboardCheck className="w-6 h-6" />}
+          title="SecureReq"
+          description="Security requirements"
+          color="green"
         />
       </div>
 
@@ -308,6 +334,17 @@ export default function ProjectDetailPage() {
                   {scan.status === 'completed' && (
                     <CheckCircle className="w-6 h-6 text-green-600" />
                   )}
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteScan(scan.id, scan.scan_type)
+                    }}
+                    className="ml-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Delete this scan"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -376,6 +413,7 @@ function QuickLink({ to, icon, title, description, color }: any) {
     red: 'bg-red-100 text-red-600',
     orange: 'bg-orange-100 text-orange-600',
     purple: 'bg-purple-100 text-purple-600',
+    green: 'bg-green-100 text-green-600',
   }
 
   return (

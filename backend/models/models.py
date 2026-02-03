@@ -42,6 +42,11 @@ class User(Base):
     ai_base_url = Column(String(500))  # For Azure or custom endpoints
     ai_api_version = Column(String(50))  # For Azure
 
+    # Custom SecureReq Prompts
+    custom_abuse_case_prompt = Column(Text)  # Custom instructions for abuse case generation
+    custom_security_req_prompt = Column(Text)  # Custom instructions for security requirements
+    use_custom_prompts = Column(Boolean, default=False)  # Toggle to enable custom prompts
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -118,6 +123,12 @@ class Vulnerability(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     resolved_at = Column(DateTime(timezone=True))
 
+    # AI-generated impact fields
+    business_impact = Column(Text)
+    technical_impact = Column(Text)
+    recommendations = Column(Text)
+    impact_generated_by = Column(String(50))  # 'ai', 'ai_cached', 'template', 'fallback'
+
     # Relationships
     scan = relationship("Scan", back_populates="vulnerabilities")
 
@@ -172,3 +183,324 @@ class SystemSettings(Base):
     category = Column(String(50), default="general")  # threat_intel, ai, general
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
+class ProfileStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROFILING = "profiling"
+    ANALYZING = "analyzing"
+    GENERATING_SUGGESTIONS = "generating_suggestions"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class SuggestionStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DISMISSED = "dismissed"
+    IMPLEMENTED = "implemented"
+
+
+class ApplicationProfile(Base):
+    """Application intelligence profile - stores analyzed metadata about a project"""
+    __tablename__ = "application_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, unique=True)
+
+    # Profiling Status
+    status = Column(Enum(ProfileStatus), default=ProfileStatus.PENDING)
+    status_message = Column(String(500))
+    profiling_progress = Column(Integer, default=0)  # 0-100 percentage
+
+    # Technology Stack
+    languages = Column(JSON)  # {"python": 67.5, "typescript": 28.2, "sql": 4.3}
+    frameworks = Column(JSON)  # [{"name": "FastAPI", "version": "0.104.1", "type": "backend"}]
+    databases = Column(JSON)  # ["PostgreSQL", "Redis"]
+    orm_libraries = Column(JSON)  # ["SQLAlchemy", "Prisma"]
+
+    # Architecture Analysis
+    entry_points = Column(JSON)  # [{"method": "POST", "path": "/api/users", "file": "routes/users.py", "risk_indicators": ["authentication"]}]
+    sensitive_data_fields = Column(JSON)  # [{"field": "password", "category": "credential", "file": "models/user.py", "line": 45}]
+    auth_mechanisms = Column(JSON)  # ["JWT", "OAuth2", "Session"]
+
+    # Dependencies
+    dependencies = Column(JSON)  # {"fastapi": "0.104.1", "sqlalchemy": "2.0.0"}
+    dev_dependencies = Column(JSON)
+    vulnerable_dependencies = Column(JSON)  # From SCA analysis
+
+    # External Integrations
+    external_integrations = Column(JSON)  # ["Stripe", "AWS S3", "SendGrid"]
+    cloud_services = Column(JSON)  # ["AWS", "GCP", "Azure"]
+
+    # Code Metrics
+    file_count = Column(Integer, default=0)
+    total_lines_of_code = Column(Integer, default=0)
+    test_coverage = Column(Float)  # Percentage if available
+
+    # Security Posture Summary
+    security_score = Column(Float)  # 0-100
+    risk_level = Column(String(20))  # low, medium, high, critical
+    total_suggestions = Column(Integer, default=0)
+    critical_suggestions = Column(Integer, default=0)
+    high_suggestions = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    last_profiled_at = Column(DateTime(timezone=True))
+
+    # Relationships
+    project = relationship("Project", backref="application_profile")
+    suggested_rules = relationship("SuggestedRule", back_populates="application_profile", cascade="all, delete-orphan")
+
+
+class SuggestedRule(Base):
+    """AI-suggested security rules based on application profile"""
+    __tablename__ = "suggested_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_profile_id = Column(Integer, ForeignKey("application_profiles.id"), nullable=False)
+
+    # Rule Details
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    category = Column(String(100))  # sql_injection, xss, auth_bypass, etc.
+    severity = Column(Enum(SeverityLevel), nullable=False)
+
+    # Why this rule is suggested
+    reason = Column(Text)  # "Detected SQLAlchemy with potential raw queries"
+    detected_patterns = Column(JSON)  # [{"file": "db.py", "line": 45, "pattern": "execute(f\"..."}]
+    framework_context = Column(String(100))  # Which framework triggered this
+
+    # Generated Rule Content
+    rule_pattern = Column(Text)  # The actual pattern/regex
+    rule_type = Column(String(50), default="semgrep")  # semgrep, regex, codeql, ast
+
+    # Multi-format exports
+    semgrep_rule = Column(Text)  # YAML format
+    codeql_rule = Column(Text)  # QL format
+    checkmarx_rule = Column(Text)  # CxQL format
+    fortify_rule = Column(Text)  # XML format
+
+    # Rule metadata
+    cwe_ids = Column(JSON)  # ["CWE-89", "CWE-79"]
+    owasp_categories = Column(JSON)  # ["A03:2021"]
+    mitre_techniques = Column(JSON)  # ["T1190"]
+
+    # Status and feedback
+    status = Column(Enum(SuggestionStatus), default=SuggestionStatus.PENDING)
+    confidence_score = Column(Float)  # 0-1 AI confidence
+    user_feedback = Column(String(50))  # helpful, not_helpful, false_positive
+    feedback_comment = Column(Text)
+
+    # If accepted, stores the ID of the created custom rule (stored separately)
+    created_rule_id = Column(Integer, nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True))
+
+    # Relationships
+    application_profile = relationship("ApplicationProfile", back_populates="suggested_rules")
+
+
+# ==================== SECUREREQ MODELS ====================
+
+class StorySource(str, enum.Enum):
+    MANUAL = "manual"
+    JIRA = "jira"
+    ADO = "ado"  # Azure DevOps
+    GITHUB = "github"
+    SNOW = "snow"  # ServiceNow
+
+
+class UserStory(Base):
+    """User stories/requirements for security analysis"""
+    __tablename__ = "user_stories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+
+    # Story Details
+    title = Column(String(500), nullable=False)
+    description = Column(Text, nullable=False)
+    acceptance_criteria = Column(Text)
+
+    # Source tracking
+    source = Column(Enum(StorySource), default=StorySource.MANUAL)
+    external_id = Column(String(100))  # Jira ticket ID, ADO work item ID, etc.
+    external_url = Column(String(500))
+
+    # Analysis status
+    is_analyzed = Column(Boolean, default=False)
+    risk_score = Column(Integer, default=0)  # 0-100
+    threat_count = Column(Integer, default=0)
+    requirement_count = Column(Integer, default=0)
+
+    # Timestamps
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="user_stories")
+    creator = relationship("User")
+    analyses = relationship("SecurityAnalysis", back_populates="user_story", cascade="all, delete-orphan")
+
+
+class SecurityAnalysis(Base):
+    """Security analysis results for a user story"""
+    __tablename__ = "security_analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_story_id = Column(Integer, ForeignKey("user_stories.id"), nullable=False)
+
+    # Version tracking (each analysis creates a new version)
+    version = Column(Integer, default=1)
+
+    # Analysis Results (stored as JSON)
+    abuse_cases = Column(JSON)  # List of abuse case scenarios
+    stride_threats = Column(JSON)  # STRIDE-categorized threats
+    security_requirements = Column(JSON)  # Generated security requirements
+
+    # Risk Assessment
+    risk_score = Column(Integer, default=0)  # 0-100
+    risk_factors = Column(JSON)  # Breakdown of risk factors
+
+    # AI metadata
+    ai_model_used = Column(String(100))
+    analysis_duration_ms = Column(Integer)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    user_story = relationship("UserStory", back_populates="analyses")
+    compliance_mappings = relationship("ComplianceMapping", back_populates="analysis", cascade="all, delete-orphan")
+
+
+class ComplianceMapping(Base):
+    """Maps security requirements to compliance standards"""
+    __tablename__ = "compliance_mappings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    analysis_id = Column(Integer, ForeignKey("security_analyses.id"), nullable=False)
+
+    # Requirement reference
+    requirement_id = Column(String(50))  # SR-001, etc.
+    requirement_text = Column(Text)
+
+    # Compliance mapping
+    standard_name = Column(String(100))  # OWASP ASVS, PCI-DSS, ISO 27001
+    control_id = Column(String(50))  # V2.1.1, Req 6.5, A.12.6
+    control_title = Column(String(500))
+    control_description = Column(Text)
+
+    # Relevance scoring
+    relevance_score = Column(Float)  # 0-1 confidence
+    mapping_rationale = Column(Text)
+
+    # Relationships
+    analysis = relationship("SecurityAnalysis", back_populates="compliance_mappings")
+
+
+class CustomStandard(Base):
+    """User-uploaded custom compliance standards"""
+    __tablename__ = "custom_standards"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+
+    # Standard details
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    version = Column(String(50))
+
+    # File metadata
+    file_type = Column(String(20))  # json, pdf, excel
+    original_filename = Column(String(255))
+
+    # Parsed controls (JSON array)
+    controls = Column(JSON)  # [{"id": "1.1", "title": "...", "description": "..."}]
+    control_count = Column(Integer, default=0)
+
+    # Timestamps
+    uploaded_by = Column(Integer, ForeignKey("users.id"))
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="custom_standards")
+    uploader = relationship("User")
+
+
+# ==================== INTEGRATION SETTINGS ====================
+
+class IntegrationType(str, enum.Enum):
+    JIRA = "jira"
+    ADO = "ado"
+    SNOW = "snow"
+
+
+class IntegrationSettings(Base):
+    """Global integration settings for Jira, ADO, and ServiceNow"""
+    __tablename__ = "integration_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    integration_type = Column(Enum(IntegrationType), nullable=False)
+
+    # Connection Details (encrypted in production)
+    base_url = Column(String(500), nullable=False)  # Jira/ADO/SNOW URL
+    username = Column(String(255))  # Email for Jira, username for SNOW
+    api_token = Column(Text)  # Encrypted API token/PAT/password
+
+    # Custom field configuration
+    abuse_cases_field = Column(String(100))  # e.g., customfield_10001 for Jira
+    security_req_field = Column(String(100))  # e.g., customfield_10002 for Jira
+
+    # Status
+    is_connected = Column(Boolean, default=False)
+    last_connected_at = Column(DateTime(timezone=True))
+    connection_error = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    user = relationship("User", backref="integration_settings")
+
+
+class ProjectIntegration(Base):
+    """Per-project integration configuration"""
+    __tablename__ = "project_integrations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    integration_type = Column(Enum(IntegrationType), nullable=False)
+
+    # External project identifier
+    external_project_id = Column(String(100))  # Jira project key, ADO project name, SNOW product
+    external_project_name = Column(String(255))
+
+    # Sync configuration
+    sync_enabled = Column(Boolean, default=True)
+    auto_publish = Column(Boolean, default=False)  # Auto-publish analysis to external system
+    issue_types = Column(JSON)  # ["Story", "Task", "Bug"] for Jira/ADO
+
+    # SNOW specific
+    snow_table = Column(String(100))  # rm_story, sc_req_item, etc.
+    snow_assignment_group = Column(String(100))
+
+    # Sync status
+    last_synced_at = Column(DateTime(timezone=True))
+    sync_status = Column(String(50))  # success, error, in_progress
+    sync_error = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="integrations")

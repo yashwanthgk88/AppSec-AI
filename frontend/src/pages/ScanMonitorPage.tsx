@@ -68,7 +68,7 @@ const ScanMonitorPage: React.FC = () => {
       if (filterStatus) params.append('status', filterStatus);
       if (filterProject) params.append('project_id', filterProject);
 
-      const response = await axios.get(`/api/scans/?${params}`, {
+      const response = await axios.get(`/api/scans?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setScans(response.data);

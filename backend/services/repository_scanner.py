@@ -106,14 +106,15 @@ class RepositoryScanner:
             return {}
 
         dependency_files = {
-            'npm': [],          # package.json, package-lock.json
+            'npm': [],          # package.json, package-lock.json, yarn.lock
             'pip': [],          # requirements.txt, Pipfile, pyproject.toml
             'maven': [],        # pom.xml
             'gradle': [],       # build.gradle, build.gradle.kts
-            'composer': [],     # composer.json
-            'bundler': [],      # Gemfile
-            'go': [],           # go.mod
-            'cargo': [],        # Cargo.toml
+            'composer': [],     # composer.json, composer.lock
+            'nuget': [],        # .csproj, packages.config
+            'bundler': [],      # Gemfile, Gemfile.lock
+            'go': [],           # go.mod, go.sum
+            'cargo': [],        # Cargo.toml, Cargo.lock
         }
 
         for root, dirs, files in os.walk(self.repo_path):
@@ -125,19 +126,21 @@ class RepositoryScanner:
 
                 if file in ['package.json', 'package-lock.json', 'yarn.lock']:
                     dependency_files['npm'].append(full_path)
-                elif file in ['requirements.txt', 'Pipfile', 'pyproject.toml', 'setup.py']:
+                elif file in ['requirements.txt', 'Pipfile', 'Pipfile.lock', 'pyproject.toml', 'setup.py']:
                     dependency_files['pip'].append(full_path)
                 elif file == 'pom.xml':
                     dependency_files['maven'].append(full_path)
                 elif file in ['build.gradle', 'build.gradle.kts']:
                     dependency_files['gradle'].append(full_path)
-                elif file == 'composer.json':
+                elif file in ['composer.json', 'composer.lock']:
                     dependency_files['composer'].append(full_path)
-                elif file == 'Gemfile':
+                elif file.endswith('.csproj') or file == 'packages.config':
+                    dependency_files['nuget'].append(full_path)
+                elif file in ['Gemfile', 'Gemfile.lock']:
                     dependency_files['bundler'].append(full_path)
-                elif file == 'go.mod':
+                elif file in ['go.mod', 'go.sum']:
                     dependency_files['go'].append(full_path)
-                elif file == 'Cargo.toml':
+                elif file in ['Cargo.toml', 'Cargo.lock']:
                     dependency_files['cargo'].append(full_path)
 
         # Remove empty entries

@@ -37,6 +37,20 @@ export default function ProjectsPage() {
       setShowCreateModal(false)
       success(`Project "${formData.name}" created successfully!`)
       fetchProjects()
+
+      // Trigger application profiling in the background
+      if (formData.repository_url) {
+        try {
+          await axios.post(
+            `/api/application-intelligence/profile/${response.data.id}`,
+            {},
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          success('Application profiling started. View progress in App Intelligence page.')
+        } catch (profileErr) {
+          console.log('Profiling will be available manually from App Intelligence page')
+        }
+      }
     } catch (err: any) {
       console.error('Failed to create project:', err)
       const errorMessage = err.response?.data?.detail || 'Failed to create project. Please try again.'

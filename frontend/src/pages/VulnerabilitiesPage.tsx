@@ -1,7 +1,91 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp } from 'lucide-react'
+import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp, GitMerge, Package, Database, Github, Globe } from 'lucide-react'
 import axios from 'axios'
+import TaintFlowVisualization from '../components/TaintFlowVisualization'
+import DependencyTreeVisualization, { buildDependencyTree } from '../components/DependencyTreeVisualization'
+
+// Helper function to parse SCA source from file_path or code_snippet
+function parseScaSource(vulnerability: any): { source: string; package: string; version: string } | null {
+  if (vulnerability.scan_type !== 'sca') return null
+
+  const filePath = vulnerability.file_path || ''
+  const codeSnippet = vulnerability.code_snippet || ''
+
+  // Extract source from file_path: "npm dependency: lodash 4.17.15 [Source: GITHUB_ADVISORY]"
+  const sourceMatch = filePath.match(/\[Source:\s*([^\]]+)\]/i)
+  const source = sourceMatch ? sourceMatch[1].toLowerCase() : 'local'
+
+  // Extract package info from code_snippet
+  const packageMatch = codeSnippet.match(/Package:\s*([^@\n]+)@([^\n]+)/i)
+  const pkg = packageMatch ? packageMatch[1].trim() : ''
+  const version = packageMatch ? packageMatch[2].trim() : ''
+
+  return { source, package: pkg, version }
+}
+
+// Helper function to parse direct/transitive dependency info
+function parseScaDependencyType(vulnerability: any): { isTransitive: boolean; introducedBy: string | null; dependencyChain: string | null } | null {
+  if (vulnerability.scan_type !== 'sca') return null
+
+  const filePath = vulnerability.file_path || ''
+  const codeSnippet = vulnerability.code_snippet || ''
+
+  // Check for TRANSITIVE or DIRECT indicator
+  const isTransitive = filePath.includes('[TRANSITIVE]')
+
+  // Extract "Via" info for transitive dependencies
+  const viaMatch = filePath.match(/\[Via:\s*([^\]]+)\]/i)
+  const introducedBy = viaMatch ? viaMatch[1] : null
+
+  // Extract dependency chain from code snippet
+  const chainMatch = codeSnippet.match(/Dependency chain:\s*(.+)/i)
+  const dependencyChain = chainMatch ? chainMatch[1] : null
+
+  return { isTransitive, introducedBy, dependencyChain }
+}
+
+// Dependency Type Badge component
+function DependencyTypeBadge({ isTransitive, introducedBy }: { isTransitive: boolean; introducedBy: string | null }) {
+  if (isTransitive) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-300">
+        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        </svg>
+        TRANSITIVE
+        {introducedBy && <span className="ml-1 text-amber-600">via {introducedBy}</span>}
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+      <Package className="w-3 h-3 mr-1" />
+      DIRECT
+    </span>
+  )
+}
+
+// Source badge component
+function SourceBadge({ source }: { source: string }) {
+  const sourceConfig: Record<string, { icon: any; color: string; label: string }> = {
+    github_advisory: { icon: Github, color: 'bg-gray-800 text-white', label: 'GitHub Advisory' },
+    osv: { icon: Globe, color: 'bg-blue-600 text-white', label: 'OSV' },
+    snyk: { icon: Shield, color: 'bg-purple-600 text-white', label: 'Snyk' },
+    nvd: { icon: Shield, color: 'bg-red-600 text-white', label: 'NVD' },
+    local: { icon: Database, color: 'bg-green-600 text-white', label: 'Local DB' },
+  }
+
+  const config = sourceConfig[source.toLowerCase()] || sourceConfig.local
+  const Icon = config.icon
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${config.color}`}>
+      <Icon className="w-3 h-3 mr-1" />
+      {config.label}
+    </span>
+  )
+}
 
 export default function VulnerabilitiesPage() {
   const { id } = useParams()
@@ -18,6 +102,25 @@ export default function VulnerabilitiesPage() {
   const [groupBy, setGroupBy] = useState<'none' | 'category' | 'severity' | 'scan_type' | 'file'>('category')
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [showThreatCorrelation, setShowThreatCorrelation] = useState(true)
+  const [deduplicating, setDeduplicating] = useState(false)
+
+  const handleDeduplicateSca = async () => {
+    setDeduplicating(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post(`/api/projects/${id}/deduplicate-sca`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      alert(`${response.data.message}`)
+      // Refresh vulnerabilities
+      setLoading(true)
+      window.location.reload()
+    } catch (error: any) {
+      alert('Failed to deduplicate: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setDeduplicating(false)
+    }
+  }
 
   const fetchAllScans = useCallback(async () => {
     console.log('fetchAllScans called, loading:', loading)
@@ -294,6 +397,71 @@ export default function VulnerabilitiesPage() {
           </div>
         </div>
       </div>
+
+      {/* SCA Sources Summary */}
+      {scanTypeCounts.sca > 0 && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <Package className="w-5 h-5 text-purple-600" />
+              <h3 className="font-semibold text-gray-900">SCA Vulnerability Sources</h3>
+              <span className="text-sm text-gray-500">({scanTypeCounts.sca} findings from {(() => {
+                const sources = new Set<string>()
+                vulnerabilities.filter(v => v.scan_type === 'sca').forEach(v => {
+                  const info = parseScaSource(v)
+                  if (info) sources.add(info.source)
+                })
+                return sources.size
+              })()} sources)</span>
+            </div>
+            <button
+              onClick={handleDeduplicateSca}
+              disabled={deduplicating}
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200 disabled:opacity-50"
+              title="Remove duplicate vulnerabilities (same package + CVE)"
+            >
+              {deduplicating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Layers className="w-4 h-4 mr-1" />
+                  Remove Duplicates
+                </>
+              )}
+            </button>
+          </div>
+          <div className="flex items-center space-x-4 flex-wrap gap-2">
+            {(() => {
+              const sourceCounts: Record<string, number> = {}
+              vulnerabilities.filter(v => v.scan_type === 'sca').forEach(v => {
+                const info = parseScaSource(v)
+                const source = info?.source || 'local'
+                sourceCounts[source] = (sourceCounts[source] || 0) + 1
+              })
+
+              return Object.entries(sourceCounts).map(([source, count]) => (
+                <div key={source} className="flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
+                  <SourceBadge source={source} />
+                  <span className="text-sm font-semibold text-gray-700">{count}</span>
+                  <span className="text-xs text-gray-500">findings</span>
+                </div>
+              ))
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Dependency Tree Visualization - Show when SCA filter is active */}
+      {(selectedScanType === 'sca' || selectedScanType === 'all') && scanTypeCounts.sca > 0 && (
+        <DependencyTreeVisualization
+          dependencies={buildDependencyTree(vulnerabilities)}
+          title="Vulnerable Dependencies"
+          showOnlyVulnerable={selectedScanType === 'sca'}
+        />
+      )}
 
       {/* Threat Intel Correlation Banner */}
       {threatIntel.length > 0 && (
@@ -598,8 +766,38 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
   const [committing, setCommitting] = useState(false)
   const [commitSuccess, setCommitSuccess] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
+  const [showTaintFlow, setShowTaintFlow] = useState(false)
+  const [taintFlowData, setTaintFlowData] = useState<any>(null)
+  const [loadingTaintFlow, setLoadingTaintFlow] = useState(false)
 
   const hasActiveExploit = correlatedThreats.some((t: any) => t.actively_exploited)
+
+  const fetchTaintFlow = async () => {
+    if (taintFlowData) {
+      setShowTaintFlow(!showTaintFlow)
+      return
+    }
+
+    setLoadingTaintFlow(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `/api/vulnerabilities/${vulnerability.id}/taint-flow`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      )
+      setTaintFlowData(response.data.taint_flow)
+      setShowTaintFlow(true)
+    } catch (error) {
+      console.error('Failed to fetch taint flow:', error)
+      // Show sample data if API fails
+      setTaintFlowData(null)
+      setShowTaintFlow(true)
+    } finally {
+      setLoadingTaintFlow(false)
+    }
+  }
 
   const severityColors: any = {
     critical: 'badge-critical',
@@ -725,6 +923,17 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               <span className={`px-2 py-1 text-xs rounded ${scanTypeColors[vulnerability.scan_type]}`}>
                 {vulnerability.scan_type.toUpperCase()}
               </span>
+              {/* SCA Source and Dependency Type Badges */}
+              {vulnerability.scan_type === 'sca' && (() => {
+                const scaInfo = parseScaSource(vulnerability)
+                const depType = parseScaDependencyType(vulnerability)
+                return (
+                  <>
+                    {depType && <DependencyTypeBadge isTransitive={depType.isTransitive} introducedBy={depType.introducedBy} />}
+                    {scaInfo && <SourceBadge source={scaInfo.source} />}
+                  </>
+                )
+              })()}
               {hasActiveExploit && (
                 <span className="px-2 py-1 text-xs rounded bg-red-600 text-white font-medium inline-flex items-center space-x-1 animate-pulse">
                   <Zap className="w-3 h-3" />
@@ -751,29 +960,112 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
             <p className="text-sm text-gray-600 mb-3">{vulnerability.description}</p>
 
-            {/* Vulnerable Source Location - Prominent Display */}
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded-r">
-              <div className="flex items-start space-x-3">
-                <FileText className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-red-900 mb-1">VULNERABLE FILE LOCATION:</p>
-                  <p className="font-mono text-sm text-red-800 font-bold break-all">
-                    {vulnerability.file_path}
-                    {vulnerability.line_number > 0 && (
-                      <span className="ml-2 text-red-600">
-                        : Line {vulnerability.line_number}
-                      </span>
-                    )}
-                  </p>
-                  {vulnerability.code_snippet && (
-                    <div className="mt-3 bg-gray-900 rounded p-3 overflow-x-auto">
-                      <p className="text-xs text-red-400 font-semibold mb-2">▼ Vulnerable Code:</p>
-                      <pre className="text-xs text-red-300 font-mono whitespace-pre-wrap">{vulnerability.code_snippet}</pre>
+            {/* Vulnerable Source Location - Different display for SCA vs other scans */}
+            {vulnerability.scan_type === 'sca' ? (
+              // SCA-specific display with dependency chain
+              (() => {
+                const depType = parseScaDependencyType(vulnerability)
+                const isTransitive = depType?.isTransitive || false
+                const bgColor = isTransitive ? 'bg-amber-50 border-l-amber-500' : 'bg-red-50 border-l-red-500'
+                const textColor = isTransitive ? 'text-amber-900' : 'text-red-900'
+                const accentColor = isTransitive ? 'text-amber-800' : 'text-red-800'
+                const headerBg = isTransitive ? 'bg-amber-100' : 'bg-red-100'
+
+                return (
+                  <div className={`${bgColor} border-l-4 p-4 mb-3 rounded-r`}>
+                    <div className="flex items-start space-x-3">
+                      <Package className={`w-5 h-5 ${accentColor} mt-0.5 flex-shrink-0`} />
+                      <div className="flex-1 min-w-0">
+                        <div className={`${headerBg} -mx-4 -mt-4 px-4 py-2 mb-3 rounded-tr flex items-center justify-between`}>
+                          <p className={`text-xs font-semibold ${textColor}`}>
+                            {isTransitive ? '⚠️ TRANSITIVE DEPENDENCY VULNERABILITY' : '🎯 DIRECT DEPENDENCY VULNERABILITY'}
+                          </p>
+                          {isTransitive ? (
+                            <span className="text-xs text-amber-700 bg-amber-200 px-2 py-0.5 rounded">
+                              Update parent package to fix
+                            </span>
+                          ) : (
+                            <span className="text-xs text-red-700 bg-red-200 px-2 py-0.5 rounded">
+                              Directly update this package
+                            </span>
+                          )}
+                        </div>
+
+                        <p className={`font-mono text-sm ${accentColor} font-bold break-all`}>
+                          {vulnerability.file_path}
+                        </p>
+
+                        {/* Dependency Chain Visualization for Transitive */}
+                        {isTransitive && depType?.dependencyChain && (
+                          <div className="mt-3 bg-white border border-amber-200 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-amber-800 mb-2">📦 Dependency Chain (How this package was introduced):</p>
+                            <div className="flex items-center flex-wrap gap-2">
+                              {depType.dependencyChain.split(' → ').map((pkg, idx, arr) => (
+                                <span key={idx} className="flex items-center">
+                                  <span className={`px-2 py-1 rounded text-xs font-mono ${
+                                    idx === 0 ? 'bg-green-100 text-green-800 border border-green-300' :
+                                    idx === arr.length - 1 ? 'bg-red-100 text-red-800 border border-red-300 font-bold' :
+                                    'bg-gray-100 text-gray-700 border border-gray-300'
+                                  }`}>
+                                    {idx === 0 && '📁 '}
+                                    {idx === arr.length - 1 && '⚠️ '}
+                                    {pkg}
+                                  </span>
+                                  {idx < arr.length - 1 && (
+                                    <span className="mx-2 text-amber-500">→</span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-xs text-amber-600 mt-2">
+                              💡 To fix: Update <strong>{depType.dependencyChain.split(' → ')[0]}</strong> to a version that uses a patched <strong>{depType.dependencyChain.split(' → ').pop()}</strong>
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Introduced By for simple transitive display */}
+                        {isTransitive && !depType?.dependencyChain && depType?.introducedBy && (
+                          <div className="mt-2 text-xs text-amber-700">
+                            <span className="font-semibold">Introduced by:</span> {depType.introducedBy}
+                          </div>
+                        )}
+
+                        {vulnerability.code_snippet && (
+                          <div className="mt-3 bg-gray-900 rounded p-3 overflow-x-auto">
+                            <p className={`text-xs ${isTransitive ? 'text-amber-400' : 'text-red-400'} font-semibold mb-2`}>▼ Package Details:</p>
+                            <pre className={`text-xs ${isTransitive ? 'text-amber-300' : 'text-red-300'} font-mono whitespace-pre-wrap`}>{vulnerability.code_snippet}</pre>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
+                )
+              })()
+            ) : (
+              // Standard display for SAST/Secret scans
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded-r">
+                <div className="flex items-start space-x-3">
+                  <FileText className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-red-900 mb-1">VULNERABLE FILE LOCATION:</p>
+                    <p className="font-mono text-sm text-red-800 font-bold break-all">
+                      {vulnerability.file_path}
+                      {vulnerability.line_number > 0 && (
+                        <span className="ml-2 text-red-600">
+                          : Line {vulnerability.line_number}
+                        </span>
+                      )}
+                    </p>
+                    {vulnerability.code_snippet && (
+                      <div className="mt-3 bg-gray-900 rounded p-3 overflow-x-auto">
+                        <p className="text-xs text-red-400 font-semibold mb-2">▼ Vulnerable Code:</p>
+                        <pre className="text-xs text-red-300 font-mono whitespace-pre-wrap">{vulnerability.code_snippet}</pre>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="flex items-center space-x-6 text-sm flex-wrap gap-2">
               {vulnerability.cwe_id && (
@@ -798,22 +1090,111 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-gray-200 p-6 space-y-6">
-          {/* Source & Sink Information (for SAST) */}
+          {/* Taint Flow Analysis Section (for SAST) */}
           {vulnerability.scan_type === 'sast' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-red-900 mb-2">🔴 Source (User Input)</h4>
-                <p className="text-xs text-red-800 font-mono">{vulnerability.file_path}:{vulnerability.line_number}</p>
-                <p className="text-sm text-red-700 mt-2">Untrusted data enters here</p>
+            <div className="space-y-4">
+              {/* Quick Source/Sink Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-red-900 mb-2 flex items-center">
+                    <Target className="w-4 h-4 mr-2" />
+                    Source (User Input)
+                  </h4>
+                  <p className="text-xs text-red-800 font-mono">{vulnerability.file_path}:{vulnerability.line_number}</p>
+                  <p className="text-sm text-red-700 mt-2">Untrusted data enters here</p>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-orange-900 mb-2 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
+                    Sink (Dangerous Operation)
+                  </h4>
+                  <p className="text-xs text-orange-800 font-mono">Flows to dangerous function</p>
+                  <p className="text-sm text-orange-700 mt-2">Data used without proper validation</p>
+                </div>
               </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-orange-900 mb-2">🟠 Sink (Dangerous Operation)</h4>
-                <p className="text-xs text-orange-800 font-mono">Flows to dangerous function</p>
-                <p className="text-sm text-orange-700 mt-2">Data used without proper validation</p>
-              </div>
+              {/* Taint Flow Analysis Button */}
+              <button
+                onClick={fetchTaintFlow}
+                disabled={loadingTaintFlow}
+                className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium rounded-lg flex items-center justify-center space-x-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
+              >
+                {loadingTaintFlow ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <span>Loading Taint Flow Analysis...</span>
+                  </>
+                ) : (
+                  <>
+                    <GitMerge className="w-5 h-5" />
+                    <span>{showTaintFlow ? 'Hide' : 'Show'} Detailed Taint Flow Analysis</span>
+                    {showTaintFlow ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                  </>
+                )}
+              </button>
+
+              {/* Taint Flow Visualization */}
+              {showTaintFlow && (
+                <TaintFlowVisualization
+                  taintFlow={taintFlowData}
+                  vulnerabilityType={vulnerability.title}
+                  cweId={vulnerability.cwe_id}
+                  showDataFlowDetails={true}
+                  showControlFlowDetails={true}
+                />
+              )}
             </div>
           )}
+
+          {/* SCA Dependency Information */}
+          {vulnerability.scan_type === 'sca' && (() => {
+            const scaInfo = parseScaSource(vulnerability)
+            return (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Package className="w-5 h-5 text-purple-600" />
+                  <h4 className="text-sm font-semibold text-purple-900">Dependency Vulnerability Details</h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  {/* Package Info */}
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-purple-600 font-medium mb-1">Package</p>
+                    <p className="text-sm font-semibold text-gray-900 font-mono">
+                      {scaInfo?.package || vulnerability.title?.split(':')[0]?.replace('Vulnerable Dependency', '').trim() || 'Unknown'}
+                    </p>
+                  </div>
+
+                  {/* Version */}
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-purple-600 font-medium mb-1">Version</p>
+                    <p className="text-sm font-semibold text-gray-900 font-mono">
+                      {scaInfo?.version || 'See details'}
+                    </p>
+                  </div>
+
+                  {/* Source */}
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
+                    <p className="text-xs text-purple-600 font-medium mb-1">Data Source</p>
+                    <div className="mt-1">
+                      {scaInfo ? <SourceBadge source={scaInfo.source} /> : <SourceBadge source="local" />}
+                    </div>
+                  </div>
+                </div>
+
+                {/* CVE Information if available */}
+                {vulnerability.code_snippet?.includes('CVE-') && (
+                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                    <p className="text-xs text-red-600 font-medium mb-1">Associated CVE</p>
+                    <p className="text-sm font-semibold text-red-900 font-mono">
+                      {vulnerability.code_snippet.match(/CVE-\d{4}-\d+/)?.[0] || 'N/A'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Code Snippet */}
           {vulnerability.code_snippet && (
@@ -821,7 +1202,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               <h4 className="text-sm font-semibold text-gray-900 mb-2">
                 {vulnerability.scan_type === 'sast' ? 'Vulnerable Code' :
                  vulnerability.scan_type === 'secret' ? 'Exposed Secret Location' :
-                 'Affected Dependency'}
+                 'Affected Dependency Details'}
               </h4>
               <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
                 <code className="text-sm text-red-400 whitespace-pre-wrap">{vulnerability.code_snippet}</code>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, Key, AlertCircle, CheckCircle, Brain, Download, Code, Shield, Globe, RefreshCw, Trash2 } from 'lucide-react'
+import { Save, Key, AlertCircle, CheckCircle, Brain, Download, Code, Shield, Globe, RefreshCw, Trash2, Package, Link2, Server, Cloud } from 'lucide-react'
 import axios from 'axios'
 
 interface Settings {
@@ -10,6 +10,13 @@ interface Settings {
   ai_base_url?: string
   ai_api_version?: string
   has_ai_key?: boolean
+}
+
+interface ScaFeedsSettings {
+  has_github_token: boolean
+  has_snyk_token: boolean
+  github_token_masked?: string
+  snyk_token_masked?: string
 }
 
 interface ThreatIntelSettings {
@@ -32,6 +39,32 @@ interface ThreatIntelSettings {
 interface ConnectionTestResult {
   status: 'success' | 'error' | 'unknown'
   message: string
+}
+
+interface IntegrationSettings {
+  id?: number
+  integration_type: string
+  base_url: string
+  username?: string
+  is_connected: boolean
+  last_connected_at?: string
+  abuse_cases_field?: string
+  security_req_field?: string
+  connection_error?: string
+}
+
+interface IntegrationStatus {
+  jira: { configured: boolean; connected: boolean; url?: string }
+  ado: { configured: boolean; connected: boolean; url?: string }
+  snow: { configured: boolean; connected: boolean; url?: string }
+}
+
+interface SecureReqPromptSettings {
+  use_custom_prompts: boolean
+  custom_abuse_case_prompt: string | null
+  custom_security_req_prompt: string | null
+  default_abuse_case_prompt: string
+  default_security_req_prompt: string
 }
 
 export default function SettingsPage() {
@@ -60,10 +93,334 @@ export default function SettingsPage() {
   const [testingConnection, setTestingConnection] = useState(false)
   const [connectionResults, setConnectionResults] = useState<{ [key: string]: ConnectionTestResult } | null>(null)
 
+  // SCA Vulnerability Feeds Configuration
+  const [scaFeedsSettings, setScaFeedsSettings] = useState<ScaFeedsSettings | null>(null)
+  const [githubToken, setGithubToken] = useState('')
+  const [snykToken, setSnykToken] = useState('')
+  const [savingScaFeeds, setSavingScaFeeds] = useState(false)
+  const [scaFeedsMessage, setScaFeedsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [testingScaFeeds, setTestingScaFeeds] = useState(false)
+  const [scaFeedsResults, setScaFeedsResults] = useState<{ [key: string]: ConnectionTestResult } | null>(null)
+
+  // Integration Settings State
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null)
+  const [activeIntegrationTab, setActiveIntegrationTab] = useState<'jira' | 'ado' | 'snow'>('jira')
+
+  // Jira settings
+  const [jiraUrl, setJiraUrl] = useState('')
+  const [jiraEmail, setJiraEmail] = useState('')
+  const [jiraToken, setJiraToken] = useState('')
+  const [jiraAbuseCasesField, setJiraAbuseCasesField] = useState('')
+  const [jiraSecurityReqField, setJiraSecurityReqField] = useState('')
+  const [savingJira, setSavingJira] = useState(false)
+  const [testingJira, setTestingJira] = useState(false)
+  const [jiraMessage, setJiraMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // ADO settings
+  const [adoOrgUrl, setAdoOrgUrl] = useState('')
+  const [adoPat, setAdoPat] = useState('')
+  const [adoAbuseCasesField, setAdoAbuseCasesField] = useState('')
+  const [adoSecurityReqField, setAdoSecurityReqField] = useState('')
+  const [savingAdo, setSavingAdo] = useState(false)
+  const [testingAdo, setTestingAdo] = useState(false)
+  const [adoMessage, setAdoMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // SNOW settings
+  const [snowUrl, setSnowUrl] = useState('')
+  const [snowUsername, setSnowUsername] = useState('')
+  const [snowPassword, setSnowPassword] = useState('')
+  const [snowAbuseCasesField, setSnowAbuseCasesField] = useState('')
+  const [snowSecurityReqField, setSnowSecurityReqField] = useState('')
+  const [savingSnow, setSavingSnow] = useState(false)
+  const [testingSnow, setTestingSnow] = useState(false)
+  const [snowMessage, setSnowMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // SecureReq Prompt Settings
+  const [promptSettings, setPromptSettings] = useState<SecureReqPromptSettings | null>(null)
+  const [useCustomPrompts, setUseCustomPrompts] = useState(false)
+  const [customAbuseCasePrompt, setCustomAbuseCasePrompt] = useState('')
+  const [customSecurityReqPrompt, setCustomSecurityReqPrompt] = useState('')
+  const [savingPrompts, setSavingPrompts] = useState(false)
+  const [promptMessage, setPromptMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [showDefaultPrompts, setShowDefaultPrompts] = useState(false)
+
   useEffect(() => {
     loadSettings()
     loadThreatIntelSettings()
+    loadScaFeedsSettings()
+    loadIntegrationStatus()
+    loadPromptSettings()
   }, [])
+
+  const loadIntegrationStatus = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get('/api/integrations/status', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setIntegrationStatus(response.data)
+    } catch (error) {
+      console.error('Failed to load integration status:', error)
+    }
+  }
+
+  const loadPromptSettings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get('/api/settings/securereq-prompts', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setPromptSettings(response.data)
+      setUseCustomPrompts(response.data.use_custom_prompts || false)
+      setCustomAbuseCasePrompt(response.data.custom_abuse_case_prompt || '')
+      setCustomSecurityReqPrompt(response.data.custom_security_req_prompt || '')
+    } catch (error) {
+      console.error('Failed to load prompt settings:', error)
+    }
+  }
+
+  const handleSavePrompts = async () => {
+    setSavingPrompts(true)
+    setPromptMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put('/api/settings/securereq-prompts', {
+        use_custom_prompts: useCustomPrompts,
+        custom_abuse_case_prompt: customAbuseCasePrompt || null,
+        custom_security_req_prompt: customSecurityReqPrompt || null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setPromptMessage({ type: 'success', text: 'Prompt settings saved successfully' })
+    } catch (error: any) {
+      setPromptMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to save prompt settings' })
+    } finally {
+      setSavingPrompts(false)
+    }
+  }
+
+  const handleResetPrompts = async () => {
+    setSavingPrompts(true)
+    setPromptMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post('/api/settings/securereq-prompts/reset', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setPromptMessage({ type: 'success', text: 'Prompts reset to defaults' })
+      await loadPromptSettings()
+    } catch (error: any) {
+      setPromptMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to reset prompts' })
+    } finally {
+      setSavingPrompts(false)
+    }
+  }
+
+  const handleSaveJira = async () => {
+    if (!jiraUrl.trim() || !jiraToken.trim()) {
+      setJiraMessage({ type: 'error', text: 'URL and API Token are required' })
+      return
+    }
+    setSavingJira(true)
+    setJiraMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put('/api/integrations/jira', {
+        base_url: jiraUrl,
+        username: jiraEmail,
+        api_token: jiraToken,
+        abuse_cases_field: jiraAbuseCasesField || null,
+        security_req_field: jiraSecurityReqField || null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setJiraMessage({ type: 'success', text: 'Jira settings saved successfully' })
+      setJiraToken('')
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setJiraMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to save' })
+    } finally {
+      setSavingJira(false)
+    }
+  }
+
+  const handleTestJira = async () => {
+    setTestingJira(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/integrations/jira/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setJiraMessage({ type: response.data.success ? 'success' : 'error', text: response.data.message })
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setJiraMessage({ type: 'error', text: 'Connection test failed' })
+    } finally {
+      setTestingJira(false)
+    }
+  }
+
+  const handleSaveAdo = async () => {
+    if (!adoOrgUrl.trim() || !adoPat.trim()) {
+      setAdoMessage({ type: 'error', text: 'Organization URL and PAT are required' })
+      return
+    }
+    setSavingAdo(true)
+    setAdoMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put('/api/integrations/ado', {
+        org_url: adoOrgUrl,
+        pat: adoPat,
+        abuse_cases_field: adoAbuseCasesField || null,
+        security_req_field: adoSecurityReqField || null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setAdoMessage({ type: 'success', text: 'Azure DevOps settings saved successfully' })
+      setAdoPat('')
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setAdoMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to save' })
+    } finally {
+      setSavingAdo(false)
+    }
+  }
+
+  const handleTestAdo = async () => {
+    setTestingAdo(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/integrations/ado/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setAdoMessage({ type: response.data.success ? 'success' : 'error', text: response.data.message })
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setAdoMessage({ type: 'error', text: 'Connection test failed' })
+    } finally {
+      setTestingAdo(false)
+    }
+  }
+
+  const handleSaveSnow = async () => {
+    if (!snowUrl.trim() || !snowUsername.trim() || !snowPassword.trim()) {
+      setSnowMessage({ type: 'error', text: 'Instance URL, username, and password are required' })
+      return
+    }
+    setSavingSnow(true)
+    setSnowMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put('/api/integrations/snow', {
+        base_url: snowUrl,
+        username: snowUsername,
+        api_token: snowPassword,
+        abuse_cases_field: snowAbuseCasesField || null,
+        security_req_field: snowSecurityReqField || null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setSnowMessage({ type: 'success', text: 'ServiceNow settings saved successfully' })
+      setSnowPassword('')
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setSnowMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to save' })
+    } finally {
+      setSavingSnow(false)
+    }
+  }
+
+  const handleTestSnow = async () => {
+    setTestingSnow(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/integrations/snow/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setSnowMessage({ type: response.data.success ? 'success' : 'error', text: response.data.message })
+      loadIntegrationStatus()
+    } catch (error: any) {
+      setSnowMessage({ type: 'error', text: 'Connection test failed' })
+    } finally {
+      setTestingSnow(false)
+    }
+  }
+
+  const loadScaFeedsSettings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get('/api/settings/sca-feeds', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setScaFeedsSettings(response.data)
+    } catch (error) {
+      console.error('Failed to load SCA feeds settings:', error)
+    }
+  }
+
+  const handleSaveScaFeeds = async () => {
+    setSavingScaFeeds(true)
+    setScaFeedsMessage(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const payload: { github_token?: string; snyk_token?: string } = {}
+
+      if (githubToken.trim()) {
+        payload.github_token = githubToken.trim()
+      }
+      if (snykToken.trim()) {
+        payload.snyk_token = snykToken.trim()
+      }
+
+      const response = await axios.put('/api/settings/sca-feeds', payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (response.data.success) {
+        setScaFeedsMessage({ type: 'success', text: response.data.message })
+        setGithubToken('')
+        setSnykToken('')
+        await loadScaFeedsSettings()
+      }
+    } catch (error: any) {
+      setScaFeedsMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Failed to update SCA feeds settings',
+      })
+    } finally {
+      setSavingScaFeeds(false)
+    }
+  }
+
+  const handleTestScaFeeds = async () => {
+    setTestingScaFeeds(true)
+    setScaFeedsResults(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/settings/sca-feeds/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setScaFeedsResults(response.data.results)
+    } catch (error: any) {
+      setScaFeedsMessage({
+        type: 'error',
+        text: 'Failed to test SCA feed connections',
+      })
+    } finally {
+      setTestingScaFeeds(false)
+    }
+  }
+
+  const handleDeleteScaKey = async (keyType: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`/api/settings/sca-feeds/${keyType}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setScaFeedsMessage({ type: 'success', text: `${keyType.replace('_', ' ').toUpperCase()} deleted` })
+      await loadScaFeedsSettings()
+    } catch (error: any) {
+      setScaFeedsMessage({
+        type: 'error',
+        text: error.response?.data?.detail || 'Failed to delete key',
+      })
+    }
+  }
 
   const loadSettings = async () => {
     setLoading(true)
@@ -532,6 +889,151 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* SecureReq Analysis Prompts Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex items-center mb-4">
+          <Code className="h-6 w-6 text-purple-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">SecureReq Analysis Prompts</h2>
+        </div>
+
+        <p className="text-gray-600 mb-4">
+          Customize the AI prompts used for generating abuse cases and security requirements.
+          This allows you to tailor the analysis output without redeploying the application.
+        </p>
+
+        <div className="space-y-4">
+          {/* Toggle for custom prompts */}
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="useCustomPrompts"
+              checked={useCustomPrompts}
+              onChange={(e) => setUseCustomPrompts(e.target.checked)}
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            />
+            <label htmlFor="useCustomPrompts" className="ml-2 block text-sm font-medium text-gray-700">
+              Use Custom Prompts
+            </label>
+          </div>
+
+          {useCustomPrompts && (
+            <>
+              {/* Abuse Case Prompt */}
+              <div>
+                <label htmlFor="abuseCasePrompt" className="block text-sm font-medium text-gray-700 mb-2">
+                  Abuse Case Instructions
+                </label>
+                <textarea
+                  id="abuseCasePrompt"
+                  rows={8}
+                  value={customAbuseCasePrompt}
+                  onChange={(e) => setCustomAbuseCasePrompt(e.target.value)}
+                  placeholder="Enter custom instructions for abuse case generation..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Define how many abuse cases to generate and what details to include (attack narratives, tools, mitigations, etc.)
+                </p>
+              </div>
+
+              {/* Security Requirements Prompt */}
+              <div>
+                <label htmlFor="secReqPrompt" className="block text-sm font-medium text-gray-700 mb-2">
+                  Security Requirements Instructions
+                </label>
+                <textarea
+                  id="secReqPrompt"
+                  rows={8}
+                  value={customSecurityReqPrompt}
+                  onChange={(e) => setCustomSecurityReqPrompt(e.target.value)}
+                  placeholder="Enter custom instructions for security requirements generation..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Define how many requirements to generate, categories to cover, and what details to include (libraries, configs, CWE/OWASP references, etc.)
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* View Default Prompts (Collapsible) */}
+          <div className="border rounded-lg">
+            <button
+              onClick={() => setShowDefaultPrompts(!showDefaultPrompts)}
+              className="w-full px-4 py-3 flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <span>View Default Prompts</span>
+              <span className={`transform transition-transform ${showDefaultPrompts ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </button>
+            {showDefaultPrompts && promptSettings && (
+              <div className="px-4 pb-4 space-y-4 border-t">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mt-3 mb-2">Default Abuse Case Instructions:</h4>
+                  <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                    {promptSettings.default_abuse_case_prompt}
+                  </pre>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Default Security Requirements Instructions:</h4>
+                  <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                    {promptSettings.default_security_req_prompt}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {promptMessage && (
+            <div
+              className={`p-4 rounded-md ${
+                promptMessage.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}
+            >
+              <div className="flex items-center">
+                {promptMessage.type === 'success' ? (
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                )}
+                <span>{promptMessage.text}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex space-x-3">
+            <button
+              onClick={handleSavePrompts}
+              disabled={savingPrompts}
+              className="btn btn-primary inline-flex items-center"
+            >
+              {savingPrompts ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Prompts
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleResetPrompts}
+              disabled={savingPrompts}
+              className="btn btn-secondary inline-flex items-center"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reset to Defaults
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Threat Intelligence API Keys Section */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
@@ -759,6 +1261,256 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* SCA Vulnerability Feeds Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex items-center mb-4">
+          <Package className="h-6 w-6 text-purple-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">SCA Vulnerability Feeds</h2>
+        </div>
+
+        <p className="text-gray-600 mb-4">
+          Configure API tokens for live vulnerability feeds. These enable real-time vulnerability lookups for your dependencies from multiple sources.
+        </p>
+
+        {/* Feed Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {/* GitHub Advisory */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">GitHub Advisory</h3>
+              {scaFeedsSettings?.has_github_token ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Configured
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Set
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">GitHub Security Advisory Database</p>
+            {scaFeedsSettings?.has_github_token && scaFeedsSettings.github_token_masked && (
+              <p className="text-xs text-gray-400 mt-1">Token: {scaFeedsSettings.github_token_masked}</p>
+            )}
+          </div>
+
+          {/* OSV */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">OSV</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Free
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">Open Source Vulnerabilities</p>
+            <p className="text-xs text-gray-400 mt-1">No API key required</p>
+          </div>
+
+          {/* NVD */}
+          <div className="border rounded-lg p-4 border-red-200 bg-red-50">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">NVD</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Active
+              </span>
+            </div>
+            <p className="text-xs text-gray-500">NIST National Vulnerability Database</p>
+            <p className="text-xs text-gray-400 mt-1">API key optional (set in Threat Intel)</p>
+          </div>
+
+          {/* Snyk */}
+          <div className="border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900">Snyk</h3>
+              {scaFeedsSettings?.has_snyk_token ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Configured
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Set
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Snyk Vulnerability Database</p>
+            {scaFeedsSettings?.has_snyk_token && scaFeedsSettings.snyk_token_masked && (
+              <p className="text-xs text-gray-400 mt-1">Token: {scaFeedsSettings.snyk_token_masked}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Test Connection Button */}
+        <div className="mb-6">
+          <button
+            onClick={handleTestScaFeeds}
+            disabled={testingScaFeeds}
+            className="btn btn-secondary inline-flex items-center"
+          >
+            {testingScaFeeds ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600 mr-2"></div>
+                Testing...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Test All Feeds
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Test Results */}
+        {scaFeedsResults && (
+          <div className="mb-6 space-y-2">
+            {Object.entries(scaFeedsResults).map(([source, result]) => (
+              <div
+                key={source}
+                className={`p-3 rounded-lg flex items-center justify-between ${
+                  result.status === 'success'
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
+                }`}
+              >
+                <div className="flex items-center">
+                  {result.status === 'success' ? (
+                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                  ) : (
+                    <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+                  )}
+                  <span className="font-medium text-gray-900">{source}</span>
+                </div>
+                <span className={result.status === 'success' ? 'text-green-700' : 'text-red-700'}>
+                  {result.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* API Token Inputs */}
+        <div className="space-y-4">
+          {/* GitHub Token */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="githubToken" className="block text-sm font-medium text-gray-700">
+                GitHub Personal Access Token
+              </label>
+              {scaFeedsSettings?.has_github_token && (
+                <button
+                  onClick={() => handleDeleteScaKey('github_token')}
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              type="password"
+              id="githubToken"
+              value={githubToken}
+              onChange={(e) => setGithubToken(e.target.value)}
+              placeholder={scaFeedsSettings?.has_github_token ? 'Enter new token to replace...' : 'ghp_xxxxxxxxxxxx'}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Required for GitHub Advisory Database. Create at{' '}
+              <a
+                href="https://github.com/settings/tokens"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-500"
+              >
+                GitHub Settings → Developer settings → Personal access tokens
+              </a>
+              . No special scopes needed for public advisory access.
+            </p>
+          </div>
+
+          {/* Snyk Token */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="snykToken" className="block text-sm font-medium text-gray-700">
+                Snyk API Token
+              </label>
+              {scaFeedsSettings?.has_snyk_token && (
+                <button
+                  onClick={() => handleDeleteScaKey('snyk_token')}
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Remove
+                </button>
+              )}
+            </div>
+            <input
+              type="password"
+              id="snykToken"
+              value={snykToken}
+              onChange={(e) => setSnykToken(e.target.value)}
+              placeholder={scaFeedsSettings?.has_snyk_token ? 'Enter new token to replace...' : 'Enter Snyk API token...'}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Get your API token from{' '}
+              <a
+                href="https://app.snyk.io/account"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:text-indigo-500"
+              >
+                Snyk Account Settings
+              </a>
+              . Enables Snyk vulnerability database integration.
+            </p>
+          </div>
+
+          {scaFeedsMessage && (
+            <div
+              className={`p-4 rounded-md ${
+                scaFeedsMessage.type === 'success'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
+              }`}
+            >
+              <div className="flex items-center">
+                {scaFeedsMessage.type === 'success' ? (
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                ) : (
+                  <AlertCircle className="h-5 w-5 mr-2" />
+                )}
+                <span>{scaFeedsMessage.text}</span>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleSaveScaFeeds}
+            disabled={savingScaFeeds || (!githubToken.trim() && !snykToken.trim())}
+            className="btn btn-primary inline-flex items-center"
+          >
+            {savingScaFeeds ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save SCA Feed Settings
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* VS Code Extension Download Section */}
       <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
@@ -799,30 +1551,29 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.5.0.vsix"
+              href="/downloads/appsec-ai-scanner-1.8.3.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.5.0 • 960 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 1.8.3 • 4.3 MB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.5.0
+            What's New in v1.8.3
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-            <li><strong>🌐 Configurable Server URL:</strong> Easily configure your production server URL via Command Palette → "SecureDev AI: Configure Server URL"</li>
-            <li><strong>🔌 Test Connection:</strong> New command to verify connectivity to your SecureDev AI server before logging in</li>
-            <li><strong>♻️ Auto-Reload on Settings Change:</strong> Extension automatically reloads when you update server URLs - no restart needed</li>
-            <li><strong>🎨 SecureDev AI Branding:</strong> Updated branding throughout the extension</li>
-            <li><strong>📦 Separate SCA Vulnerabilities View:</strong> Dedicated tree view for dependency vulnerabilities with package info, CVE details, CVSS scores, and fixed versions</li>
-            <li><strong>🔐 Dedicated Secret Detection View:</strong> New tree view for exposed secrets grouped by type (API Keys, Passwords, Tokens) with critical security warnings</li>
-            <li><strong>📊 Rule Performance Dashboard:</strong> Inline VS Code panel to view rule statistics, precision metrics, and rules needing attention</li>
+            <li><strong>🔄 Taint Flow for All Findings:</strong> View taint flow visualization for any finding (no enhanced scan required)</li>
+            <li><strong>🐛 Fix: AI Fix File Path:</strong> Fixed "Could not determine file path" for all finding types</li>
+            <li><strong>🐛 Fix: SCA Findings Display:</strong> Fixed SCA vulnerabilities not showing</li>
+            <li><strong>🤖 AI-Powered Auto-Remediation:</strong> Uses your configured OpenAI API key</li>
+            <li><strong>📊 Complete Taint Flow Visualization:</strong> Interactive taint flow diagrams with source/sink tracking</li>
+            <li><strong>🗂️ Workspace-Wide Scanning:</strong> Scan entire workspace when no file is open</li>
           </ul>
         </div>
 
@@ -857,6 +1608,357 @@ export default function SettingsPage() {
             <li>Test the connection, then login with your credentials</li>
           </ol>
         </div>
+      </div>
+
+      {/* SecureReq Integrations Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex items-center mb-4">
+          <Link2 className="h-6 w-6 text-indigo-600 mr-2" />
+          <h2 className="text-xl font-semibold text-gray-900">SecureReq Integrations</h2>
+        </div>
+
+        <p className="text-gray-600 mb-4">
+          Connect to Jira, Azure DevOps, or ServiceNow to sync user stories and publish security analysis results.
+        </p>
+
+        {/* Integration Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className={`border rounded-lg p-4 ${integrationStatus?.jira?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <Server className="w-4 h-4 mr-2" />
+                Jira
+              </h3>
+              {integrationStatus?.jira?.connected ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Connected
+                </span>
+              ) : integrationStatus?.jira?.configured ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                  Not Configured
+                </span>
+              )}
+            </div>
+            {integrationStatus?.jira?.url && (
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.jira.url}</p>
+            )}
+          </div>
+
+          <div className={`border rounded-lg p-4 ${integrationStatus?.ado?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <Cloud className="w-4 h-4 mr-2" />
+                Azure DevOps
+              </h3>
+              {integrationStatus?.ado?.connected ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Connected
+                </span>
+              ) : integrationStatus?.ado?.configured ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                  Not Configured
+                </span>
+              )}
+            </div>
+            {integrationStatus?.ado?.url && (
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.ado.url}</p>
+            )}
+          </div>
+
+          <div className={`border rounded-lg p-4 ${integrationStatus?.snow?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="font-semibold text-gray-900 flex items-center">
+                <Globe className="w-4 h-4 mr-2" />
+                ServiceNow
+              </h3>
+              {integrationStatus?.snow?.connected ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Connected
+                </span>
+              ) : integrationStatus?.snow?.configured ? (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                  Not Configured
+                </span>
+              )}
+            </div>
+            {integrationStatus?.snow?.url && (
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.snow.url}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Integration Tabs */}
+        <div className="border-b border-gray-200 mb-4">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveIntegrationTab('jira')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeIntegrationTab === 'jira'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Jira
+            </button>
+            <button
+              onClick={() => setActiveIntegrationTab('ado')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeIntegrationTab === 'ado'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Azure DevOps
+            </button>
+            <button
+              onClick={() => setActiveIntegrationTab('snow')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeIntegrationTab === 'snow'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              ServiceNow
+            </button>
+          </nav>
+        </div>
+
+        {/* Jira Tab */}
+        {activeIntegrationTab === 'jira' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Jira URL</label>
+                <input
+                  type="text"
+                  value={jiraUrl}
+                  onChange={(e) => setJiraUrl(e.target.value)}
+                  placeholder="https://your-domain.atlassian.net"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={jiraEmail}
+                  onChange={(e) => setJiraEmail(e.target.value)}
+                  placeholder="your-email@company.com"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">API Token</label>
+              <input
+                type="password"
+                value={jiraToken}
+                onChange={(e) => setJiraToken(e.target.value)}
+                placeholder="Enter Jira API token..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Create at <a href="https://id.atlassian.com/manage/api-tokens" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500">Atlassian API Tokens</a>
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
+                <input
+                  type="text"
+                  value={jiraAbuseCasesField}
+                  onChange={(e) => setJiraAbuseCasesField(e.target.value)}
+                  placeholder="customfield_10001 or field name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
+                <input
+                  type="text"
+                  value={jiraSecurityReqField}
+                  onChange={(e) => setJiraSecurityReqField(e.target.value)}
+                  placeholder="customfield_10002 or field name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            {jiraMessage && (
+              <div className={`p-3 rounded-md ${jiraMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                {jiraMessage.text}
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button onClick={handleSaveJira} disabled={savingJira} className="btn btn-primary inline-flex items-center">
+                {savingJira ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Jira Settings
+              </button>
+              <button onClick={handleTestJira} disabled={testingJira} className="btn btn-secondary inline-flex items-center">
+                {testingJira ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Test Connection
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ADO Tab */}
+        {activeIntegrationTab === 'ado' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organization URL</label>
+              <input
+                type="text"
+                value={adoOrgUrl}
+                onChange={(e) => setAdoOrgUrl(e.target.value)}
+                placeholder="https://dev.azure.com/your-org"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Personal Access Token (PAT)</label>
+              <input
+                type="password"
+                value={adoPat}
+                onChange={(e) => setAdoPat(e.target.value)}
+                placeholder="Enter Azure DevOps PAT..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Create at Azure DevOps → User Settings → Personal Access Tokens (needs Work Items Read & Write scope)
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
+                <input
+                  type="text"
+                  value={adoAbuseCasesField}
+                  onChange={(e) => setAdoAbuseCasesField(e.target.value)}
+                  placeholder="Custom.AbuseCases"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
+                <input
+                  type="text"
+                  value={adoSecurityReqField}
+                  onChange={(e) => setAdoSecurityReqField(e.target.value)}
+                  placeholder="Custom.SecurityRequirements"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            {adoMessage && (
+              <div className={`p-3 rounded-md ${adoMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                {adoMessage.text}
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button onClick={handleSaveAdo} disabled={savingAdo} className="btn btn-primary inline-flex items-center">
+                {savingAdo ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save ADO Settings
+              </button>
+              <button onClick={handleTestAdo} disabled={testingAdo} className="btn btn-secondary inline-flex items-center">
+                {testingAdo ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Test Connection
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* SNOW Tab */}
+        {activeIntegrationTab === 'snow' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Instance URL</label>
+              <input
+                type="text"
+                value={snowUrl}
+                onChange={(e) => setSnowUrl(e.target.value)}
+                placeholder="https://your-instance.service-now.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  value={snowUsername}
+                  onChange={(e) => setSnowUsername(e.target.value)}
+                  placeholder="admin"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={snowPassword}
+                  onChange={(e) => setSnowPassword(e.target.value)}
+                  placeholder="Enter password..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
+                <input
+                  type="text"
+                  value={snowAbuseCasesField}
+                  onChange={(e) => setSnowAbuseCasesField(e.target.value)}
+                  placeholder="u_abuse_cases"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
+                <input
+                  type="text"
+                  value={snowSecurityReqField}
+                  onChange={(e) => setSnowSecurityReqField(e.target.value)}
+                  placeholder="u_security_requirements"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            {snowMessage && (
+              <div className={`p-3 rounded-md ${snowMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                {snowMessage.text}
+              </div>
+            )}
+            <div className="flex space-x-3">
+              <button onClick={handleSaveSnow} disabled={savingSnow} className="btn btn-primary inline-flex items-center">
+                {savingSnow ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                Save SNOW Settings
+              </button>
+              <button onClick={handleTestSnow} disabled={testingSnow} className="btn btn-secondary inline-flex items-center">
+                {testingSnow ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                Test Connection
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Information Section */}

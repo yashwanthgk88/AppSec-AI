@@ -6,18 +6,39 @@ Professional-grade dependency vulnerability scanner with:
 - Version caching to avoid repeated parsing
 - Async batch processing for parallel scanning
 - NVD API integration for real-time data
+- Live vulnerability feeds from GitHub Advisory, OSV, and Snyk
+- Transitive dependency analysis
 - Support for npm, pip, Maven, Gradle, Composer, RubyGems, Go modules, Cargo, NuGet
 """
-from typing import List, Dict, Any, Tuple, Callable
+from typing import List, Dict, Any, Tuple, Callable, Optional
 import json
 import re
 import os
 import asyncio
 import httpx
+import logging
 from datetime import datetime, timedelta
 from functools import lru_cache
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
+
+logger = logging.getLogger(__name__)
+
+# Import vulnerability feeds and transitive analyzer
+try:
+    from .vulnerability_feeds import (
+        UnifiedVulnerabilityFeed,
+        batch_check_vulnerabilities,
+        VulnerabilitySource
+    )
+    from .transitive_analyzer import (
+        TransitiveDependencyAnalyzer,
+        TransitiveVulnerabilityScanner,
+        DependencyTree
+    )
+    FEEDS_AVAILABLE = True
+except ImportError:
+    FEEDS_AVAILABLE = False
 
 
 @dataclass
@@ -613,10 +634,20 @@ class SCAScanner:
         "Unlicense": {"risk": "low", "commercial_use": True, "category": "Public Domain"},
     }
 
-    def __init__(self):
-        """Initialize with pre-indexed database and compiled constraints"""
+    def __init__(self, ai_impact_service=None, ai_impact_enabled: bool = True):
+        """
+        Initialize with pre-indexed database and compiled constraints
+
+        Args:
+            ai_impact_service: Optional AI impact service for dynamic impact generation
+            ai_impact_enabled: Whether to use AI for impact generation (default True)
+        """
         self.scanned_packages = 0
         self.errors = []
+
+        # AI Impact Service configuration
+        self.ai_impact_service = ai_impact_service
+        self.ai_impact_enabled = ai_impact_enabled
 
         # Pre-index vulnerabilities by ecosystem for O(1) lookup
         self._vuln_by_ecosystem: Dict[str, Dict[str, List[Dict]]] = {}
@@ -774,6 +805,166 @@ class SCAScanner:
             compiled = self._compile_constraint(constraint)
             return compiled.check_func(parsed_version, compiled.version)
 
+    def _generate_sca_impact(self, vuln_type: str, severity: str, cve: str, package: str,
+                              installed_version: str = "", ecosystem: str = "npm",
+                              cvss_score: float = 0.0) -> Dict[str, str]:
+        """
+        Generate detailed impact statement and recommendation for SCA findings.
+        Uses AI when available, falls back to static templates otherwise.
+
+        Args:
+            vuln_type: Type of vulnerability
+            severity: Severity level
+            cve: CVE identifier
+            package: Package name
+            installed_version: Installed version of the package
+            ecosystem: Package ecosystem (npm, pip, etc.)
+            cvss_score: CVSS score
+
+        Returns:
+            Dictionary with 'impact', 'recommendation', and 'generated_by' keys
+        """
+        # Try AI generation if enabled
+        if self.ai_impact_enabled and self.ai_impact_service:
+            try:
+                vuln_info = {
+                    "vulnerability": vuln_type,
+                    "package": package,
+                    "installed_version": installed_version,
+                    "cve": cve,
+                    "severity": severity,
+                    "cvss_score": cvss_score,
+                    "ecosystem": ecosystem
+                }
+
+                ai_result = self.ai_impact_service.generate_impact_statement(
+                    finding_type="sca",
+                    vulnerability_info=vuln_info
+                )
+
+                return {
+                    "business_impact": ai_result.get('business_impact', 'Impact assessment unavailable'),
+                    "technical_impact": ai_result.get('technical_impact', 'Technical impact unavailable'),
+                    "recommendations": ai_result.get('recommendations', ''),
+                    "generated_by": ai_result.get('generated_by', 'ai')
+                }
+
+            except Exception as e:
+                logger.warning(f"[SCAScanner] AI impact generation failed: {e}")
+                # Fall through to static generation
+
+        # Static fallback generation
+        return self._generate_static_sca_impact(vuln_type, severity, cve, package)
+
+    def _generate_static_sca_impact(self, vuln_type: str, severity: str, cve: str, package: str) -> Dict[str, str]:
+        """Generate static impact statement when AI is unavailable."""
+        # Severity-based business impact
+        severity_impacts = {
+            "critical": """**Business Impact:**
+- Immediate risk of exploitation with publicly available exploits
+- Potential for complete system compromise and data breach
+- Regulatory compliance violations (PCI-DSS, HIPAA, GDPR)
+- Emergency patching required within 24-48 hours
+- High probability of being targeted by automated attack tools""",
+            "high": """**Business Impact:**
+- Significant security risk requiring urgent attention
+- Potential for unauthorized access or data exposure
+- May enable attack chains when combined with other vulnerabilities
+- Should be remediated within 1-2 weeks
+- Increased risk of targeted attacks""",
+            "medium": """**Business Impact:**
+- Moderate security risk with limited exploitation potential
+- May require specific conditions to exploit
+- Should be remediated within 30 days
+- Lower priority but still important for defense in depth""",
+            "low": """**Business Impact:**
+- Low security risk with minimal exploitation potential
+- Typically requires significant access or unlikely conditions
+- Should be tracked and remediated during regular maintenance cycles
+- Important for overall security hygiene"""
+        }
+
+        # Vulnerability type-based technical impact
+        vuln_type_lower = vuln_type.lower()
+        if "rce" in vuln_type_lower or "remote code" in vuln_type_lower or "arbitrary code" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Remote Code Execution (RCE) allowing attackers to run arbitrary commands
+- Complete server compromise with application privileges
+- Potential for backdoor installation and persistent access
+- Risk of lateral movement within the network
+- Data exfiltration and system manipulation"""
+        elif "sql injection" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Database compromise and unauthorized data access
+- Authentication bypass and privilege escalation
+- Data manipulation, deletion, or encryption (ransomware)
+- Potential for operating system command execution via database features"""
+        elif "prototype pollution" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Object prototype manipulation affecting all objects in the application
+- Potential for denial of service through property collisions
+- Possible Remote Code Execution depending on application logic
+- Authentication bypass through modified object properties"""
+        elif "xss" in vuln_type_lower or "cross-site scripting" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Client-side code execution in user browsers
+- Session hijacking through cookie theft
+- Credential harvesting via phishing within the application
+- Malware distribution to application users"""
+        elif "ssrf" in vuln_type_lower or "request forgery" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Internal network scanning and service discovery
+- Access to cloud metadata APIs exposing credentials
+- Bypass of firewall and network access controls
+- Potential for further exploitation of internal services"""
+        elif "denial of service" in vuln_type_lower or "dos" in vuln_type_lower or "redos" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Application unavailability affecting business operations
+- Resource exhaustion (CPU, memory, network)
+- Potential for cascading failures in dependent services
+- Customer impact and SLA violations"""
+        elif "path traversal" in vuln_type_lower or "directory traversal" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Arbitrary file read exposing sensitive configuration
+- Access to source code and credentials
+- Potential for file write leading to code execution"""
+        elif "deserialization" in vuln_type_lower:
+            tech_impact = """**Technical Impact:**
+- Remote Code Execution through malicious serialized objects
+- Application logic bypass through object manipulation
+- Potential for complete server compromise"""
+        else:
+            tech_impact = """**Technical Impact:**
+- Security weakness in third-party dependency
+- Attack surface expansion through vulnerable code paths
+- Risk increases if vulnerability is publicly known ({})""".format(cve)
+
+        impact = severity_impacts.get(severity, severity_impacts["medium"]) + "\n\n" + tech_impact
+
+        recommendation = """**Immediate Actions:**
+1. Upgrade {} to the latest patched version immediately
+2. Review application logs for signs of exploitation
+3. If upgrade not possible, evaluate workarounds or mitigating controls
+4. Check if vulnerability is being actively exploited (check CVE references)
+
+**Long-term Remediation:**
+1. Implement automated dependency scanning in CI/CD pipeline
+2. Configure alerts for new vulnerabilities in project dependencies
+3. Establish a regular dependency update schedule
+4. Consider using dependency lock files to ensure reproducible builds
+5. Evaluate alternative packages if the maintainer is unresponsive""".format(package)
+
+        # Extract business and technical impact separately (strip the headers)
+        business_impact = severity_impacts.get(severity, severity_impacts["medium"]).replace("**Business Impact:**\n", "").strip()
+        technical_impact_text = tech_impact.replace("**Technical Impact:**\n", "").strip()
+
+        return {
+            "business_impact": business_impact,
+            "technical_impact": technical_impact_text,
+            "recommendations": recommendation,
+            "generated_by": "static"
+        }
+
     def scan_dependencies(self, dependencies: Dict[str, str], ecosystem: str = "npm") -> Dict[str, Any]:
         """
         Optimized dependency scanning with O(1) lookups
@@ -813,6 +1004,17 @@ class SCAScanner:
                     vulnerable_count += 1
                     cves = vuln_info['cve'] if isinstance(vuln_info['cve'], list) else [vuln_info['cve']]
 
+                    # Generate detailed impact and recommendation (with AI if enabled)
+                    impact_info = self._generate_sca_impact(
+                        vuln_type=vuln_info['vulnerability'],
+                        severity=vuln_info['severity'],
+                        cve=cves[0],
+                        package=package,
+                        installed_version=version,
+                        ecosystem=ecosystem,
+                        cvss_score=vuln_info['cvss']
+                    )
+
                     findings.append({
                         "package": package,
                         "installed_version": version,
@@ -825,10 +1027,14 @@ class SCAScanner:
                         "owasp_category": vuln_info['owasp'],
                         "description": vuln_info['description'],
                         "remediation": vuln_info['remediation'],
+                        "business_impact": impact_info.get('business_impact', ''),
+                        "technical_impact": impact_info.get('technical_impact', ''),
+                        "recommendations": impact_info.get('recommendations', ''),
                         "published_date": vuln_info.get('published', 'N/A'),
                         "stride_category": self._map_to_stride(vuln_info['vulnerability']),
                         "mitre_attack_id": "T1195.001",
-                        "ecosystem": ecosystem
+                        "ecosystem": ecosystem,
+                        "impact_generated_by": impact_info.get('generated_by', 'static')
                     })
                     break  # Found vulnerability, move to next package
 
@@ -1328,6 +1534,290 @@ class SCAScanner:
                 "django": {"version": "3.2.13", "license": "BSD-3-Clause"},
             })
         }
+
+    # ==================== LIVE VULNERABILITY FEEDS ====================
+
+    async def scan_with_live_feeds(
+        self,
+        dependencies: Dict[str, str],
+        ecosystem: str = "npm",
+        use_local_db: bool = True,
+        use_live_feeds: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Scan dependencies using both local database and live vulnerability feeds.
+
+        Args:
+            dependencies: {"package_name": "version"}
+            ecosystem: Package ecosystem
+            use_local_db: Whether to use local vulnerability database
+            use_live_feeds: Whether to query live feeds (GitHub Advisory, OSV, Snyk)
+
+        Returns:
+            Combined scan results from all sources
+        """
+        all_findings = []
+        sources_used = []
+
+        # Scan with local database
+        if use_local_db:
+            local_results = self.scan_dependencies(dependencies, ecosystem)
+            all_findings.extend(local_results.get("findings", []))
+            sources_used.append("local")
+
+        # Scan with live feeds
+        if use_live_feeds and FEEDS_AVAILABLE:
+            try:
+                live_results = await batch_check_vulnerabilities(dependencies, ecosystem)
+                live_findings = live_results.get("findings", [])
+
+                # Build comprehensive deduplication keys from existing findings
+                # Use package+CVE and package+title as keys to catch all duplicates
+                existing_keys = set()
+                for f in all_findings:
+                    pkg = f.get("package", "").lower()
+                    cve = f.get("cve", "")
+                    title = f.get("vulnerability", "").lower()
+                    # Add multiple keys for robust deduplication
+                    if cve:
+                        existing_keys.add(f"{pkg}:{cve}")
+                        existing_keys.add(cve)  # Also track CVE alone
+                    if title:
+                        existing_keys.add(f"{pkg}:{title[:50]}")  # First 50 chars of title
+
+                for finding in live_findings:
+                    pkg = finding.get("package", "").lower()
+                    cve = finding.get("cve", "")
+                    title = finding.get("vulnerability", "").lower()
+
+                    # Check all possible duplicate keys
+                    is_duplicate = False
+                    if cve and (cve in existing_keys or f"{pkg}:{cve}" in existing_keys):
+                        is_duplicate = True
+                    if title and f"{pkg}:{title[:50]}" in existing_keys:
+                        is_duplicate = True
+
+                    if not is_duplicate:
+                        all_findings.append(finding)
+                        # Add keys for this finding
+                        if cve:
+                            existing_keys.add(f"{pkg}:{cve}")
+                            existing_keys.add(cve)
+                        if title:
+                            existing_keys.add(f"{pkg}:{title[:50]}")
+
+                sources_used.extend(live_results.get("sources", []))
+            except Exception as e:
+                self.errors.append(f"Live feed scan failed: {e}")
+
+        # Calculate severity counts
+        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for f in all_findings:
+            sev = f.get('severity', 'medium')
+            if sev in severity_counts:
+                severity_counts[sev] += 1
+
+        return {
+            "total_packages": len(dependencies),
+            "vulnerable_packages": len(set(f['package'] for f in all_findings)),
+            "total_vulnerabilities": len(all_findings),
+            "severity_counts": severity_counts,
+            "findings": all_findings,
+            "scan_date": datetime.now().isoformat(),
+            "ecosystem": ecosystem,
+            "sources": list(set(sources_used))
+        }
+
+    # ==================== TRANSITIVE DEPENDENCY ANALYSIS ====================
+
+    def scan_lockfile_with_transitives(
+        self,
+        lockfile_content: str,
+        lockfile_type: str,
+        project_name: str = "project"
+    ) -> Dict[str, Any]:
+        """
+        Scan a lockfile and analyze both direct and transitive dependencies.
+
+        Args:
+            lockfile_content: Contents of the lockfile
+            lockfile_type: Type of lockfile (npm, yarn, pip, maven, go, cargo)
+            project_name: Name of the project
+
+        Returns:
+            Scan results with transitive dependency information
+        """
+        if not FEEDS_AVAILABLE:
+            # Fall back to basic scanning
+            ecosystem_map = {
+                'npm': 'npm', 'yarn': 'npm', 'pip': 'pip',
+                'maven': 'maven', 'gradle': 'maven',
+                'go': 'go', 'cargo': 'cargo'
+            }
+            ecosystem = ecosystem_map.get(lockfile_type.lower(), 'npm')
+            deps = self._parse_file_by_type(lockfile_content, lockfile_type)
+            return self.scan_dependencies(deps, ecosystem)
+
+        scanner = TransitiveVulnerabilityScanner(sca_scanner=self)
+        return scanner.scan_with_tree(lockfile_content, lockfile_type, project_name)
+
+    def get_dependency_tree(
+        self,
+        lockfile_content: str,
+        lockfile_type: str,
+        project_name: str = "project"
+    ) -> Dict[str, Any]:
+        """
+        Extract and return the dependency tree without vulnerability scanning.
+
+        Args:
+            lockfile_content: Contents of the lockfile
+            lockfile_type: Type of lockfile
+            project_name: Name of the project
+
+        Returns:
+            Dependency tree structure
+        """
+        if not FEEDS_AVAILABLE:
+            return {"error": "Transitive analysis not available"}
+
+        analyzer = TransitiveDependencyAnalyzer()
+        tree = analyzer.analyze_lockfile(lockfile_content, lockfile_type, project_name)
+
+        return {
+            "root": project_name,
+            "ecosystem": tree.ecosystem,
+            "total_packages": len(tree.all_deps),
+            "direct_packages": len(tree.direct_deps),
+            "transitive_packages": len(tree.all_deps) - len(tree.direct_deps),
+            "packages": tree.get_all_packages(),
+            "nodes": {
+                k: {
+                    "name": v.name,
+                    "version": v.version,
+                    "is_direct": v.is_direct,
+                    "depth": v.depth,
+                    "parent": v.parent,
+                    "children": v.children,
+                    "dev_dependency": v.dev_dependency
+                }
+                for k, v in tree.nodes.items()
+            }
+        }
+
+    async def full_scan(
+        self,
+        lockfile_content: str,
+        lockfile_type: str,
+        project_name: str = "project",
+        use_live_feeds: bool = True
+    ) -> Dict[str, Any]:
+        """
+        Perform a comprehensive scan with:
+        - Local vulnerability database
+        - Live vulnerability feeds
+        - Transitive dependency analysis
+
+        Args:
+            lockfile_content: Contents of the lockfile
+            lockfile_type: Type of lockfile
+            project_name: Name of the project
+            use_live_feeds: Whether to query live feeds
+
+        Returns:
+            Comprehensive scan results
+        """
+        # First get the transitive analysis
+        transitive_results = self.scan_lockfile_with_transitives(
+            lockfile_content, lockfile_type, project_name
+        )
+
+        # If live feeds requested, enhance with live data
+        if use_live_feeds and FEEDS_AVAILABLE:
+            all_packages = {
+                node["name"]: node["version"]
+                for node in transitive_results.get("dependency_tree", {}).get("nodes", {}).values()
+            }
+
+            if all_packages:
+                ecosystem = transitive_results.get("ecosystem", "npm")
+                try:
+                    live_results = await batch_check_vulnerabilities(all_packages, ecosystem)
+
+                    # Build comprehensive deduplication keys
+                    existing_keys = set()
+                    for f in transitive_results.get("findings", []):
+                        pkg = f.get("package", "").lower()
+                        cve = f.get("cve", "")
+                        title = f.get("vulnerability", "").lower()
+                        if cve:
+                            existing_keys.add(f"{pkg}:{cve}")
+                            existing_keys.add(cve)
+                        if title:
+                            existing_keys.add(f"{pkg}:{title[:50]}")
+
+                    for finding in live_results.get("findings", []):
+                        pkg = finding.get("package", "").lower()
+                        cve = finding.get("cve", "")
+                        title = finding.get("vulnerability", "").lower()
+
+                        # Check for duplicates
+                        is_duplicate = False
+                        if cve and (cve in existing_keys or f"{pkg}:{cve}" in existing_keys):
+                            is_duplicate = True
+                        if title and f"{pkg}:{title[:50]}" in existing_keys:
+                            is_duplicate = True
+
+                        if not is_duplicate:
+                            # Add transitive info
+                            pkg_name = finding.get("package", "")
+
+                            for key, node in transitive_results.get("dependency_tree", {}).get("nodes", {}).items():
+                                if node["name"] == pkg_name:
+                                    finding["is_direct_dependency"] = node["is_direct"]
+                                    finding["dependency_depth"] = node["depth"]
+                                    finding["introduced_by"] = node["parent"]
+                                    break
+
+                            transitive_results["findings"].append(finding)
+                            # Add keys for deduplication
+                            if cve:
+                                existing_keys.add(f"{pkg}:{cve}")
+                                existing_keys.add(cve)
+                            if title:
+                                existing_keys.add(f"{pkg}:{title[:50]}")
+
+                    transitive_results["sources"] = list(set(
+                        transitive_results.get("sources", ["local"]) +
+                        live_results.get("sources", [])
+                    ))
+
+                except Exception as e:
+                    self.errors.append(f"Live feed enhancement failed: {e}")
+
+        # Recalculate statistics
+        findings = transitive_results.get("findings", [])
+        severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        for f in findings:
+            sev = f.get('severity', 'medium')
+            if sev in severity_counts:
+                severity_counts[sev] += 1
+
+        transitive_results["severity_counts"] = severity_counts
+        transitive_results["total_vulnerabilities"] = len(findings)
+        transitive_results["vulnerable_packages"] = len(set(f.get("package") for f in findings))
+
+        # Separate direct vs transitive
+        transitive_results["direct_findings"] = [
+            f for f in findings if f.get("is_direct_dependency", True)
+        ]
+        transitive_results["transitive_findings"] = [
+            f for f in findings if not f.get("is_direct_dependency", True)
+        ]
+        transitive_results["direct_vulnerabilities"] = len(transitive_results["direct_findings"])
+        transitive_results["transitive_vulnerabilities"] = len(transitive_results["transitive_findings"])
+
+        return transitive_results
 
 
 # Global instance with pre-built indices

@@ -31,5 +31,8 @@ def get_db() -> Generator:
 
 def init_db():
     """Initialize database tables"""
-    from models.models import User, Project, Scan, Vulnerability, ThreatModel, ChatMessage
+    from models.models import (
+        User, Project, Scan, Vulnerability, ThreatModel, ChatMessage,
+        SystemSettings, ApplicationProfile, SuggestedRule
+    )
     Base.metadata.create_all(bind=engine)
