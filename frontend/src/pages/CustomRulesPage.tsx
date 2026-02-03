@@ -162,7 +162,7 @@ const CustomRulesPage: React.FC = () => {
       if (filterSeverity) params.append('severity', filterSeverity);
       if (filterLanguage) params.append('language', filterLanguage);
 
-      const response = await axios.get(`http://localhost:8000/api/rules?${params}`, { headers });
+      const response = await axios.get(`/api/rules?${params}`, { headers });
       setRules(response.data);
       setLoading(false);
     } catch (error) {
@@ -173,7 +173,7 @@ const CustomRulesPage: React.FC = () => {
 
   const loadJobs = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/rules/jobs?limit=10', { headers });
+      const response = await axios.get('/api/rules/jobs?limit=10', { headers });
       setJobs(response.data);
     } catch (error) {
       console.error('Failed to load jobs:', error);
@@ -182,7 +182,7 @@ const CustomRulesPage: React.FC = () => {
 
   const createRule = async () => {
     try {
-      await axios.post('http://localhost:8000/api/rules', newRule, { headers });
+      await axios.post('/api/rules', newRule, { headers });
       setShowCreateModal(false);
       setNewRule({
         name: '', pattern: '', severity: 'medium', description: '',
@@ -196,7 +196,7 @@ const CustomRulesPage: React.FC = () => {
 
   const generateRuleWithAI = async () => {
     try {
-      await axios.post('http://localhost:8000/api/rules/generate', aiGenerate, { headers });
+      await axios.post('/api/rules/generate', aiGenerate, { headers });
       setShowAIGenerateModal(false);
       setAiGenerate({
         rule_name: '', vulnerability_description: '', severity: 'medium', languages: ['*']
@@ -210,7 +210,7 @@ const CustomRulesPage: React.FC = () => {
 
   const toggleRuleEnabled = async (ruleId: number, currentEnabled: number) => {
     try {
-      await axios.put(`http://localhost:8000/api/rules/${ruleId}`,
+      await axios.put(`/api/rules/${ruleId}`,
         { enabled: !currentEnabled },
         { headers }
       );
@@ -223,7 +223,7 @@ const CustomRulesPage: React.FC = () => {
   const deleteRule = async (ruleId: number) => {
     if (!confirm('Are you sure you want to delete this rule?')) return;
     try {
-      await axios.delete(`http://localhost:8000/api/rules/${ruleId}`, { headers });
+      await axios.delete(`/api/rules/${ruleId}`, { headers });
       loadRules();
     } catch (error) {
       alert('Failed to delete rule');
@@ -234,10 +234,10 @@ const CustomRulesPage: React.FC = () => {
   const loadEnterpriseData = async () => {
     try {
       const [toolsRes, vulnTypesRes, langsRes, templatesRes] = await Promise.all([
-        axios.get('http://localhost:8000/api/enterprise-rules/tools', { headers }),
-        axios.get('http://localhost:8000/api/enterprise-rules/vulnerability-types', { headers }),
-        axios.get('http://localhost:8000/api/enterprise-rules/languages', { headers }),
-        axios.get('http://localhost:8000/api/enterprise-rules/templates', { headers }),
+        axios.get('/api/enterprise-rules/tools', { headers }),
+        axios.get('/api/enterprise-rules/vulnerability-types', { headers }),
+        axios.get('/api/enterprise-rules/languages', { headers }),
+        axios.get('/api/enterprise-rules/templates', { headers }),
       ]);
 
       setTools(toolsRes.data);
@@ -311,7 +311,7 @@ const CustomRulesPage: React.FC = () => {
     setEnterpriseLoading(true);
     try {
       const response = await axios.post(
-        'http://localhost:8000/api/enterprise-rules/generate-all',
+        '/api/enterprise-rules/generate-all',
         {
           rule_name: enterpriseFormData.rule_name,
           description: enterpriseFormData.description,
@@ -341,7 +341,7 @@ const CustomRulesPage: React.FC = () => {
     setEnterpriseLoading(true);
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/enterprise-rules/generate-from-template/${template.id}`,
+        `/api/enterprise-rules/generate-from-template/${template.id}`,
         null,
         {
           headers,
@@ -394,7 +394,7 @@ const CustomRulesPage: React.FC = () => {
     if (!generatedRules) return;
     try {
       const response = await axios.post(
-        'http://localhost:8000/api/enterprise-rules/export-all',
+        '/api/enterprise-rules/export-all',
         {
           rule_name: generatedRules.rule_name,
           description: generatedRules.description,

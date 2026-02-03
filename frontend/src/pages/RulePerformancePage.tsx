@@ -73,7 +73,7 @@ export default function RulePerformancePage() {
   const loadDashboard = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('http://localhost:8000/api/rules/performance/dashboard', {
+      const response = await axios.get('/api/rules/performance/dashboard', {
         headers: { Authorization: `Bearer ${token}` }
       })
       setDashboard(response.data)

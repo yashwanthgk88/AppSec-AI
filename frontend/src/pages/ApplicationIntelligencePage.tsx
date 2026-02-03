@@ -112,7 +112,7 @@ const ApplicationIntelligencePage: React.FC = () => {
       intervalId = setInterval(async () => {
         try {
           const response = await axios.get(
-            `http://localhost:8000/api/application-intelligence/profile/${selectedProjectId}/status`,
+            `/api/application-intelligence/profile/${selectedProjectId}/status`,
             { headers }
           );
           setProfilingStatus(response.data);
@@ -135,7 +135,7 @@ const ApplicationIntelligencePage: React.FC = () => {
 
   const loadProjects = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/projects', { headers });
+      const response = await axios.get('/api/projects', { headers });
       setProjects(response.data);
       if (response.data.length > 0) {
         setSelectedProjectId(response.data[0].id);
@@ -150,7 +150,7 @@ const ApplicationIntelligencePage: React.FC = () => {
 
     try {
       const response = await axios.get(
-        `http://localhost:8000/api/application-intelligence/profile/${selectedProjectId}`,
+        `/api/application-intelligence/profile/${selectedProjectId}`,
         { headers }
       );
       setProfile(response.data);
@@ -172,7 +172,7 @@ const ApplicationIntelligencePage: React.FC = () => {
       if (filterStatus) params.append('status', filterStatus);
 
       const response = await axios.get(
-        `http://localhost:8000/api/application-intelligence/suggestions/${selectedProjectId}?${params}`,
+        `/api/application-intelligence/suggestions/${selectedProjectId}?${params}`,
         { headers }
       );
       setSuggestions(response.data);
@@ -190,7 +190,7 @@ const ApplicationIntelligencePage: React.FC = () => {
     setLoading(true);
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/application-intelligence/profile/${selectedProjectId}`,
+        `/api/application-intelligence/profile/${selectedProjectId}`,
         {},
         { headers }
       );
@@ -208,7 +208,7 @@ const ApplicationIntelligencePage: React.FC = () => {
   const acceptSuggestion = async (suggestionId: number) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/application-intelligence/suggestion/${suggestionId}/accept`,
+        `/api/application-intelligence/suggestion/${suggestionId}/accept`,
         {},
         { headers }
       );
@@ -221,7 +221,7 @@ const ApplicationIntelligencePage: React.FC = () => {
   const dismissSuggestion = async (suggestionId: number) => {
     try {
       await axios.put(
-        `http://localhost:8000/api/application-intelligence/suggestion/${suggestionId}/dismiss`,
+        `/api/application-intelligence/suggestion/${suggestionId}/dismiss`,
         {},
         { headers }
       );
@@ -234,7 +234,7 @@ const ApplicationIntelligencePage: React.FC = () => {
   const exportRule = async (suggestionId: number, format: string) => {
     try {
       const response = await axios.get(
-        `http://localhost:8000/api/application-intelligence/suggestion/${suggestionId}/export/${format}`,
+        `/api/application-intelligence/suggestion/${suggestionId}/export/${format}`,
         { headers, responseType: 'blob' }
       );
 
