@@ -1132,6 +1132,67 @@ async def run_security_scan(
     if repo_scanner and repo_scanner.repo_path:
         scan_results_data = enhanced_sast_scanner.scan_directory(repo_scanner.repo_path)
         sast_findings = scan_results_data['findings']
+
+        # Also run inter-procedural analysis for deeper vulnerability detection
+        try:
+            import os as scan_os
+            interprocedural_findings = []
+            scan_extensions = ['.py', '.js', '.ts', '.java', '.go', '.php']
+
+            for root, dirs, files in scan_os.walk(repo_scanner.repo_path):
+                # Skip common directories
+                dirs[:] = [d for d in dirs if d not in ['node_modules', 'venv', '.git', '__pycache__', 'dist', 'build', '.venv']]
+
+                for file in files:
+                    if not any(file.endswith(ext) for ext in scan_extensions):
+                        continue
+
+                    file_path = scan_os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            source_code = f.read()
+
+                        # Skip very large or binary files
+                        if len(source_code) > 300000 or '\x00' in source_code[:1000]:
+                            continue
+
+                        # Run inter-procedural analysis
+                        result = analyze_code_interprocedural(source_code, file_path)
+
+                        # Convert inter-procedural vulnerabilities to standard format
+                        for vuln in result.get("vulnerabilities", []):
+                            # Avoid duplicates with SAST findings
+                            existing = any(
+                                f.get('file_path') == file_path and
+                                f.get('line_number') == vuln.get('sink_line') and
+                                f.get('cwe_id') == vuln.get('cwe_id')
+                                for f in sast_findings
+                            )
+                            if not existing:
+                                interprocedural_findings.append({
+                                    'title': vuln.get('title', 'Security Vulnerability'),
+                                    'description': vuln.get('description', ''),
+                                    'severity': vuln.get('severity', 'medium'),
+                                    'cwe_id': vuln.get('cwe_id', ''),
+                                    'owasp_category': vuln.get('owasp_category', ''),
+                                    'file_path': repo_scanner.get_relative_path(file_path),
+                                    'line_number': vuln.get('sink_line', 0),
+                                    'code_snippet': f"Call chain: {' -> '.join(vuln.get('call_chain', []))}",
+                                    'remediation': vuln.get('remediation', ''),
+                                    'cvss_score': 7.5 if vuln.get('severity') == 'critical' else 5.0,
+                                    'analysis_type': 'inter-procedural'
+                                })
+
+                    except Exception as file_error:
+                        # Skip files that can't be analyzed
+                        continue
+
+            # Add inter-procedural findings to SAST findings
+            sast_findings.extend(interprocedural_findings)
+            print(f"Inter-procedural analysis found {len(interprocedural_findings)} additional vulnerabilities")
+
+        except Exception as ip_error:
+            print(f"Inter-procedural analysis error (non-fatal): {ip_error}")
     else:
         sast_findings = []  # No demo findings - only real scans
 

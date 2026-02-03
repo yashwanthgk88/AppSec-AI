@@ -70,14 +70,63 @@ export class ApiClient {
 
     async scanFile(filePath: string): Promise<any> {
         try {
-            const response = await this.axiosInstance.post('/api/scan/file', {
+            // Try the new deep scan endpoint first (includes inter-procedural analysis)
+            const response = await this.axiosInstance.post('/api/scan/deep', {
                 file_path: filePath,
-                scan_types: ['sast', 'secrets']
-            });
+                include_call_graph: true,
+                include_function_summaries: true,
+                include_taint_flows: true
+            }, { timeout: 120000 }); // 2 min timeout for deep analysis
 
             return response.data;
         } catch (error: any) {
+            // Fallback to standard scan if deep scan fails
+            if (error.response?.status === 404) {
+                const fallbackResponse = await this.axiosInstance.post('/api/scan/file', {
+                    file_path: filePath,
+                    scan_types: ['sast', 'secrets']
+                });
+                return fallbackResponse.data;
+            }
             throw new Error(error.response?.data?.detail || 'File scan failed');
+        }
+    }
+
+    /**
+     * Deep scan with inter-procedural analysis
+     * Tracks data flow across function boundaries
+     */
+    async deepScanFile(filePath: string): Promise<any> {
+        try {
+            const response = await this.axiosInstance.post('/api/scan/deep', {
+                file_path: filePath,
+                include_call_graph: true,
+                include_function_summaries: true,
+                include_taint_flows: true
+            }, { timeout: 180000 }); // 3 min timeout
+
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.detail || 'Deep scan failed');
+        }
+    }
+
+    /**
+     * Inter-procedural analysis only
+     * Returns call graph, function summaries, and cross-function taint flows
+     */
+    async interproceduralScan(filePath: string): Promise<any> {
+        try {
+            const response = await this.axiosInstance.post('/api/scan/interprocedural', {
+                file_path: filePath,
+                include_call_graph: true,
+                include_function_summaries: true,
+                include_taint_flows: true
+            }, { timeout: 120000 });
+
+            return response.data;
+        } catch (error: any) {
+            throw new Error(error.response?.data?.detail || 'Inter-procedural scan failed');
         }
     }
 
