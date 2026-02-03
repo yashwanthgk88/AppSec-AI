@@ -1433,21 +1433,76 @@ async def run_security_scan(
         "secret": 0
     }
 
+    print(f"[SCAN] Starting security scan for project {project_id}: {project.name}")
+    print(f"[SCAN] Repository URL: {project.repository_url}")
+
     # Clone repository if URL provided
     repo_scanner = None
     if project.repository_url:
         try:
+            print(f"[SCAN] Cloning repository...")
             repo_scanner = RepositoryScanner()
             repo_path = repo_scanner.clone_repository(project.repository_url)
+            print(f"[SCAN] Repository cloned successfully to: {repo_path}")
         except Exception as e:
             # If cloning fails, log error and fall back to demo scans
-            print(f"Warning: Failed to clone repository: {e}")
+            print(f"[SCAN] ERROR: Failed to clone repository: {e}")
+            import traceback
+            traceback.print_exc()
             repo_scanner = None
+    else:
+        print(f"[SCAN] No repository URL provided, using demo scans")
 
-    # Run SAST scan
+    # Run SAST scan with both regex and AST analysis
     if repo_scanner and repo_scanner.repo_path:
+        print(f"[SAST] Starting scan of repository: {repo_scanner.repo_path}")
+
+        # Run regex-based SAST scanner
         scan_results_data = sast_scanner.scan_directory(repo_scanner.repo_path)
         sast_findings = scan_results_data['findings']
+        print(f"[SAST] Regex scanner found {len(sast_findings)} findings")
+
+        # Also run AST-based analysis for better accuracy
+        ast_findings = []
+        try:
+            for root, dirs, files in os.walk(repo_scanner.repo_path):
+                # Skip common non-source directories
+                dirs[:] = [d for d in dirs if d not in ['node_modules', 'venv', '.git', '__pycache__', 'dist', 'build', '.venv', 'vendor', 'target']]
+
+                for file in files:
+                    ext = os.path.splitext(file)[1]
+                    if ext in ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.php', '.go', '.rb', '.cs']:
+                        file_path = os.path.join(root, file)
+                        try:
+                            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                                source_code = f.read()
+                                if len(source_code) > 500 * 1024:  # Skip very large files
+                                    continue
+
+                            analysis_result = ast_analyzer.analyze_file(source_code, file_path)
+                            for finding in analysis_result.get("findings", []):
+                                # Add relative path
+                                finding['file_path'] = repo_scanner.get_relative_path(file_path)
+                                ast_findings.append(finding)
+                        except Exception as e:
+                            pass  # Skip files that can't be analyzed
+            print(f"[SAST] AST analyzer found {len(ast_findings)} findings")
+
+            # Merge findings, avoiding duplicates
+            existing_keys = set()
+            for f in sast_findings:
+                key = f"{f.get('file_path', '')}:{f.get('line_number', 0)}:{f.get('cwe_id', '')}"
+                existing_keys.add(key)
+
+            for f in ast_findings:
+                key = f"{f.get('file_path', '')}:{f.get('line_number', 0)}:{f.get('cwe_id', '')}"
+                if key not in existing_keys:
+                    sast_findings.append(f)
+                    existing_keys.add(key)
+
+            print(f"[SAST] Total combined findings: {len(sast_findings)}")
+        except Exception as e:
+            print(f"[SAST] AST analysis error (continuing with regex results): {e}")
     else:
         sast_findings = sast_scanner.generate_sample_findings()
 
@@ -1504,11 +1559,14 @@ async def run_security_scan(
     scan_results["sast"] = len(sast_findings)
 
     # Run SCA scan
+    print(f"[SCA] Starting SCA scan...")
     sca_findings = []
     if repo_scanner and repo_scanner.repo_path:
         dep_files = repo_scanner.get_dependency_files()
+        print(f"[SCA] Found dependency files: {dep_files}")
 
         for dep_type, file_paths in dep_files.items():
+            print(f"[SCA] Processing {dep_type} files: {file_paths}")
             for file_path in file_paths:
                 try:
                     with open(file_path, 'r', encoding='utf-8') as f:
