@@ -22,11 +22,11 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install curl and gettext for healthcheck and config substitution
+RUN apk add --no-cache curl gettext
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config template
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -34,12 +34,11 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy VS Code extension to be served
 COPY public/downloads /usr/share/nginx/html/downloads
 
+# Default port (Railway will override with PORT env var)
+ENV PORT=80
+
 # Expose port
 EXPOSE 80
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:80 || exit 1
-
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start script to substitute PORT and start nginx
+CMD /bin/sh -c "envsubst '\$PORT' < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"

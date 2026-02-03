@@ -19,12 +19,11 @@ COPY . .
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
+# Default port (Railway will override with PORT env var)
+ENV PORT=8000
+
 # Expose port
 EXPOSE 8000
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
-
-# Run migrations and start server
-CMD python3 migrate_db.py && uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+# Run migrations and start server with dynamic port
+CMD python3 migrate_db.py && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
