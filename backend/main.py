@@ -75,9 +75,8 @@ else:
         "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
-        # Railway domains - add your specific domain here
-        "https://*.railway.app",
-        "https://*.up.railway.app",
+        # Railway production frontend
+        "https://securedev-frontend.railway.app",
     ]
 
 # Check if we should allow all origins (for development/testing)
