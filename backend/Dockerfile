@@ -3,20 +3,19 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies including curl for healthcheck and git for repo cloning
-# Force rebuild: 2026-02-03
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY requirements.txt .
+# Copy requirements from backend directory
+COPY backend/requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
-COPY . .
+# Copy backend application code
+COPY backend/ .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
