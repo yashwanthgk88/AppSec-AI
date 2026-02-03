@@ -32,6 +32,7 @@ from services.repository_scanner import RepositoryScanner
 from services.threat_intel import threat_intel
 from services.ast_security_analyzer import ASTSecurityAnalyzer, ast_analyzer
 from services.ai_impact_service import AIImpactService, get_ai_impact_service
+from services.interprocedural_analyzer import analyze_code_interprocedural
 
 # Import routers
 from routers import settings
@@ -3384,6 +3385,284 @@ async def enhanced_directory_scan(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Enhanced directory scan failed: {str(e)}")
+
+
+# ==================== INTER-PROCEDURAL ANALYSIS ENDPOINTS ====================
+
+class InterproceduralScanRequest(BaseModel):
+    """Request model for inter-procedural analysis"""
+    file_path: str
+    include_call_graph: bool = True
+    include_function_summaries: bool = True
+    include_taint_flows: bool = True
+
+
+class InterproceduralDirectoryScanRequest(BaseModel):
+    """Request model for inter-procedural directory analysis"""
+    directory_path: str
+    include_call_graph: bool = True
+    include_function_summaries: bool = True
+    file_extensions: List[str] = [".py", ".js", ".ts", ".java", ".go", ".php"]
+
+
+@app.post("/api/scan/interprocedural")
+async def interprocedural_scan(
+    request: InterproceduralScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Advanced Inter-procedural Security Scan
+
+    Features:
+    - Call Graph Construction: Maps function call relationships
+    - Function Summaries: Analyzes taint behavior of each function
+    - Cross-function Taint Propagation: Tracks data flow across function boundaries
+    - Context-sensitive Analysis: Considers calling context for precision
+    - Return Value Tracking: Propagates taint through return values
+
+    This goes beyond single-function analysis to detect vulnerabilities
+    that span multiple functions (e.g., user input in handler → helper → sink)
+    """
+    try:
+        import os
+        if not os.path.exists(request.file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        # Read file content
+        with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            source_code = f.read()
+
+        # Run inter-procedural analysis
+        analysis_result = analyze_code_interprocedural(source_code, request.file_path)
+
+        # Build response
+        response = {
+            "file_path": request.file_path,
+            "language": analysis_result.get("language", "unknown"),
+            "analysis_type": "inter-procedural",
+            "vulnerabilities": analysis_result.get("vulnerabilities", []),
+            "statistics": analysis_result.get("statistics", {}),
+        }
+
+        # Include call graph if requested
+        if request.include_call_graph:
+            cg = analysis_result.get("call_graph", {})
+            response["call_graph"] = {
+                "functions": cg.get("functions", {}),
+                "call_sites": cg.get("call_sites", []),
+                "statistics": cg.get("statistics", {}),
+            }
+
+        # Include function summaries if requested
+        if request.include_function_summaries:
+            response["function_summaries"] = analysis_result.get("function_summaries", {})
+
+        # Include inter-procedural flows if requested
+        if request.include_taint_flows:
+            response["inter_procedural_flows"] = analysis_result.get("inter_procedural_flows", [])
+
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Inter-procedural scan failed: {str(e)}")
+
+
+@app.post("/api/scan/interprocedural/directory")
+async def interprocedural_directory_scan(
+    request: InterproceduralDirectoryScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Inter-procedural security scan for entire directory.
+
+    Performs deep analysis of function call relationships and data flow
+    across the entire codebase, detecting vulnerabilities that span
+    multiple files and functions.
+    """
+    try:
+        import os
+        if not os.path.exists(request.directory_path):
+            raise HTTPException(status_code=404, detail="Directory not found")
+
+        all_vulnerabilities = []
+        all_functions = {}
+        all_call_sites = []
+        files_scanned = 0
+        total_flows = 0
+
+        # Walk directory
+        for root, dirs, files in os.walk(request.directory_path):
+            # Skip common directories
+            dirs[:] = [d for d in dirs if d not in ['node_modules', 'venv', '.git', '__pycache__', 'dist', 'build', '.venv']]
+
+            for file in files:
+                # Check file extension
+                if not any(file.endswith(ext) for ext in request.file_extensions):
+                    continue
+
+                file_path = os.path.join(root, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        source_code = f.read()
+
+                    # Skip very large or binary files
+                    if len(source_code) > 500000 or '\x00' in source_code[:1000]:
+                        continue
+
+                    # Run inter-procedural analysis
+                    result = analyze_code_interprocedural(source_code, file_path)
+
+                    # Aggregate results
+                    all_vulnerabilities.extend(result.get("vulnerabilities", []))
+                    total_flows += len(result.get("inter_procedural_flows", []))
+
+                    if request.include_call_graph:
+                        cg = result.get("call_graph", {})
+                        for func_name, func_info in cg.get("functions", {}).items():
+                            all_functions[f"{file_path}:{func_name}"] = func_info
+                        all_call_sites.extend(cg.get("call_sites", []))
+
+                    files_scanned += 1
+
+                except Exception as file_error:
+                    # Log but continue scanning other files
+                    print(f"Error scanning {file_path}: {file_error}")
+                    continue
+
+        # Calculate severity counts
+        severity_counts = {
+            "critical": len([v for v in all_vulnerabilities if v.get("severity") == "critical"]),
+            "high": len([v for v in all_vulnerabilities if v.get("severity") == "high"]),
+            "medium": len([v for v in all_vulnerabilities if v.get("severity") == "medium"]),
+            "low": len([v for v in all_vulnerabilities if v.get("severity") == "low"]),
+        }
+
+        response = {
+            "directory": request.directory_path,
+            "files_scanned": files_scanned,
+            "analysis_type": "inter-procedural",
+            "total_vulnerabilities": len(all_vulnerabilities),
+            "total_inter_procedural_flows": total_flows,
+            "severity_counts": severity_counts,
+            "vulnerabilities": all_vulnerabilities,
+        }
+
+        if request.include_call_graph:
+            response["call_graph_summary"] = {
+                "total_functions": len(all_functions),
+                "total_call_sites": len(all_call_sites),
+            }
+
+        if request.include_function_summaries:
+            response["functions_analyzed"] = len(all_functions)
+
+        return response
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Inter-procedural directory scan failed: {str(e)}")
+
+
+@app.post("/api/scan/deep")
+async def deep_security_scan(
+    request: InterproceduralScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Deep Security Scan - Combines all analysis techniques:
+    1. Intra-procedural taint analysis (within functions)
+    2. Inter-procedural data flow (across functions)
+    3. Call graph analysis
+    4. Pattern-based detection
+    5. Secret scanning
+
+    Returns comprehensive results from all scanners.
+    """
+    try:
+        import os
+        if not os.path.exists(request.file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            source_code = f.read()
+
+        # Run all analysis types in parallel conceptually
+        # 1. Intra-procedural AST analysis
+        ast_result = ast_analyzer.analyze_file(source_code, request.file_path)
+
+        # 2. Inter-procedural analysis
+        interprocedural_result = analyze_code_interprocedural(source_code, request.file_path)
+
+        # 3. Pattern-based SAST
+        sast_findings = sast_scanner.scan_code(source_code, request.file_path)
+
+        # 4. Secret scanning
+        secret_findings = secret_scanner.scan_code(source_code, request.file_path)
+
+        # Combine and deduplicate findings
+        all_findings = []
+        seen_findings = set()
+
+        # Add AST findings
+        for finding in ast_result.get("findings", []):
+            key = f"{finding.get('cwe_id')}:{finding.get('line_number')}"
+            if key not in seen_findings:
+                finding['source'] = 'ast_analysis'
+                all_findings.append(finding)
+                seen_findings.add(key)
+
+        # Add inter-procedural vulnerabilities
+        for vuln in interprocedural_result.get("vulnerabilities", []):
+            key = f"{vuln.get('cwe_id')}:{vuln.get('sink_line')}"
+            if key not in seen_findings:
+                vuln['source'] = 'interprocedural_analysis'
+                all_findings.append(vuln)
+                seen_findings.add(key)
+
+        # Add SAST findings
+        for finding in sast_findings:
+            key = f"{finding.get('cwe_id', '')}:{finding.get('line_number', 0)}"
+            if key not in seen_findings:
+                finding['source'] = 'pattern_matching'
+                all_findings.append(finding)
+                seen_findings.add(key)
+
+        # Add secret findings
+        for finding in secret_findings:
+            key = f"secret:{finding.get('line_number', 0)}"
+            if key not in seen_findings:
+                finding['source'] = 'secret_scanning'
+                all_findings.append(finding)
+                seen_findings.add(key)
+
+        # Sort by severity
+        severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3, 'info': 4}
+        all_findings.sort(key=lambda x: severity_order.get(x.get('severity', 'info'), 5))
+
+        return {
+            "file_path": request.file_path,
+            "analysis_type": "deep_combined",
+            "total_findings": len(all_findings),
+            "findings": all_findings,
+            "statistics": {
+                "ast_findings": len(ast_result.get("findings", [])),
+                "interprocedural_flows": len(interprocedural_result.get("inter_procedural_flows", [])),
+                "interprocedural_vulnerabilities": len(interprocedural_result.get("vulnerabilities", [])),
+                "pattern_findings": len(sast_findings),
+                "secret_findings": len(secret_findings),
+                "call_graph": interprocedural_result.get("statistics", {}),
+            },
+            "call_graph": interprocedural_result.get("call_graph", {}) if request.include_call_graph else None,
+            "function_summaries": interprocedural_result.get("function_summaries", {}) if request.include_function_summaries else None,
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Deep security scan failed: {str(e)}")
 
 
 # ==================== THREAT INTELLIGENCE ENDPOINTS ====================
