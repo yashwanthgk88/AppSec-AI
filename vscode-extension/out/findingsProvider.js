@@ -90,14 +90,17 @@ class FindingsProvider {
         return this.findings
             .filter((f) => f.severity.toLowerCase() === severity.toLowerCase())
             .map((finding) => {
-            const fileName = finding.file.split('/').pop() || finding.file;
+            // Handle both API findings (file/line) and enhanced scan findings (location.file/startLine)
+            const filePath = finding.file || finding.location?.file || 'unknown';
+            const lineNumber = finding.line || finding.location?.startLine || 0;
+            const fileName = filePath.split('/').pop() || filePath;
             const item = new FindingItem(`${finding.title}`, vscode.TreeItemCollapsibleState.None, 'vulnerability', finding.severity, finding);
-            item.description = `${fileName}:${finding.line}`;
+            item.description = `${fileName}:${lineNumber}`;
             // Create detailed tooltip with markdown
             const tooltipMarkdown = new vscode.MarkdownString();
             tooltipMarkdown.appendMarkdown(`### ${finding.title}\n\n`);
             tooltipMarkdown.appendMarkdown(`**Severity:** ${finding.severity}\n\n`);
-            tooltipMarkdown.appendMarkdown(`**File:** ${finding.file}:${finding.line}\n\n`);
+            tooltipMarkdown.appendMarkdown(`**File:** ${filePath}:${lineNumber}\n\n`);
             tooltipMarkdown.appendMarkdown(`**Category:** ${finding.category || finding.owasp_category || 'N/A'}\n\n`);
             if (finding.cwe_id) {
                 tooltipMarkdown.appendMarkdown(`**CWE:** ${finding.cwe_id}\n\n`);
@@ -128,8 +131,16 @@ class FindingItem extends vscode.TreeItem {
         if (contextValue === 'category') {
             this.iconPath = this.getSeverityIcon(severity || '');
         }
-        else if (contextValue === 'finding') {
-            this.iconPath = new vscode.ThemeIcon('bug', new vscode.ThemeColor('problemsErrorIcon.foreground'));
+        else if (contextValue === 'vulnerability' || contextValue === 'finding') {
+            // Show bug icon with severity-based color
+            const colorMap = {
+                'critical': 'charts.red',
+                'high': 'charts.orange',
+                'medium': 'charts.yellow',
+                'low': 'charts.green'
+            };
+            const color = colorMap[severity?.toLowerCase() || ''] || 'problemsErrorIcon.foreground';
+            this.iconPath = new vscode.ThemeIcon('bug', new vscode.ThemeColor(color));
         }
     }
     getSeverityIcon(severity) {

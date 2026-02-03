@@ -6,22 +6,44 @@ export class CustomRulesProvider implements vscode.TreeDataProvider<CustomRuleIt
     readonly onDidChangeTreeData: vscode.Event<CustomRuleItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
     private rules: any[] = [];
+    private isLoading: boolean = false;
+    private rulesLoaded: boolean = false;
 
     constructor(private apiClient: ApiClient) {
-        this.loadRules();
+        // Initial load
+        this.loadRules().then(() => {
+            this._onDidChangeTreeData.fire();
+        });
     }
 
     refresh(): void {
-        this.loadRules();
-        this._onDidChangeTreeData.fire();
+        this.rulesLoaded = false;
+        this.loadRules().then(() => {
+            this._onDidChangeTreeData.fire();
+        });
     }
 
-    private async loadRules() {
+    private async loadRules(): Promise<void> {
+        if (this.isLoading) {
+            return;
+        }
+
+        this.isLoading = true;
         try {
+            const isAuth = await this.apiClient.isAuthenticated();
+            if (!isAuth) {
+                this.rules = [];
+                return;
+            }
+
             this.rules = await this.apiClient.getCustomRules();
+            this.rulesLoaded = true;
+            console.log('Custom rules loaded:', this.rules.length);
         } catch (error) {
             console.error('Failed to load custom rules:', error);
             this.rules = [];
+        } finally {
+            this.isLoading = false;
         }
     }
 
@@ -36,6 +58,11 @@ export class CustomRulesProvider implements vscode.TreeDataProvider<CustomRuleIt
     async getChildren(element?: CustomRuleItem): Promise<CustomRuleItem[]> {
         if (!await this.apiClient.isAuthenticated()) {
             return [];
+        }
+
+        // Ensure rules are loaded
+        if (!this.rulesLoaded && !this.isLoading) {
+            await this.loadRules();
         }
 
         if (!element) {

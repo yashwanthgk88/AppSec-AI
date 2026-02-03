@@ -41,19 +41,40 @@ class CustomRulesProvider {
         this._onDidChangeTreeData = new vscode.EventEmitter();
         this.onDidChangeTreeData = this._onDidChangeTreeData.event;
         this.rules = [];
-        this.loadRules();
+        this.isLoading = false;
+        this.rulesLoaded = false;
+        // Initial load
+        this.loadRules().then(() => {
+            this._onDidChangeTreeData.fire();
+        });
     }
     refresh() {
-        this.loadRules();
-        this._onDidChangeTreeData.fire();
+        this.rulesLoaded = false;
+        this.loadRules().then(() => {
+            this._onDidChangeTreeData.fire();
+        });
     }
     async loadRules() {
+        if (this.isLoading) {
+            return;
+        }
+        this.isLoading = true;
         try {
+            const isAuth = await this.apiClient.isAuthenticated();
+            if (!isAuth) {
+                this.rules = [];
+                return;
+            }
             this.rules = await this.apiClient.getCustomRules();
+            this.rulesLoaded = true;
+            console.log('Custom rules loaded:', this.rules.length);
         }
         catch (error) {
             console.error('Failed to load custom rules:', error);
             this.rules = [];
+        }
+        finally {
+            this.isLoading = false;
         }
     }
     getRules() {
@@ -65,6 +86,10 @@ class CustomRulesProvider {
     async getChildren(element) {
         if (!await this.apiClient.isAuthenticated()) {
             return [];
+        }
+        // Ensure rules are loaded
+        if (!this.rulesLoaded && !this.isLoading) {
+            await this.loadRules();
         }
         if (!element) {
             // Root level - group by severity

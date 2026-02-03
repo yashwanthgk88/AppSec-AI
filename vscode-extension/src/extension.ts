@@ -10,6 +10,9 @@ import { ScanProgressManager } from './scanProgressManager';
 import { InlineSecurityProvider } from './inlineSecurityProvider';
 import { CustomRulesProvider } from './customRulesProvider';
 import { RulePerformancePanel } from './RulePerformancePanel';
+import { EnhancedSecurityProvider } from './enhancedSecurityProvider';
+import { TaintFlowPanel } from './taintFlowPanel';
+import { createSecurityScanner, SecurityFinding } from './scanner';
 
 let apiClient: ApiClient;
 let findingsProvider: FindingsProvider;
@@ -21,19 +24,23 @@ let statusBarItem: vscode.StatusBarItem;
 let scanProgressManager: ScanProgressManager;
 let inlineSecurityProvider: InlineSecurityProvider;
 let inlineDiagnostics: vscode.DiagnosticCollection;
+let enhancedSecurityProvider: EnhancedSecurityProvider;
+let enhancedFindings: SecurityFinding[] = [];
 
 export async function activate(context: vscode.ExtensionContext) {
-    console.log('SecureDev AI Scanner extension activated');
+    try {
+        console.log('SecureDev AI Scanner extension activating...');
 
-    apiClient = new ApiClient(context);
-    diagnosticsManager = new DiagnosticsManager();
-    findingsProvider = new FindingsProvider(apiClient);
-    scaFindingsProvider = new ScaFindingsProvider(apiClient);
-    secretsFindingsProvider = new SecretsFindingsProvider(apiClient);
-    customRulesProvider = new CustomRulesProvider(apiClient);
-    scanProgressManager = new ScanProgressManager();
-    inlineSecurityProvider = new InlineSecurityProvider();
-    inlineDiagnostics = vscode.languages.createDiagnosticCollection('appsec-inline');
+        apiClient = new ApiClient(context);
+        diagnosticsManager = new DiagnosticsManager();
+        findingsProvider = new FindingsProvider(apiClient);
+        scaFindingsProvider = new ScaFindingsProvider(apiClient);
+        secretsFindingsProvider = new SecretsFindingsProvider(apiClient);
+        customRulesProvider = new CustomRulesProvider(apiClient);
+        scanProgressManager = new ScanProgressManager();
+        inlineSecurityProvider = new InlineSecurityProvider();
+        inlineDiagnostics = vscode.languages.createDiagnosticCollection('appsec-inline');
+        enhancedSecurityProvider = new EnhancedSecurityProvider();
 
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.text = "$(shield) SecureDev AI";
@@ -130,31 +137,88 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.markResolved', async (finding: any) => {
+        vscode.commands.registerCommand('appsec.markResolved', async (findingOrItem: any) => {
+            const finding = findingOrItem?.finding || findingOrItem;
             await markStatusCommand(finding, 'resolved');
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.markFalsePositive', async (finding: any) => {
+        vscode.commands.registerCommand('appsec.markFalsePositive', async (findingOrItem: any) => {
+            const finding = findingOrItem?.finding || findingOrItem;
             await markStatusCommand(finding, 'false_positive');
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.showDetails', (finding: any) => {
+        vscode.commands.registerCommand('appsec.showDetails', async (findingOrItem: any) => {
+            // Handle both direct finding objects and FindingItem tree items
+            const finding = findingOrItem?.finding || findingOrItem;
+
+            // Show the vulnerability details panel
+            VulnerabilityDetailsPanel.show(finding, apiClient);
+
+            // Also open the file and navigate to the vulnerable line
+            // Check all possible file path field names
+            const filePathRaw = finding?.file || finding?.file_path || finding?.location?.file;
+            if (finding && filePathRaw) {
+                try {
+                    let filePath = filePathRaw;
+
+                    // Resolve relative path to absolute path using workspace folder
+                    if (!filePath.startsWith('/') && !filePath.match(/^[a-zA-Z]:\\/)) {
+                        const workspaceFolders = vscode.workspace.workspaceFolders;
+                        if (workspaceFolders && workspaceFolders.length > 0) {
+                            filePath = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath).fsPath;
+                        }
+                    }
+
+                    const fileUri = vscode.Uri.file(filePath);
+                    const document = await vscode.workspace.openTextDocument(fileUri);
+                    const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
+
+                    const lineNum = finding.line || finding.line_number || finding.location?.startLine || 1;
+                    const line = Math.max(0, lineNum - 1);
+                    const lineLength = document.lineAt(line).text.length;
+                    const range = new vscode.Range(line, 0, line, lineLength);
+
+                    // Highlight the entire line
+                    editor.selection = new vscode.Selection(range.start, range.end);
+                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+                    // Add a decoration to make the line more visible
+                    const decorationType = vscode.window.createTextEditorDecorationType({
+                        backgroundColor: 'rgba(255, 0, 0, 0.3)',
+                        isWholeLine: true,
+                        borderWidth: '2px',
+                        borderStyle: 'solid',
+                        borderColor: 'rgba(255, 0, 0, 0.8)',
+                        overviewRulerColor: 'red',
+                        overviewRulerLane: vscode.OverviewRulerLane.Full
+                    });
+                    editor.setDecorations(decorationType, [range]);
+
+                    // Clear decoration after 5 seconds
+                    setTimeout(() => {
+                        decorationType.dispose();
+                    }, 5000);
+                } catch (error: any) {
+                    console.error('Failed to open file:', error);
+                }
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.showScaDetails', (findingOrItem: any) => {
+            const finding = findingOrItem?.finding || findingOrItem;
             VulnerabilityDetailsPanel.show(finding, apiClient);
         })
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.showScaDetails', (finding: any) => {
-            VulnerabilityDetailsPanel.show(finding, apiClient);
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.showSecretDetails', (finding: any) => {
+        vscode.commands.registerCommand('appsec.showSecretDetails', (findingOrItem: any) => {
+            const finding = findingOrItem?.finding || findingOrItem;
             VulnerabilityDetailsPanel.show(finding, apiClient);
         })
     );
@@ -166,8 +230,42 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(
-        vscode.commands.registerCommand('appsec.discussWithAI', (finding: any) => {
+        vscode.commands.registerCommand('appsec.discussWithAI', (findingOrItem: any) => {
+            const finding = findingOrItem?.finding || findingOrItem;
             ChatbotPanel.show(apiClient, finding);
+        })
+    );
+
+    // Taint Flow Visualization Commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.showTaintFlow', () => {
+            if (enhancedFindings.length === 0) {
+                vscode.window.showInformationMessage('No taint flow vulnerabilities detected. Run an enhanced scan first.');
+                return;
+            }
+            TaintFlowPanel.show(enhancedFindings, context.extensionUri);
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.showFindingTaintFlow', (findingOrItem: any) => {
+            // Handle both direct finding objects and FindingItem tree items
+            const finding = findingOrItem?.finding || findingOrItem;
+            if (finding && finding.taintFlow) {
+                TaintFlowPanel.show([finding], context.extensionUri);
+            } else if (finding) {
+                // Generate taint flow on-the-fly for API findings
+                const enhancedFinding = generateTaintFlowForFinding(finding);
+                TaintFlowPanel.show([enhancedFinding], context.extensionUri);
+            } else {
+                vscode.window.showWarningMessage('No finding selected for taint flow visualization.');
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.enhancedScan', async () => {
+            await runEnhancedScan(context);
         })
     );
 
@@ -286,6 +384,13 @@ export async function activate(context: vscode.ExtensionContext) {
     if (await apiClient.isAuthenticated()) {
         updateStatusBar('connected');
         vscode.window.showInformationMessage('Connected to SecureDev AI platform');
+    }
+
+    console.log('SecureDev AI Scanner extension activated successfully');
+    } catch (error: any) {
+        console.error('SecureDev AI Scanner activation failed:', error);
+        vscode.window.showErrorMessage(`SecureDev AI Scanner failed to activate: ${error.message}`);
+        throw error;
     }
 }
 
@@ -697,35 +802,311 @@ async function refreshFindingsCommand() {
     }
 }
 
-async function applyFixCommand(finding: any) {
-    if (!finding || !finding.fix) {
-        vscode.window.showWarningMessage('No fix available for this finding');
+async function applyFixCommand(findingOrItem: any) {
+    if (!findingOrItem) {
+        vscode.window.showWarningMessage('No finding selected');
         return;
     }
 
+    // Handle both direct finding objects and FindingItem tree items
+    // When triggered from tree view context menu, VS Code passes the FindingItem object
+    // which has the actual finding in .finding property
+    const finding = findingOrItem.finding || findingOrItem;
+
     try {
-        const document = await vscode.workspace.openTextDocument(finding.file);
-        const editor = await vscode.window.showTextDocument(document);
+        // Get file path and line from all possible field name formats:
+        // - API direct scan: file, line
+        // - API stored findings: file_path, line_number
+        // - Enhanced scan: location.file, location.startLine
+        const filePath = finding.file || finding.file_path || finding.location?.file;
+        const lineNumber = finding.line || finding.line_number || finding.location?.startLine;
 
-        const edit = new vscode.WorkspaceEdit();
-
-        if (finding.fix.code) {
-            const range = new vscode.Range(
-                finding.line - 1, 0,
-                finding.line, 0
-            );
-            edit.replace(document.uri, range, finding.fix.code);
+        if (!filePath) {
+            vscode.window.showWarningMessage('Could not determine file path for this finding. File path: ' + JSON.stringify({file: finding.file, file_path: finding.file_path, location: finding.location}));
+            return;
         }
 
-        const success = await vscode.workspace.applyEdit(edit);
+        // If no fix available, try to get AI-generated fix from API
+        if (!finding.fix || !finding.fix.code) {
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: 'Generating AI fix...',
+                cancellable: false
+            }, async () => {
+                try {
+                    // Check if user is authenticated
+                    if (!await apiClient.isAuthenticated()) {
+                        vscode.window.showWarningMessage('Please login to use AI-powered fixes. Using local fix suggestions instead.');
+                        return;
+                    }
 
-        if (success) {
-            vscode.window.showInformationMessage('Fix applied successfully');
-            await markStatusCommand(finding, 'resolved');
+                    // Determine if this is a database-stored finding (numeric ID) or local scan finding
+                    const findingIdStr = String(finding.id || '');
+                    const isDbFinding = finding.id &&
+                        !isNaN(Number(finding.id)) &&
+                        !findingIdStr.startsWith('pattern_') &&
+                        !findingIdStr.startsWith('taint_');
+
+                    if (isDbFinding) {
+                        // For database-stored findings, use the original endpoint
+                        const aiFixResult = await apiClient.getAIFix(finding.id);
+                        if (aiFixResult && (aiFixResult.remediation_code || aiFixResult.fixed_code)) {
+                            finding.fix = {
+                                code: (aiFixResult.remediation_code || aiFixResult.fixed_code) + '\n',
+                                description: aiFixResult.explanation || 'AI-generated security fix'
+                            };
+                        }
+                    } else {
+                        // For local/enhanced scan findings, use the AI fix generation endpoint
+                        // Build location object from various possible formats
+                        const locationObj = finding.location || {
+                            file: filePath,
+                            startLine: lineNumber || 1
+                        };
+
+                        // Get code snippet - try various sources
+                        const codeSnippet = finding.codeSnippet || finding.code_snippet || finding.vulnerable_code || '';
+
+                        const aiFixResult = await apiClient.generateAIFix({
+                            type: finding.type || finding.vulnerability_type || finding.category || 'Security Issue',
+                            title: finding.title || finding.name || 'Security Vulnerability',
+                            severity: finding.severity || 'medium',
+                            codeSnippet: codeSnippet,
+                            location: locationObj,
+                            description: finding.description,
+                            cweId: finding.cweId || finding.cwe_id,
+                            recommendation: finding.recommendation || finding.remediation
+                        });
+
+                        if (aiFixResult && aiFixResult.success && aiFixResult.remediation_code) {
+                            finding.fix = {
+                                code: aiFixResult.remediation_code + '\n',
+                                description: aiFixResult.explanation || 'AI-generated security fix'
+                            };
+                        }
+                    }
+                } catch (e: any) {
+                    console.warn('Failed to get AI fix from API:', e);
+                    // Fall back to local fix if available
+                    if (finding.recommendation) {
+                        vscode.window.showWarningMessage(`AI fix failed: ${e.message}. Using local recommendation.`);
+                    }
+                }
+            });
+        }
+
+        if (!finding.fix || !finding.fix.code) {
+            vscode.window.showWarningMessage('No fix available for this finding. Try using "Discuss with AI" for remediation guidance.');
+            return;
+        }
+
+        // Open the file and navigate to the vulnerable line
+        const document = await vscode.workspace.openTextDocument(filePath);
+        const editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One);
+
+        const line = Math.max(0, (lineNumber || 1) - 1);
+        const lineText = document.lineAt(line);
+
+        // Highlight the vulnerable line
+        const range = new vscode.Range(line, 0, line, lineText.text.length);
+        editor.selection = new vscode.Selection(range.start, range.end);
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+        // Show fix preview with options
+        const fixDescription = finding.fix.description || finding.recommendation || 'Apply security fix';
+        const action = await vscode.window.showInformationMessage(
+            `Fix for ${finding.title || finding.type}:\n\n${fixDescription}`,
+            { modal: false },
+            'Insert Fix Below',
+            'Replace Line',
+            'Copy to Clipboard'
+        );
+
+        if (action === 'Insert Fix Below') {
+            const edit = new vscode.WorkspaceEdit();
+            const insertPosition = new vscode.Position(line + 1, 0);
+            edit.insert(document.uri, insertPosition, '\n// SECURITY FIX:\n' + finding.fix.code + '\n');
+            await vscode.workspace.applyEdit(edit);
+            vscode.window.showInformationMessage('Fix inserted below the vulnerable line');
+        } else if (action === 'Replace Line') {
+            const edit = new vscode.WorkspaceEdit();
+            const fullLineRange = new vscode.Range(line, 0, line + 1, 0);
+            edit.replace(document.uri, fullLineRange, finding.fix.code + '\n');
+            await vscode.workspace.applyEdit(edit);
+            vscode.window.showInformationMessage('Line replaced with fix');
+        } else if (action === 'Copy to Clipboard') {
+            await vscode.env.clipboard.writeText(finding.fix.code);
+            vscode.window.showInformationMessage('Fix code copied to clipboard');
         }
     } catch (error: any) {
         vscode.window.showErrorMessage('Failed to apply fix: ' + error.message);
     }
+}
+
+/**
+ * Generate taint flow visualization for any finding (API or local)
+ * This creates a simulated taint flow based on the vulnerability type
+ */
+function generateTaintFlowForFinding(finding: any): any {
+    // Get file path and line from all possible field name formats
+    const filePath = finding.file || finding.file_path || finding.location?.file || 'unknown';
+    const lineNumber = finding.line || finding.line_number || finding.location?.startLine || 1;
+    const codeSnippet = finding.code_snippet || finding.codeSnippet || '';
+    const title = finding.title || finding.type || 'Security Issue';
+    const category = finding.category || finding.owasp_category || 'Security';
+
+    // Determine vulnerability type from category/title
+    const vulnType = determineVulnType(title, category);
+
+    // Create source location
+    const sourceLocation = {
+        file: filePath,
+        startLine: lineNumber,
+        startColumn: 0,
+        endLine: lineNumber,
+        endColumn: 80
+    };
+
+    // Generate taint flow based on vulnerability type
+    const taintFlow = {
+        source: {
+            id: `source_${finding.id || 'api'}`,
+            name: getTaintSourceName(vulnType),
+            category: getTaintSourceCategory(vulnType),
+            pattern: { type: 'function-call' as const },
+            description: `User-controlled input enters the application`
+        },
+        sink: {
+            id: `sink_${finding.id || 'api'}`,
+            name: getTaintSinkName(vulnType),
+            category: getTaintSinkCategory(vulnType),
+            pattern: { type: 'function-call' as const },
+            vulnerabilityType: vulnType,
+            description: `Tainted data reaches dangerous operation`
+        },
+        taintedValue: {
+            variable: 'userInput',
+            source: null as any,
+            location: sourceLocation,
+            path: [] as any[]
+        },
+        path: [
+            {
+                location: { ...sourceLocation, startLine: Math.max(1, lineNumber - 2) },
+                description: `📥 SOURCE: ${getTaintSourceName(vulnType)}`,
+                node: { type: 'CallExpression' as const, location: sourceLocation }
+            },
+            {
+                location: sourceLocation,
+                description: `🔄 PROPAGATION: Data flows through application`,
+                node: { type: 'Assignment' as const, location: sourceLocation }
+            },
+            {
+                location: { ...sourceLocation, startLine: lineNumber },
+                description: `⚠️ SINK: ${getTaintSinkName(vulnType)} - ${title}`,
+                node: { type: 'CallExpression' as const, location: sourceLocation }
+            }
+        ],
+        sanitizers: [] as any[]
+    };
+
+    // Set the source reference
+    taintFlow.taintedValue.source = taintFlow.source;
+
+    // Return enhanced finding with taint flow
+    return {
+        ...finding,
+        id: finding.id || `api_${Date.now()}`,
+        type: vulnType,
+        severity: finding.severity || 'medium',
+        title: title,
+        description: finding.description || 'Security vulnerability detected',
+        location: sourceLocation,
+        codeSnippet: codeSnippet,
+        recommendation: finding.remediation || finding.recommendation || 'Review and fix the security issue',
+        confidence: 'medium' as const,
+        taintFlow: taintFlow
+    };
+}
+
+function determineVulnType(title: string, category: string): string {
+    const text = (title + ' ' + category).toLowerCase();
+    if (text.includes('sql') || text.includes('injection')) return 'sql-injection';
+    if (text.includes('xss') || text.includes('cross-site') || text.includes('script')) return 'xss';
+    if (text.includes('command') || text.includes('exec') || text.includes('shell')) return 'command-injection';
+    if (text.includes('path') || text.includes('traversal') || text.includes('directory')) return 'path-traversal';
+    if (text.includes('xxe') || text.includes('xml')) return 'xxe';
+    if (text.includes('ssrf') || text.includes('request forgery')) return 'ssrf';
+    if (text.includes('deseriali')) return 'deserialization';
+    if (text.includes('redirect') || text.includes('open redirect')) return 'open-redirect';
+    if (text.includes('secret') || text.includes('credential') || text.includes('password') || text.includes('key')) return 'hardcoded-secret';
+    if (text.includes('crypto') || text.includes('encrypt')) return 'weak-crypto';
+    if (text.includes('random')) return 'insecure-random';
+    if (text.includes('auth')) return 'missing-auth';
+    if (text.includes('access')) return 'broken-access-control';
+    return 'code-injection';
+}
+
+function getTaintSourceName(vulnType: string): string {
+    const sources: Record<string, string> = {
+        'sql-injection': 'request.query / request.body',
+        'xss': 'request.params / user input',
+        'command-injection': 'process.argv / request.body',
+        'path-traversal': 'request.query.file / user path',
+        'xxe': 'request.body (XML)',
+        'ssrf': 'request.query.url',
+        'deserialization': 'request.body (serialized)',
+        'open-redirect': 'request.query.redirect',
+        'hardcoded-secret': 'source code literal',
+        'weak-crypto': 'crypto configuration',
+        'insecure-random': 'Math.random()',
+        'missing-auth': 'unauthenticated request',
+        'broken-access-control': 'user role/permission',
+        'code-injection': 'eval() / Function()'
+    };
+    return sources[vulnType] || 'user input';
+}
+
+function getTaintSourceCategory(vulnType: string): string {
+    if (['hardcoded-secret', 'weak-crypto', 'insecure-random'].includes(vulnType)) {
+        return 'environment';
+    }
+    return 'user-input';
+}
+
+function getTaintSinkName(vulnType: string): string {
+    const sinks: Record<string, string> = {
+        'sql-injection': 'db.query() / db.execute()',
+        'xss': 'innerHTML / document.write()',
+        'command-injection': 'exec() / spawn() / system()',
+        'path-traversal': 'fs.readFile() / open()',
+        'xxe': 'XMLParser.parse()',
+        'ssrf': 'fetch() / http.request()',
+        'deserialization': 'JSON.parse() / pickle.loads()',
+        'open-redirect': 'response.redirect()',
+        'hardcoded-secret': 'credential usage',
+        'weak-crypto': 'crypto operation',
+        'insecure-random': 'security-sensitive operation',
+        'missing-auth': 'protected resource',
+        'broken-access-control': 'privileged operation',
+        'code-injection': 'eval() / new Function()'
+    };
+    return sinks[vulnType] || 'dangerous function';
+}
+
+function getTaintSinkCategory(vulnType: string): string {
+    const categories: Record<string, string> = {
+        'sql-injection': 'sql-query',
+        'xss': 'html-output',
+        'command-injection': 'command-execution',
+        'path-traversal': 'file-operation',
+        'xxe': 'xml-parse',
+        'ssrf': 'url-redirect',
+        'deserialization': 'deserialization',
+        'open-redirect': 'url-redirect',
+        'code-injection': 'code-execution'
+    };
+    return categories[vulnType] || 'code-execution';
 }
 
 async function markStatusCommand(finding: any, status: string) {
@@ -755,6 +1136,202 @@ function analyzeDocumentInline(document: vscode.TextDocument) {
 
     const diagnostics = inlineSecurityProvider.analyzeDocument(document);
     inlineDiagnostics.set(document.uri, diagnostics);
+}
+
+/**
+ * Run enhanced AST-based security scan with taint analysis
+ */
+async function runEnhancedScan(context: vscode.ExtensionContext) {
+    const supportedExtensions = ['.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cs', '.php', '.go', '.rb', '.kt', '.swift', '.m'];
+    const editor = vscode.window.activeTextEditor;
+
+    // If no active editor, scan workspace
+    if (!editor) {
+        await runEnhancedWorkspaceScan(context, supportedExtensions);
+        return;
+    }
+
+    const document = editor.document;
+    const filePath = document.uri.fsPath;
+    const source = document.getText();
+
+    // Check if file type is supported
+    const ext = filePath.substring(filePath.lastIndexOf('.'));
+    if (!supportedExtensions.includes(ext)) {
+        vscode.window.showWarningMessage(`Enhanced scan not supported for ${ext} files yet`);
+        return;
+    }
+
+    try {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Running Enhanced Security Scan...',
+            cancellable: false
+        }, async (progress) => {
+            progress.report({ message: 'Parsing source code...', increment: 20 });
+
+            const scanner = createSecurityScanner({
+                enableTaintAnalysis: true,
+                enableCFGAnalysis: true,
+                enableDFGAnalysis: true,
+                enablePatternMatching: true
+            });
+
+            progress.report({ message: 'Building control flow graph...', increment: 20 });
+            progress.report({ message: 'Running taint analysis...', increment: 20 });
+
+            const result = await scanner.scanFile(source, filePath);
+
+            console.log('[EnhancedScan] Scan result:', result);
+            console.log('[EnhancedScan] Findings count:', result?.findings?.length || 0);
+
+            progress.report({ message: 'Processing findings...', increment: 20 });
+
+            if (result && result.findings.length > 0) {
+                // Store findings for taint flow visualization
+                enhancedFindings = result.findings;
+
+                // Update enhanced security provider diagnostics (non-blocking)
+                try {
+                    enhancedSecurityProvider.analyzeDocument(document);
+                } catch (e) {
+                    console.warn('[EnhancedScan] Failed to update diagnostics:', e);
+                }
+
+                progress.report({ message: 'Complete!', increment: 20 });
+
+                // Show results summary
+                const taintFindings = result.findings.filter(f => f.taintFlow);
+                const message = `Found ${result.findings.length} security issue(s)` +
+                    (taintFindings.length > 0 ? ` (${taintFindings.length} with taint flow)` : '');
+
+                const action = await vscode.window.showWarningMessage(
+                    message,
+                    'View Taint Flows',
+                    'View Details'
+                );
+
+                if (action === 'View Taint Flows' && taintFindings.length > 0) {
+                    TaintFlowPanel.show(taintFindings, context.extensionUri);
+                } else if (action === 'View Details') {
+                    vscode.commands.executeCommand('workbench.view.extension.appsec-sidebar');
+                }
+            } else {
+                progress.report({ message: 'Complete!', increment: 20 });
+                if (result === null) {
+                    vscode.window.showWarningMessage('Enhanced scan could not parse this file. Check the Output panel for details.');
+                } else {
+                    vscode.window.showInformationMessage(`No security issues found in enhanced scan. Scanned ${result.metrics?.linesOfCode || 0} lines.`);
+                }
+            }
+        });
+    } catch (error: any) {
+        console.error('Enhanced scan error:', error);
+        vscode.window.showErrorMessage('Enhanced scan failed: ' + error.message + '. Check Developer Tools console for details.');
+    }
+}
+
+/**
+ * Run enhanced scan on all supported files in workspace
+ */
+async function runEnhancedWorkspaceScan(context: vscode.ExtensionContext, supportedExtensions: string[]) {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        vscode.window.showErrorMessage('No workspace folder open');
+        return;
+    }
+
+    try {
+        await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: 'Running Enhanced Workspace Scan...',
+            cancellable: true
+        }, async (progress, token) => {
+            const scanner = createSecurityScanner({
+                enableTaintAnalysis: true,
+                enableCFGAnalysis: true,
+                enableDFGAnalysis: true,
+                enablePatternMatching: true
+            });
+
+            // Find all supported files
+            const globPattern = `**/*{${supportedExtensions.join(',')}}`;
+            const excludePattern = '**/node_modules/**';
+
+            progress.report({ message: 'Finding files...', increment: 10 });
+
+            const files = await vscode.workspace.findFiles(globPattern, excludePattern, 500);
+
+            if (files.length === 0) {
+                vscode.window.showInformationMessage('No supported files found in workspace');
+                return;
+            }
+
+            const allFindings: SecurityFinding[] = [];
+            let scannedFiles = 0;
+            let totalLines = 0;
+
+            for (const file of files) {
+                if (token.isCancellationRequested) {
+                    vscode.window.showInformationMessage('Scan cancelled');
+                    return;
+                }
+
+                try {
+                    const document = await vscode.workspace.openTextDocument(file);
+                    const source = document.getText();
+                    const filePath = file.fsPath;
+
+                    const percentComplete = Math.round((scannedFiles / files.length) * 80) + 10;
+                    progress.report({
+                        message: `Scanning ${scannedFiles + 1}/${files.length}: ${file.fsPath.split('/').pop()}`,
+                        increment: 80 / files.length
+                    });
+
+                    const result = await scanner.scanFile(source, filePath);
+
+                    if (result) {
+                        allFindings.push(...result.findings);
+                        totalLines += result.metrics?.linesOfCode || 0;
+                    }
+
+                    scannedFiles++;
+                } catch (e) {
+                    console.warn(`[EnhancedScan] Failed to scan ${file.fsPath}:`, e);
+                }
+            }
+
+            progress.report({ message: 'Processing results...', increment: 10 });
+
+            // Store findings for taint flow visualization
+            enhancedFindings = allFindings;
+
+            if (allFindings.length > 0) {
+                const taintFindings = allFindings.filter(f => f.taintFlow);
+                const message = `Workspace scan complete: Found ${allFindings.length} security issue(s) in ${scannedFiles} files` +
+                    (taintFindings.length > 0 ? ` (${taintFindings.length} with taint flow)` : '');
+
+                const action = await vscode.window.showWarningMessage(
+                    message,
+                    'View Taint Flows',
+                    'View Details'
+                );
+
+                if (action === 'View Taint Flows' && taintFindings.length > 0) {
+                    TaintFlowPanel.show(taintFindings, context.extensionUri);
+                } else if (action === 'View Details') {
+                    vscode.commands.executeCommand('workbench.view.extension.appsec-sidebar');
+                }
+            } else {
+                vscode.window.showInformationMessage(
+                    `Workspace scan complete: No security issues found. Scanned ${scannedFiles} files (${totalLines} lines).`
+                );
+            }
+        });
+    } catch (error: any) {
+        console.error('Enhanced workspace scan error:', error);
+        vscode.window.showErrorMessage('Enhanced workspace scan failed: ' + error.message);
+    }
 }
 
 function updateStatusBar(status: 'connected' | 'disconnected' | 'scanning' | 'error') {

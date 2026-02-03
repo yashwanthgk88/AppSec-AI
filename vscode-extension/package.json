@@ -2,7 +2,7 @@
   "name": "appsec-ai-scanner",
   "displayName": "SecureDev AI Security Scanner",
   "description": "Real-time security scanning with AI-powered threat detection for SAST, SCA, and Secret detection",
-  "version": "1.5.0",
+  "version": "1.8.5",
   "publisher": "appsec",
   "engines": {
     "vscode": "^1.85.0"
@@ -124,6 +124,21 @@
       {
         "command": "appsec.toggleCustomRule",
         "title": "SecureDev AI: Toggle Rule Enabled/Disabled"
+      },
+      {
+        "command": "appsec.enhancedScan",
+        "title": "SecureDev AI: Run Enhanced Security Scan",
+        "icon": "$(search)"
+      },
+      {
+        "command": "appsec.showTaintFlow",
+        "title": "SecureDev AI: Show Taint Flow Visualization",
+        "icon": "$(type-hierarchy)"
+      },
+      {
+        "command": "appsec.showFindingTaintFlow",
+        "title": "SecureDev AI: Show Finding Taint Flow",
+        "icon": "$(git-merge)"
       }
     ],
     "viewsContainers": {
@@ -177,6 +192,16 @@
           "group": "navigation"
         },
         {
+          "command": "appsec.enhancedScan",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        },
+        {
+          "command": "appsec.showTaintFlow",
+          "when": "view == appsecFindings",
+          "group": "navigation"
+        },
+        {
           "command": "appsec.createCustomRule",
           "when": "view == appsecCustomRules",
           "group": "navigation"
@@ -202,6 +227,11 @@
           "command": "appsec.applyFix",
           "when": "view == appsecFindings && viewItem == vulnerability",
           "group": "inline@2"
+        },
+        {
+          "command": "appsec.showFindingTaintFlow",
+          "when": "view == appsecFindings && viewItem == vulnerability",
+          "group": "inline@3"
         },
         {
           "command": "appsec.markResolved",
@@ -267,7 +297,12 @@
         },
         "appsec.minimumSeverity": {
           "type": "string",
-          "enum": ["low", "medium", "high", "critical"],
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ],
           "default": "medium",
           "description": "Minimum severity level to show"
         }
@@ -287,10 +322,10 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "eslint": "^8.56.0",
-    "typescript": "^5.3.3",
     "@vscode/vsce": "^2.22.0"
   },
   "dependencies": {
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "typescript": "^5.3.3"
   }
 }

@@ -107,14 +107,30 @@ class ApiClient {
             throw new Error(error.response?.data?.detail || 'File scan failed');
         }
     }
-    async getFindings(projectId) {
+    async getFindings(scanId) {
         try {
-            let url = '/findings';
-            if (projectId) {
-                url += `?project_id=${projectId}`;
+            if (scanId) {
+                // Get vulnerabilities for a specific scan
+                const response = await this.axiosInstance.get(`/api/scans/${scanId}/vulnerabilities`);
+                return response.data;
             }
-            const response = await this.axiosInstance.get(url);
-            return response.data;
+            else {
+                // Get all scans and their vulnerabilities
+                const scansResponse = await this.axiosInstance.get('/api/scans/');
+                const scans = scansResponse.data;
+                // Collect all vulnerabilities from all scans
+                const allVulnerabilities = [];
+                for (const scan of scans.slice(0, 5)) { // Limit to recent 5 scans
+                    try {
+                        const vulnResponse = await this.axiosInstance.get(`/api/scans/${scan.id}/vulnerabilities`);
+                        allVulnerabilities.push(...(vulnResponse.data || []));
+                    }
+                    catch {
+                        // Skip if scan has no vulnerabilities
+                    }
+                }
+                return allVulnerabilities;
+            }
         }
         catch (error) {
             throw new Error(error.response?.data?.detail || 'Failed to fetch findings');
@@ -122,7 +138,7 @@ class ApiClient {
     }
     async updateFindingStatus(findingId, status) {
         try {
-            await this.axiosInstance.patch(`/findings/${findingId}`, {
+            await this.axiosInstance.patch(`/api/vulnerabilities/${findingId}/status`, {
                 status
             });
         }
@@ -132,11 +148,33 @@ class ApiClient {
     }
     async getAIFix(findingId) {
         try {
-            const response = await this.axiosInstance.post(`/findings/${findingId}/fix`);
+            const response = await this.axiosInstance.post(`/api/vulnerabilities/${findingId}/auto-remediate`);
             return response.data;
         }
         catch (error) {
             throw new Error(error.response?.data?.detail || 'Failed to get AI fix');
+        }
+    }
+    /**
+     * Generate AI fix for any vulnerability (including local enhanced scan findings)
+     */
+    async generateAIFix(finding) {
+        try {
+            const response = await this.axiosInstance.post('/api/ai/generate-fix', {
+                vulnerability_type: finding.type,
+                title: finding.title,
+                severity: finding.severity,
+                code_snippet: finding.codeSnippet,
+                file_path: finding.location.file,
+                line_number: finding.location.startLine,
+                description: finding.description,
+                cwe_id: finding.cweId,
+                recommendation: finding.recommendation
+            });
+            return response.data;
+        }
+        catch (error) {
+            throw new Error(error.response?.data?.detail || 'Failed to generate AI fix');
         }
     }
     async sendChatMessage(message, contextType, contextId) {

@@ -66,7 +66,8 @@ export class ScaFindingsProvider implements vscode.TreeDataProvider<ScaFindingIt
         return this.findings
             .filter((f: any) => f.severity?.toLowerCase() === severity.toLowerCase())
             .map((finding: any) => {
-                const packageName = finding.package_name || finding.dependency || 'Unknown Package';
+                // Handle multiple field name formats from different sources
+                const packageName = finding.package_name || finding.package || finding.dependency || 'Unknown Package';
                 const version = finding.version || finding.installed_version || 'Unknown';
 
                 const item = new ScaFindingItem(

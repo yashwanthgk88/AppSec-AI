@@ -86,7 +86,8 @@ class ScaFindingsProvider {
         return this.findings
             .filter((f) => f.severity?.toLowerCase() === severity.toLowerCase())
             .map((finding) => {
-            const packageName = finding.package_name || finding.dependency || 'Unknown Package';
+            // Handle multiple field name formats from different sources
+            const packageName = finding.package_name || finding.package || finding.dependency || 'Unknown Package';
             const version = finding.version || finding.installed_version || 'Unknown';
             const item = new ScaFindingItem(`${packageName}@${version}`, vscode.TreeItemCollapsibleState.None, 'sca-vulnerability', finding.severity, finding);
             item.description = finding.vulnerability_id || finding.cve_id || '';
