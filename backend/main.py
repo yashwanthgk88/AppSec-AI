@@ -372,8 +372,10 @@ def run_background_scan(project_id: int, user_id: int, scan_ids: dict):
                 sca_findings = []
                 if repo_scanner and repo_scanner.repo_path:
                     dep_files = repo_scanner.get_dependency_files()
+                    print(f"[BackgroundScan] Found dependency files: {dep_files}")
 
                     for dep_type, file_paths in dep_files.items():
+                        print(f"[BackgroundScan] Processing {dep_type} files: {file_paths}")
                         for file_path in file_paths:
                             try:
                                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -408,9 +410,29 @@ def run_background_scan(project_id: int, user_id: int, scan_ids: dict):
                                     dependencies = sca_scanner.parse_cargo_toml(content)
 
                                 if dependencies:
-                                    # Use synchronous scan for background thread
-                                    results = sca_scanner.scan_dependencies(dependencies, ecosystem)
-                                    sca_findings.extend(results['findings'])
+                                    print(f"[BackgroundScan] Found {len(dependencies)} {dep_type} dependencies")
+                                    sample = list(dependencies.items())[:5]
+                                    print(f"[BackgroundScan] Sample deps: {sample}")
+
+                                    # Use live feeds for better vulnerability coverage
+                                    try:
+                                        # Run async scan in thread using asyncio
+                                        loop = asyncio.new_event_loop()
+                                        asyncio.set_event_loop(loop)
+                                        results = loop.run_until_complete(
+                                            sca_scanner.scan_with_live_feeds(
+                                                dependencies, ecosystem,
+                                                use_local_db=True,
+                                                use_live_feeds=True
+                                            )
+                                        )
+                                        loop.close()
+                                        print(f"[BackgroundScan] Live feed scan found {len(results.get('findings', []))} vulnerabilities")
+                                    except Exception as live_err:
+                                        print(f"[BackgroundScan] Live feeds failed, using local DB: {live_err}")
+                                        results = sca_scanner.scan_dependencies(dependencies, ecosystem)
+                                        print(f"[BackgroundScan] Local DB scan found {len(results.get('findings', []))} vulnerabilities")
+                                    sca_findings.extend(results.get('findings', []))
                             except Exception as e:
                                 print(f"[BackgroundScan] Failed to scan {file_path}: {e}")
 
