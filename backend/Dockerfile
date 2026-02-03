@@ -32,4 +32,4 @@ EXPOSE 8000
 # Initialize database and start server with dynamic port
 CMD python3 -c "from models.database import engine, Base; Base.metadata.create_all(bind=engine); print('Database initialized')" && \
     python3 migrate_db.py || echo "Migration skipped" && \
-    gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 300
+    gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 300 --graceful-timeout 120 --keep-alive 5
