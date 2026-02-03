@@ -1,482 +1,340 @@
-# AppSec Platform - Docker Deployment Guide
+# SecureDev AI - Production Deployment Guide
 
-This guide explains how to deploy the AppSec Platform using Docker containers without modifying source code.
+Complete step-by-step guide to deploy SecureDev AI Platform to production.
 
-## 📋 Table of Contents
+---
 
-- [Prerequisites](#prerequisites)
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Deployment Modes](#deployment-modes)
-- [Production Deployment](#production-deployment)
-- [Troubleshooting](#troubleshooting)
-- [Maintenance](#maintenance)
+## Table of Contents
+1. [Prerequisites](#prerequisites)
+2. [Quick Start](#quick-start)
+3. [Backend Deployment](#backend-deployment)
+4. [Frontend Deployment](#frontend-deployment)
+5. [VS Code Extension Configuration](#vs-code-extension-configuration)
+6. [Environment Variables Reference](#environment-variables-reference)
+7. [Platform-Specific Guides](#platform-specific-guides)
+8. [Troubleshooting](#troubleshooting)
+
+---
 
 ## Prerequisites
 
 ### Required Software
+- Python 3.10+
+- Node.js 18+
+- npm or yarn
+- Git
 
-1. **Docker** (version 20.10 or higher)
-   ```bash
-   docker --version
-   ```
-   Install from: https://www.docker.com/get-started
+### Required Accounts (choose based on deployment platform)
+- Railway, Render, Heroku, AWS, or VPS hosting
+- Domain name (optional but recommended)
 
-2. **Docker Compose** (version 2.0 or higher)
-   ```bash
-   docker-compose --version
-   ```
+### API Keys (configured via Settings page after deployment)
+- Anthropic API Key OR OpenAI API Key (for AI features)
+- GitHub Token (for repository scanning)
+- Snyk Token (optional, for enhanced SCA)
 
-### System Requirements
-
-- **Memory**: Minimum 4GB RAM (8GB recommended)
-- **Disk Space**: Minimum 10GB free space
-- **CPU**: 2+ cores recommended
+---
 
 ## Quick Start
 
-### 1. Clone or Download the Repository
+### Step 1: Clone the Repository
+\`\`\`bash
+git clone https://github.com/yashwanthgk88/AppSec-AI.git
+cd AppSec-AI
+\`\`\`
 
-```bash
-git clone https://github.com/yourusername/appsec-platform.git
-cd appsec-platform
-```
+### Step 2: Backend Setup
+\`\`\`bash
+cd backend
 
-### 2. Configure Environment
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-```bash
-# Copy environment template
+# Install dependencies
+pip install -r requirements.txt
+
+# Create .env file
 cp .env.example .env
 
-# Generate a secure secret key
-openssl rand -hex 32
+# Edit .env with your settings
+nano .env
+\`\`\`
 
-# Edit .env file
-nano .env  # or use your preferred editor
-```
+### Step 3: Frontend Setup
+\`\`\`bash
+cd ../frontend
 
-**Required Configuration:**
-- `SECRET_KEY`: Paste the generated secret key
-- `VITE_API_URL`: Update with your backend URL
-- `CORS_ORIGINS`: Add your frontend URL(s)
+# Install dependencies
+npm install
 
-**Optional Configuration:**
-- `ANTHROPIC_API_KEY`: For Claude AI features
-- `OPENAI_API_KEY`: For GPT features
-- `GEMINI_API_KEY`: For Gemini features
+# Create production environment file
+echo "VITE_API_URL=https://your-backend-api.com" > .env.production
+\`\`\`
 
-### 3. Deploy
+### Step 4: Build & Deploy
+\`\`\`bash
+# Build frontend
+npm run build
 
-```bash
-# Development mode (default)
-./deploy.sh
+# Start backend
+cd ../backend
+uvicorn main:app --host 0.0.0.0 --port 8000
+\`\`\`
 
-# Production mode with Nginx
-./deploy.sh production
-```
+---
 
-### 4. Access the Application
+## Backend Deployment
 
-**Development Mode:**
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- VS Code Extension: http://localhost:3000/downloads/appsec-ai-scanner-1.4.0.vsix
+### Step 1: Configure Environment Variables
 
-**Production Mode:**
-- Frontend: http://localhost:80
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- VS Code Extension: http://localhost/downloads/appsec-ai-scanner-1.4.0.vsix
+Create or edit \`backend/.env\`:
 
-## Configuration
+\`\`\`env
+# ===========================================
+# REQUIRED SETTINGS
+# ===========================================
 
-### Environment Variables
+# Secret key for JWT tokens (generate a secure random string)
+SECRET_KEY=your-super-secret-key-change-this-in-production
 
-All configuration is done through the `.env` file. Here are the key variables:
+# CORS - Allow your frontend domain
+CORS_ORIGINS=https://your-frontend-domain.com
 
-#### Deployment Settings
+# ===========================================
+# OPTIONAL SETTINGS
+# ===========================================
 
-```bash
-# Deployment mode
-ENVIRONMENT=production
+# AI Provider settings are configured via Settings page in the UI
+# No need to set OPENAI_API_KEY or ANTHROPIC_API_KEY here
 
-# Port configuration
-BACKEND_PORT=8000
-FRONTEND_PORT=3000
-NGINX_HTTP_PORT=80
-NGINX_HTTPS_PORT=443
-```
+# Database (SQLite by default, or PostgreSQL for production)
+# DATABASE_URL=postgresql://user:password@host:5432/dbname
+\`\`\`
 
-#### Backend Configuration
+### Step 2: Initialize Database
 
-```bash
-# Database (SQLite by default, easiest for deployment)
-DATABASE_URL=sqlite:///app/data/appsec.db
+\`\`\`bash
+cd backend
+source venv/bin/activate
 
-# Security
-SECRET_KEY=your-generated-secret-key-here
+# Database is auto-created on first run
+python -c "from models.database import engine, Base; Base.metadata.create_all(bind=engine)"
+\`\`\`
 
-# CORS (comma-separated list of allowed origins)
-CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
+### Step 3: Create Admin User
 
-# Logging
-LOG_LEVEL=info
-```
+\`\`\`bash
+python -c "
+from models.database import SessionLocal
+from models import User
+from passlib.context import CryptContext
 
-#### AI Provider Keys
+pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+db = SessionLocal()
 
-```bash
-# Optional: Add only the AI providers you plan to use
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=...
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-```
+admin = User(
+    email='admin@example.com',
+    hashed_password=pwd_context.hash('your-secure-password'),
+    full_name='Admin User',
+    is_active=True
+)
+db.add(admin)
+db.commit()
+print('Admin user created!')
+db.close()
+"
+\`\`\`
 
-#### Frontend Configuration
+### Step 4: Start Backend Server
 
-```bash
-# API URL (must match your backend)
-VITE_API_URL=http://localhost:8000
+**Development:**
+\`\`\`bash
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+\`\`\`
 
-# For production with domain:
-# VITE_API_URL=https://api.yourdomain.com
-```
+**Production (with Gunicorn):**
+\`\`\`bash
+pip install gunicorn
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+\`\`\`
 
-## Deployment Modes
+---
 
-### Development Mode
+## Frontend Deployment
 
-Best for local testing and development:
+### Step 1: Configure API URL
 
-```bash
-./deploy.sh dev
-```
+Create \`frontend/.env.production\`:
 
-**Features:**
-- Direct access to backend (port 8000)
-- Direct access to frontend (port 3000)
-- Hot reload disabled (rebuild to see changes)
-- Logs visible with `./deploy.sh logs`
+\`\`\`env
+# Backend API URL - REQUIRED
+VITE_API_URL=https://your-backend-api.com
+\`\`\`
 
-### Production Mode
+### Step 2: Build for Production
 
-Optimized for production deployment with Nginx reverse proxy:
+\`\`\`bash
+cd frontend
+npm install
+npm run build
+\`\`\`
 
-```bash
-./deploy.sh production
-```
+This creates a \`dist/\` folder with static files.
 
-**Features:**
-- Nginx reverse proxy on port 80/443
-- Better performance with caching
-- Rate limiting enabled
-- Gzip compression
-- Security headers
-- SSL/TLS support (configure SSL certificates)
+### Step 3: Deploy Static Files
 
-## Production Deployment
+**Option A: Nginx**
+\`\`\`nginx
+server {
+    listen 80;
+    server_name your-frontend-domain.com;
+    root /path/to/AppSec-AI/frontend/dist;
+    index index.html;
 
-### Step 1: Prepare Server
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
 
-1. **Update System:**
-   ```bash
-   sudo apt update && sudo apt upgrade -y
-   ```
+    location /api {
+        proxy_pass http://localhost:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+    }
+}
+\`\`\`
 
-2. **Install Docker:**
-   ```bash
-   curl -fsSL https://get.docker.com -o get-docker.sh
-   sudo sh get-docker.sh
-   sudo usermod -aG docker $USER
-   ```
+**Option B: Vercel/Netlify**
+- Connect GitHub repository
+- Build command: \`npm run build\`
+- Output directory: \`dist\`
+- Environment variable: \`VITE_API_URL=https://your-backend-api.com\`
 
-3. **Install Docker Compose:**
-   ```bash
-   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-   sudo chmod +x /usr/local/bin/docker-compose
-   ```
+---
 
-### Step 2: Configure Domain (Optional)
+## VS Code Extension Configuration
 
-Update your DNS records to point to your server's IP address:
+### For End Users
 
-```
-A Record: yourdomain.com → Your Server IP
-A Record: www.yourdomain.com → Your Server IP
-```
+1. **Install Extension:**
+   - Download \`appsec-ai-scanner-1.8.5.vsix\` from the web app
+   - VS Code: Extensions → ... → Install from VSIX
 
-### Step 3: SSL/TLS Configuration (Optional but Recommended)
+2. **Configure Server URL:**
+   - Open Command Palette (Ctrl+Shift+P)
+   - Run: \`SecureDev AI: Configure Server URL\`
+   - Enter your production API URL
 
-#### Option 1: Let's Encrypt (Free)
+3. **Or set manually in settings.json:**
+   \`\`\`json
+   {
+     "appsec.apiUrl": "https://your-backend-api.com"
+   }
+   \`\`\`
 
-```bash
-# Install Certbot
-sudo apt install certbot
+4. **Login:**
+   - Command Palette → \`SecureDev AI: Login\`
+   - Enter credentials
 
-# Generate SSL certificate
-sudo certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
+---
 
-# Copy certificates
-sudo cp /etc/letsencrypt/live/yourdomain.com/fullchain.pem ./nginx/ssl/cert.pem
-sudo cp /etc/letsencrypt/live/yourdomain.com/privkey.pem ./nginx/ssl/key.pem
-sudo chmod 644 ./nginx/ssl/cert.pem
-sudo chmod 600 ./nginx/ssl/key.pem
-```
+## Environment Variables Reference
 
-#### Option 2: Self-Signed Certificate (Development Only)
+### Backend (\`backend/.env\`)
 
-```bash
-mkdir -p nginx/ssl
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout nginx/ssl/key.pem \
-  -out nginx/ssl/cert.pem
-```
+| Variable | Required | Description |
+|----------|----------|-------------|
+| \`SECRET_KEY\` | Yes | JWT secret key |
+| \`CORS_ORIGINS\` | Yes | Allowed frontend origins |
+| \`DATABASE_URL\` | No | PostgreSQL connection string |
 
-### Step 4: Update Configuration
+### Frontend (\`frontend/.env.production\`)
 
-Edit `.env` file:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| \`VITE_API_URL\` | Yes | Backend API URL |
 
-```bash
-# Update domain
-DOMAIN=yourdomain.com
+### VS Code Extension
 
-# Update API URL
-VITE_API_URL=https://api.yourdomain.com
+| Setting | Description |
+|---------|-------------|
+| \`appsec.apiUrl\` | Backend API URL |
 
-# Update CORS
-CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+---
 
-# Production settings
-ENVIRONMENT=production
-LOG_LEVEL=warning
-```
+## Platform-Specific Guides
 
-Edit `nginx/nginx.conf` to uncomment HTTPS section and update domain.
+### Railway Deployment
 
-### Step 5: Deploy
+**Backend:**
+1. Create new project on Railway
+2. Connect GitHub repository
+3. Set root directory: \`backend\`
+4. Add environment variables:
+   - \`SECRET_KEY=your-secret-key\`
+   - \`CORS_ORIGINS=https://your-frontend.railway.app\`
 
-```bash
-./deploy.sh production
-```
+**Frontend:**
+1. Create another service
+2. Set root directory: \`frontend\`
+3. Build command: \`npm run build\`
+4. Start command: \`npx serve -s dist\`
+5. Add: \`VITE_API_URL=https://your-backend.railway.app\`
 
-### Step 6: Verify Deployment
+### Docker Deployment
 
-```bash
-# Check container status
-docker-compose ps
+\`\`\`yaml
+# docker-compose.yml
+version: '3.8'
 
-# Check logs
-./deploy.sh logs
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=\${SECRET_KEY}
+      - CORS_ORIGINS=\${CORS_ORIGINS}
 
-# Test health endpoints
-curl http://localhost/health
-curl http://localhost:8000/health
-```
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://backend:8000
+\`\`\`
 
-## Deployment Commands
-
-The `deploy.sh` script supports the following commands:
-
-```bash
-# Start in development mode
-./deploy.sh dev
-
-# Start in production mode
-./deploy.sh production
-
-# Stop all containers
-./deploy.sh stop
-
-# Restart containers
-./deploy.sh restart
-
-# View logs (real-time)
-./deploy.sh logs
-
-# Clean up (removes all data!)
-./deploy.sh clean
-```
-
-### Manual Docker Compose Commands
-
-```bash
-# Build and start
-docker-compose up -d --build
-
-# Stop containers
-docker-compose down
-
-# View logs
-docker-compose logs -f
-
-# View logs for specific service
-docker-compose logs -f backend
-docker-compose logs -f frontend
-
-# Restart specific service
-docker-compose restart backend
-
-# Scale services (not applicable for this app)
-docker-compose up -d --scale backend=3
-```
+---
 
 ## Troubleshooting
 
-### Container Won't Start
+### CORS Errors
+Ensure \`CORS_ORIGINS\` includes your frontend URL:
+\`\`\`env
+CORS_ORIGINS=https://your-frontend.com,http://localhost:5173
+\`\`\`
 
-```bash
-# Check logs
-docker-compose logs
+### API Connection Failed
+1. Check \`appsec.apiUrl\` in VS Code settings
+2. Test: \`curl https://your-api.com/health\`
 
-# Check specific service
-docker-compose logs backend
-docker-compose logs frontend
+### AI Features Not Working
+Configure AI provider in Settings page:
+1. Settings → AI Provider
+2. Select Anthropic or OpenAI
+3. Enter API key
+4. Save
 
-# Rebuild from scratch
-docker-compose down -v
-docker-compose up -d --build
-```
+---
 
-### Port Already in Use
+## Security Checklist
 
-```bash
-# Find process using port
-sudo lsof -i :8000
-sudo lsof -i :3000
-sudo lsof -i :80
+- [ ] Changed default \`SECRET_KEY\`
+- [ ] HTTPS enabled
+- [ ] \`CORS_ORIGINS\` restricted to your domains
+- [ ] Strong admin password
+- [ ] Database backups configured
 
-# Kill process
-sudo kill -9 <PID>
+---
 
-# Or change port in .env file
-BACKEND_PORT=8001
-FRONTEND_PORT=3001
-```
-
-### Database Issues
-
-```bash
-# Reset database (WARNING: Deletes all data!)
-docker-compose down -v
-docker-compose up -d
-
-# Backup database
-docker cp appsec-backend:/app/data/appsec.db ./backup-appsec.db
-
-# Restore database
-docker cp ./backup-appsec.db appsec-backend:/app/data/appsec.db
-docker-compose restart backend
-```
-
-### Permission Issues
-
-```bash
-# Fix volume permissions
-sudo chown -R $USER:$USER .
-chmod +x deploy.sh
-```
-
-### Out of Memory
-
-```bash
-# Reduce number of workers in backend Dockerfile
-# Change: --workers 4
-# To: --workers 2
-
-# Or increase server memory/swap
-```
-
-## Maintenance
-
-### Backup
-
-```bash
-# Backup database
-docker cp appsec-backend:/app/data/appsec.db ./backup-$(date +%Y%m%d).db
-
-# Backup volumes
-docker run --rm -v appsec-platform_appsec-data:/data -v $(pwd):/backup alpine tar czf /backup/data-backup-$(date +%Y%m%d).tar.gz /data
-```
-
-### Update
-
-```bash
-# Pull latest code
-git pull
-
-# Rebuild and restart
-docker-compose down
-docker-compose up -d --build
-```
-
-### Monitoring
-
-```bash
-# View resource usage
-docker stats
-
-# View specific container
-docker stats appsec-backend
-docker stats appsec-frontend
-
-# Check health
-curl http://localhost/health
-curl http://localhost:8000/health
-```
-
-### Logs Management
-
-```bash
-# View last 100 lines
-docker-compose logs --tail=100
-
-# Save logs to file
-docker-compose logs > deployment-logs.txt
-
-# Rotate logs (prevent disk space issues)
-docker-compose down
-docker system prune -f
-docker-compose up -d
-```
-
-## Security Best Practices
-
-1. **Change Default Secrets:**
-   - Generate unique `SECRET_KEY`
-   - Use strong AI API keys
-
-2. **Enable HTTPS:**
-   - Use Let's Encrypt SSL certificates
-   - Update nginx configuration for HTTPS
-   - Force HTTPS redirects
-
-3. **Firewall Configuration:**
-   ```bash
-   sudo ufw allow 80/tcp
-   sudo ufw allow 443/tcp
-   sudo ufw enable
-   ```
-
-4. **Regular Updates:**
-   - Keep Docker updated
-   - Update application regularly
-   - Monitor security advisories
-
-5. **Limit Exposure:**
-   - Don't expose database port (5432) publicly
-   - Use environment variables for secrets
-   - Enable rate limiting in nginx
-
-## Support
-
-For issues and questions:
-
-- GitHub Issues: https://github.com/yourusername/appsec-platform/issues
-- Documentation: https://docs.yourdomain.com
-- Email: support@yourdomain.com
-
-## License
-
-Copyright © 2025 AppSec Platform. All rights reserved.
+*Last updated: February 2026*
