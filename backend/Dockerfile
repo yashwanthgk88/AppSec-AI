@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Cache bust: 2026-02-03-v2
+ARG CACHEBUST=1
+
 WORKDIR /app
 
 # Install system dependencies including curl for healthcheck and git for repo cloning
