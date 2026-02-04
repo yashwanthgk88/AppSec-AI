@@ -116,6 +116,7 @@ export default function ThreatModelPage() {
   const [showSampleOption, setShowSampleOption] = useState(false)
   const [generationProgress, setGenerationProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
+  const [generationComplete, setGenerationComplete] = useState(false)
 
   useEffect(() => {
     fetchThreatModel()
@@ -154,6 +155,7 @@ export default function ThreatModelPage() {
 
   const regenerateThreatModel = async () => {
     setRegenerating(true)
+    setGenerationComplete(false)
     simulateProgress()
     try {
       const token = localStorage.getItem('token')
@@ -162,13 +164,19 @@ export default function ThreatModelPage() {
       })
       setGenerationProgress(100)
       setCurrentStep(GENERATION_STEPS.length)
-      // Refetch the threat model
-      await fetchThreatModel()
+      setGenerationComplete(true)
+      // Show success for 2 seconds, then fetch and display
+      setTimeout(async () => {
+        await fetchThreatModel()
+        setRegenerating(false)
+        setGenerationProgress(0)
+        setCurrentStep(0)
+        setGenerationComplete(false)
+      }, 2000)
     } catch (error: any) {
       console.error('Failed to regenerate threat model:', error)
       const errorMessage = error.response?.data?.detail || 'Failed to regenerate threat model. Please try again.'
       alert(errorMessage)
-    } finally {
       setRegenerating(false)
       setGenerationProgress(0)
       setCurrentStep(0)
@@ -177,6 +185,7 @@ export default function ThreatModelPage() {
 
   const generateWithSample = async () => {
     setRegenerating(true)
+    setGenerationComplete(false)
     simulateProgress()
     try {
       const token = localStorage.getItem('token')
@@ -193,14 +202,20 @@ export default function ThreatModelPage() {
       })
       setGenerationProgress(100)
       setCurrentStep(GENERATION_STEPS.length)
-      // Refetch the threat model
-      await fetchThreatModel()
+      setGenerationComplete(true)
       setShowSampleOption(false)
+      // Show success for 2 seconds, then fetch and display
+      setTimeout(async () => {
+        await fetchThreatModel()
+        setRegenerating(false)
+        setGenerationProgress(0)
+        setCurrentStep(0)
+        setGenerationComplete(false)
+      }, 2000)
     } catch (error: any) {
       console.error('Failed to generate threat model with sample:', error)
       const errorMessage = error.response?.data?.detail || 'Failed to generate threat model. Please try again.'
       alert(errorMessage)
-    } finally {
       setRegenerating(false)
       setGenerationProgress(0)
       setCurrentStep(0)
@@ -294,54 +309,69 @@ export default function ThreatModelPage() {
 
         {regenerating && (
           <div className="mt-6 border border-gray-200 rounded-lg p-4 bg-white">
-            <div className="mb-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span className="font-medium text-gray-700">Generating Threat Model...</span>
-                <span className="text-gray-500">{Math.round(generationProgress)}%</span>
+            {generationComplete ? (
+              <div className="text-center py-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-10 h-10 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-green-700 mb-2">Threat Model Generated!</h3>
+                <p className="text-gray-600">Loading your threat analysis...</p>
+                <div className="mt-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <div
-                  className="bg-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${generationProgress}%` }}
-                ></div>
-              </div>
-            </div>
-            <div className="space-y-2">
-              {GENERATION_STEPS.map((step, index) => (
-                <div
-                  key={step.id}
-                  className={`flex items-center space-x-3 text-sm ${
-                    currentStep > index
-                      ? 'text-green-600'
-                      : currentStep === index
-                      ? 'text-primary-600 font-medium'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                    currentStep > index
-                      ? 'bg-green-100'
-                      : currentStep === index
-                      ? 'bg-primary-100'
-                      : 'bg-gray-100'
-                  }`}>
-                    {currentStep > index ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : currentStep === index ? (
-                      <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse" />
-                    ) : (
-                      <div className="w-2 h-2 bg-gray-300 rounded-full" />
-                    )}
+            ) : (
+              <>
+                <div className="mb-4">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-medium text-gray-700">Generating Threat Model...</span>
+                    <span className="text-gray-500">{Math.round(generationProgress)}%</span>
                   </div>
-                  <div>
-                    <span>{step.name}</span>
-                    {currentStep === index && (
-                      <span className="text-xs text-gray-500 ml-2">— {step.description}</span>
-                    )}
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div
+                      className="bg-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${generationProgress}%` }}
+                    ></div>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="space-y-2">
+                  {GENERATION_STEPS.map((step, index) => (
+                    <div
+                      key={step.id}
+                      className={`flex items-center space-x-3 text-sm ${
+                        currentStep > index
+                          ? 'text-green-600'
+                          : currentStep === index
+                          ? 'text-primary-600 font-medium'
+                          : 'text-gray-400'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        currentStep > index
+                          ? 'bg-green-100'
+                          : currentStep === index
+                          ? 'bg-primary-100'
+                          : 'bg-gray-100'
+                      }`}>
+                        {currentStep > index ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : currentStep === index ? (
+                          <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse" />
+                        ) : (
+                          <div className="w-2 h-2 bg-gray-300 rounded-full" />
+                        )}
+                      </div>
+                      <div>
+                        <span>{step.name}</span>
+                        {currentStep === index && (
+                          <span className="text-xs text-gray-500 ml-2">— {step.description}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
