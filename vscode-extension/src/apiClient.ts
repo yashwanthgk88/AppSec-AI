@@ -149,7 +149,7 @@ export class ApiClient {
                             include_taint_flows: false  // Skip for speed
                         }, { timeout: 15000 });  // Shorter timeout
 
-                        return { success: true, data: response.data, fileName };
+                        return { success: true, data: response.data, fileName, absolutePath: filePath };
                     } catch (fileError: any) {
                         console.log(`[SecureDev AI] Skipping ${filePath}: ${fileError.message}`);
                         return { success: false, error: fileError.message, filePath };
@@ -166,8 +166,9 @@ export class ApiClient {
 
                     if (result.success && result.data?.findings) {
                         for (const finding of result.data.findings) {
-                            finding.file_path = result.fileName;
-                            finding.file = result.fileName;
+                            // Use absolute path for file operations (apply fix, open file)
+                            finding.file_path = result.absolutePath;
+                            finding.file = result.absolutePath;
 
                             if (finding.source === 'secret_scanning' || finding.type === 'secret') {
                                 allSecrets.push(finding);
