@@ -345,8 +345,77 @@ class InlineSecurityProvider {
                 suggestion: 'Avoid shell functions or use escapeshellarg()'
             },
             // ============================================================
-            // PHP-SPECIFIC VULNERABILITIES (DVWA patterns)
+            // PHP-SPECIFIC VULNERABILITIES (OWASP Top 10 2021)
             // ============================================================
+            // A01:2021 - BROKEN ACCESS CONTROL (PHP)
+            {
+                pattern: /\$_SESSION\s*\[\s*['"](?:role|is_admin|user_type)["']\s*\]\s*[!=]==?\s*['"]admin["']/gi,
+                message: '🔐 A01: Hardcoded admin check in PHP',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use role-based access control with configurable permissions'
+            },
+            {
+                pattern: /\$_SESSION\s*\[\s*['"]user_id["']\s*\]\s*[!=]==?\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '🔐 A01: IDOR - Comparing session user with request parameter',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Verify authorization properly, not just ID comparison'
+            },
+            {
+                pattern: /if\s*\(\s*!\s*isset\s*\(\s*\$_SESSION/gi,
+                message: '🔐 A01: Session check - ensure proper authentication',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Implement proper session validation and RBAC'
+            },
+            {
+                pattern: /extract\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '🔐 A01: extract() on user input - variable injection!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never use extract() on untrusted data'
+            },
+            // A02:2021 - CRYPTOGRAPHIC FAILURES (PHP)
+            {
+                pattern: /md5\s*\(\s*\$|sha1\s*\(\s*\$/gi,
+                message: '🔒 A02: Weak hash function for sensitive data',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use password_hash() for passwords, hash("sha256") for other data'
+            },
+            {
+                pattern: /password_hash\s*\([^,]+,\s*PASSWORD_DEFAULT\s*\)/gi,
+                message: '🔒 A02: Good - using password_hash() with PASSWORD_DEFAULT',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Ensure PASSWORD_DEFAULT is used (auto-upgrades algorithm)'
+            },
+            {
+                pattern: /mcrypt_|MCRYPT_/gi,
+                message: '🔒 A02: mcrypt is deprecated and removed in PHP 7.2+',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use openssl_encrypt() with AES-256-GCM'
+            },
+            {
+                pattern: /openssl_encrypt\s*\([^,]+,\s*["'](?:des|rc4|bf|cast5)/gi,
+                message: '🔒 A02: Weak encryption algorithm in openssl_encrypt',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use AES-256-GCM or AES-256-CBC'
+            },
+            {
+                pattern: /rand\s*\(|mt_rand\s*\(/gi,
+                message: '🔒 A02: rand()/mt_rand() not cryptographically secure',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use random_bytes() or random_int() for security'
+            },
+            {
+                pattern: /base64_(?:encode|decode)\s*\([^)]*password/gi,
+                message: '🔒 A02: Base64 is encoding, not encryption!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use password_hash() for passwords'
+            },
+            {
+                pattern: /CURLOPT_SSL_VERIFYPEER\s*,\s*(?:false|0)|CURLOPT_SSL_VERIFYHOST\s*,\s*(?:false|0)/gi,
+                message: '🔒 A02: SSL verification disabled in cURL!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never disable SSL verification in production'
+            },
+            // A03:2021 - INJECTION (PHP)
             {
                 pattern: /\$_(?:GET|POST|REQUEST|COOKIE)\s*\[\s*['"][^'"]+['"]\s*\]/gi,
                 message: '💉 A03: PHP User Input - Potential injection source',
@@ -448,6 +517,452 @@ class InlineSecurityProvider {
                 message: '⚠️ User input assigned without validation',
                 severity: vscode.DiagnosticSeverity.Warning,
                 suggestion: 'Validate/sanitize: filter_input(), htmlspecialchars(), intval()'
+            },
+            // A04:2021 - INSECURE DESIGN (PHP)
+            {
+                pattern: /\$(?:password|passwd|pwd|secret)\s*=\s*["'][^"']+["']/gi,
+                message: '🏗️ A04: Hardcoded credential in PHP',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use environment variables: getenv("DB_PASSWORD")'
+            },
+            {
+                pattern: /define\s*\(\s*["'](?:DB_PASSWORD|API_KEY|SECRET)["']\s*,\s*["'][^"']+["']\s*\)/gi,
+                message: '🏗️ A04: Hardcoded secret in define()',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use environment variables instead of hardcoded secrets'
+            },
+            {
+                pattern: /mysqli?_connect\s*\([^)]*["'][^"']+["']\s*,\s*["'][^"']+["']\s*,\s*["'][^"']+["']/gi,
+                message: '🏗️ A04: Hardcoded database credentials',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use configuration files or environment variables'
+            },
+            // A05:2021 - SECURITY MISCONFIGURATION (PHP)
+            {
+                pattern: /error_reporting\s*\(\s*E_ALL\s*\)|display_errors.*On|ini_set\s*\(\s*["']display_errors["']\s*,\s*["']?1/gi,
+                message: '⚙️ A05: Error display enabled - exposes sensitive info',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Disable display_errors in production, log errors instead'
+            },
+            {
+                pattern: /phpinfo\s*\(\s*\)/gi,
+                message: '⚙️ A05: phpinfo() exposes server configuration!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Remove phpinfo() from production code'
+            },
+            {
+                pattern: /var_dump\s*\(|print_r\s*\(/gi,
+                message: '⚙️ A05: Debug output function',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Remove debug output from production code'
+            },
+            {
+                pattern: /header\s*\(\s*["']Access-Control-Allow-Origin:\s*\*["']\s*\)/gi,
+                message: '⚙️ A05: CORS allows all origins',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Whitelist specific allowed origins'
+            },
+            {
+                pattern: /setcookie\s*\([^)]+(?!.*httponly|.*secure)/gi,
+                message: '⚙️ A05: Cookie without security flags',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Add httponly and secure flags: setcookie($name, $val, [..., "httponly" => true, "secure" => true])'
+            },
+            {
+                pattern: /session\.cookie_secure\s*=\s*(?:0|false|off)/gi,
+                message: '⚙️ A05: Session cookie secure flag disabled',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Enable session.cookie_secure in production'
+            },
+            {
+                pattern: /allow_url_include\s*=\s*(?:1|on)/gi,
+                message: '⚙️ A05: allow_url_include is dangerous!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Disable allow_url_include in php.ini'
+            },
+            // A06:2021 - VULNERABLE COMPONENTS (PHP)
+            {
+                pattern: /composer\.lock|vendor\/autoload/gi,
+                message: '📦 A06: Check dependencies for known vulnerabilities',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Run: composer audit (Composer 2.4+) or use Snyk/Dependabot'
+            },
+            // A07:2021 - AUTH FAILURES (PHP) - already covered in XSS section
+            // A08:2021 - DATA INTEGRITY (PHP)
+            {
+                pattern: /unserialize\s*\(/gi,
+                message: '🔧 A08: PHP unserialize() is dangerous',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use json_decode() instead, or validate with allowed_classes'
+            },
+            {
+                pattern: /\$_COOKIE\s*\[.*\]\s*(?:&&|\|\||==|!=)/gi,
+                message: '🔧 A08: Cookie used for authorization',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use server-side sessions, never trust client cookies'
+            },
+            // A09:2021 - LOGGING AND MONITORING (PHP)
+            {
+                pattern: /catch\s*\(\s*(?:Exception|\\\w+Exception)\s+\$\w+\s*\)\s*\{\s*\}/gi,
+                message: '📝 A09: Empty catch block - exception swallowed',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Log exceptions: error_log($e->getMessage())'
+            },
+            {
+                pattern: /error_log\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '📝 A09: Logging user input - potential log injection',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Sanitize user input before logging'
+            },
+            {
+                pattern: /die\s*\(\s*\$|exit\s*\(\s*\$/gi,
+                message: '📝 A09: die()/exit() with variable - may expose data',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use generic error messages in production'
+            },
+            // A10:2021 - SSRF (PHP)
+            {
+                pattern: /file_get_contents\s*\(\s*["']https?:\/\/["']?\s*\.\s*\$/gi,
+                message: '🌐 A10: SSRF - Dynamic URL in file_get_contents',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate and whitelist allowed URLs'
+            },
+            {
+                pattern: /curl_setopt\s*\([^,]+,\s*CURLOPT_URL\s*,\s*\$/gi,
+                message: '🌐 A10: SSRF - Variable URL in cURL',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Validate URL against whitelist'
+            },
+            {
+                pattern: /fopen\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '🌐 A10: SSRF/LFI - User input in fopen()!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never use user input directly in file operations'
+            },
+            {
+                pattern: /copy\s*\(\s*\$_(?:GET|POST|REQUEST)|move_uploaded_file\s*\([^,]+,\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '🌐 A10: Path traversal in file operation!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate file paths, use basename(), check against whitelist'
+            },
+            // ============================================================
+            // JAVA-SPECIFIC VULNERABILITIES (OWASP Top 10 2021)
+            // ============================================================
+            // A01:2021 - BROKEN ACCESS CONTROL (Java)
+            {
+                pattern: /\.hasRole\s*\(\s*["']ADMIN["']\s*\)/gi,
+                message: '🔐 A01: Hardcoded role check in Java',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use configurable role-based access control'
+            },
+            {
+                pattern: /@PreAuthorize\s*\(\s*["'].*#\w+/gi,
+                message: '🔐 A01: SpEL in @PreAuthorize - ensure proper validation',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Validate SpEL expressions cannot be manipulated'
+            },
+            {
+                pattern: /SecurityContextHolder\.getContext\(\)/gi,
+                message: '🔐 A01: Direct security context access',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Use Spring Security annotations for access control'
+            },
+            {
+                pattern: /request\.getParameter\s*\(\s*["'].*id["']\s*\)/gi,
+                message: '🔐 A01: IDOR risk - user-controlled ID parameter',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Verify user has permission to access requested resource'
+            },
+            // A02:2021 - CRYPTOGRAPHIC FAILURES (Java)
+            {
+                pattern: /MessageDigest\.getInstance\s*\(\s*["']MD5["']\s*\)/gi,
+                message: '🔒 A02: MD5 is cryptographically broken',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use MessageDigest.getInstance("SHA-256") or stronger'
+            },
+            {
+                pattern: /MessageDigest\.getInstance\s*\(\s*["']SHA-?1["']\s*\)/gi,
+                message: '🔒 A02: SHA-1 is deprecated',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use SHA-256 or SHA-3'
+            },
+            {
+                pattern: /Cipher\.getInstance\s*\(\s*["']DES|Cipher\.getInstance\s*\(\s*["']DESede/gi,
+                message: '🔒 A02: DES/3DES is weak encryption',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use Cipher.getInstance("AES/GCM/NoPadding")'
+            },
+            {
+                pattern: /Cipher\.getInstance\s*\(\s*["']AES["']\s*\)|Cipher\.getInstance\s*\(\s*["']AES\/ECB/gi,
+                message: '🔒 A02: AES without mode or ECB mode is insecure',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use AES/GCM/NoPadding for authenticated encryption'
+            },
+            {
+                pattern: /new\s+SecretKeySpec\s*\([^,]+,\s*["']DES/gi,
+                message: '🔒 A02: DES key specification is insecure',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use AES with 256-bit keys'
+            },
+            {
+                pattern: /KeyGenerator\.getInstance\s*\(\s*["']DES/gi,
+                message: '🔒 A02: DES key generation is insecure',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use KeyGenerator.getInstance("AES")'
+            },
+            {
+                pattern: /new\s+Random\s*\(\s*\)/gi,
+                message: '🔒 A02: java.util.Random is not cryptographically secure',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use SecureRandom for security-sensitive operations'
+            },
+            {
+                pattern: /TrustManager\s*\[\s*\]\s*=|X509TrustManager|checkClientTrusted|checkServerTrusted/gi,
+                message: '🔒 A02: Custom TrustManager - ensure proper certificate validation',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Never disable certificate validation in production'
+            },
+            {
+                pattern: /setHostnameVerifier\s*\(\s*.*ALLOW_ALL|HostnameVerifier.*return\s+true/gi,
+                message: '🔒 A02: Hostname verification disabled!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never disable hostname verification'
+            },
+            // A03:2021 - INJECTION (Java)
+            {
+                pattern: /Statement\s+\w+\s*=.*createStatement\s*\(\s*\)/gi,
+                message: '💉 A03: Raw Statement - use PreparedStatement instead',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use PreparedStatement with parameterized queries'
+            },
+            {
+                pattern: /\.executeQuery\s*\(\s*["'].*\+/gi,
+                message: '💉 A03: SQL Injection - string concatenation in query!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use PreparedStatement with ? placeholders'
+            },
+            {
+                pattern: /\.executeUpdate\s*\(\s*["'].*\+/gi,
+                message: '💉 A03: SQL Injection - string concatenation in update!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use PreparedStatement with ? placeholders'
+            },
+            {
+                pattern: /["']SELECT.*FROM.*["']\s*\+\s*\w+|["']INSERT\s+INTO.*["']\s*\+|["']UPDATE.*SET.*["']\s*\+|["']DELETE\s+FROM.*["']\s*\+/gi,
+                message: '💉 A03: SQL Injection - variable concatenated in SQL!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never concatenate variables in SQL queries'
+            },
+            {
+                pattern: /Runtime\.getRuntime\s*\(\s*\)\.exec\s*\(/gi,
+                message: '💉 A03: Command Injection - Runtime.exec()',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use ProcessBuilder with argument array, never string'
+            },
+            {
+                pattern: /ProcessBuilder\s*\(\s*["'][^"']*["']\s*\+/gi,
+                message: '💉 A03: Command Injection - concatenation in ProcessBuilder',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Pass command and arguments as separate array elements'
+            },
+            {
+                pattern: /ScriptEngine.*eval\s*\(|\.eval\s*\(\s*\w+\s*\)/gi,
+                message: '💉 A03: Code Injection - ScriptEngine.eval()',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never eval untrusted input'
+            },
+            {
+                pattern: /Expression\.compile\s*\(.*\+|SpelExpressionParser/gi,
+                message: '💉 A03: SpEL Injection risk',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Validate SpEL expressions from user input'
+            },
+            {
+                pattern: /DocumentBuilder.*parse\s*\(|SAXParser.*parse\s*\(/gi,
+                message: '💉 A03: XXE risk - XML parsing without protection',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Disable external entities: setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)'
+            },
+            {
+                pattern: /new\s+InitialContext\s*\(\s*\)\.lookup\s*\(/gi,
+                message: '💉 A03: JNDI Injection risk (Log4Shell style)',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate JNDI lookup strings, disable remote lookups'
+            },
+            {
+                pattern: /getRuntime\s*\(\s*\)\.exec\s*\(\s*request\.getParameter/gi,
+                message: '💉 A03: Command Injection - user input in exec()!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never pass user input to shell commands'
+            },
+            // A04:2021 - INSECURE DESIGN (Java)
+            {
+                pattern: /\.setPassword\s*\(\s*["'][^"']+["']\s*\)/gi,
+                message: '🏗️ A04: Hardcoded password in code',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use environment variables or secure vault'
+            },
+            {
+                pattern: /\.getConnection\s*\(\s*["'][^"']+["']\s*,\s*["'][^"']+["']\s*,\s*["'][^"']+["']\s*\)/gi,
+                message: '🏗️ A04: Hardcoded database credentials',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use connection pool with externalized configuration'
+            },
+            // A05:2021 - SECURITY MISCONFIGURATION (Java)
+            {
+                pattern: /\.setSecure\s*\(\s*false\s*\)/gi,
+                message: '⚙️ A05: Cookie secure flag disabled',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Always set secure=true for sensitive cookies'
+            },
+            {
+                pattern: /\.setHttpOnly\s*\(\s*false\s*\)/gi,
+                message: '⚙️ A05: Cookie HttpOnly flag disabled',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Set HttpOnly=true to prevent XSS cookie theft'
+            },
+            {
+                pattern: /csrf\s*\(\s*\)\s*\.disable\s*\(\s*\)|\.csrf\s*\(\s*\)\.disable/gi,
+                message: '⚙️ A05: CSRF protection disabled!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Keep CSRF protection enabled'
+            },
+            {
+                pattern: /\.cors\s*\(\s*\)\s*\.configurationSource.*allowedOrigins\s*\(\s*["']\*["']\s*\)/gi,
+                message: '⚙️ A05: CORS allows all origins',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Whitelist specific allowed origins'
+            },
+            {
+                pattern: /debug\s*=\s*true|setShowSql\s*\(\s*true\s*\)/gi,
+                message: '⚙️ A05: Debug mode enabled',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Disable debug/verbose logging in production'
+            },
+            {
+                pattern: /\.permitAll\s*\(\s*\)/gi,
+                message: '⚙️ A05: Endpoint permits all access',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Ensure permitAll() is only for public endpoints'
+            },
+            // A06:2021 - VULNERABLE COMPONENTS (Java)
+            {
+                pattern: /org\.apache\.commons\.collections\.functors|InvokerTransformer/gi,
+                message: '📦 A06: Commons Collections deserialization gadget!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Update to Commons Collections 3.2.2+ or 4.1+'
+            },
+            {
+                pattern: /com\.sun\.org\.apache\.xalan|org\.apache\.xalan.*TemplatesImpl/gi,
+                message: '📦 A06: Xalan deserialization gadget',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Avoid deserializing untrusted data'
+            },
+            // A07:2021 - IDENTIFICATION AND AUTH FAILURES (Java)
+            {
+                pattern: /request\.getSession\s*\(\s*true\s*\)/gi,
+                message: '🔑 A07: Session created without validation',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Validate authentication before creating sessions'
+            },
+            {
+                pattern: /\.invalidate\s*\(\s*\)(?!.*new.*session)/gi,
+                message: '🔑 A07: Session invalidation without renewal',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Create new session after invalidation to prevent fixation'
+            },
+            {
+                pattern: /response\.encodeURL|response\.encodeRedirectURL/gi,
+                message: '🔑 A07: URL session encoding exposes session ID',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use cookies for session management instead'
+            },
+            // A08:2021 - SOFTWARE AND DATA INTEGRITY FAILURES (Java)
+            {
+                pattern: /ObjectInputStream\s*\(/gi,
+                message: '🔧 A08: Java deserialization - high risk!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use JSON/XML, or implement ObjectInputFilter'
+            },
+            {
+                pattern: /\.readObject\s*\(\s*\)/gi,
+                message: '🔧 A08: Deserialization readObject() call',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate input source, use allowlist filtering'
+            },
+            {
+                pattern: /XMLDecoder\s*\(/gi,
+                message: '🔧 A08: XMLDecoder deserialization vulnerability',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never use XMLDecoder with untrusted input'
+            },
+            {
+                pattern: /XStream\s*\(\s*\)|xstream\.fromXML/gi,
+                message: '🔧 A08: XStream deserialization risk',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Configure XStream security framework'
+            },
+            {
+                pattern: /Yaml\s*\(\s*\)\.load|new\s+Yaml\s*\(\s*\)(?!.*SafeConstructor)/gi,
+                message: '🔧 A08: Unsafe YAML deserialization',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use new Yaml(new SafeConstructor())'
+            },
+            {
+                pattern: /JsonParser.*Feature\..*DEFAULTS|ObjectMapper\s*\(\s*\)(?!.*configure)/gi,
+                message: '🔧 A08: Jackson default typing can be dangerous',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Disable default typing: mapper.disableDefaultTyping()'
+            },
+            // A09:2021 - SECURITY LOGGING AND MONITORING FAILURES (Java)
+            {
+                pattern: /catch\s*\(\s*\w*Exception\s+\w+\s*\)\s*\{\s*\}/gi,
+                message: '📝 A09: Empty catch block - exception swallowed',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Log exceptions: logger.error("Error", e)'
+            },
+            {
+                pattern: /e\.printStackTrace\s*\(\s*\)/gi,
+                message: '📝 A09: printStackTrace() exposes stack trace',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Use proper logging: logger.error("message", e)'
+            },
+            {
+                pattern: /System\.out\.print|System\.err\.print/gi,
+                message: '📝 A09: Console output instead of logging',
+                severity: vscode.DiagnosticSeverity.Information,
+                suggestion: 'Use SLF4J/Log4j2 for proper logging'
+            },
+            // A10:2021 - SERVER-SIDE REQUEST FORGERY (Java)
+            {
+                pattern: /new\s+URL\s*\(\s*request\.getParameter/gi,
+                message: '🌐 A10: SSRF - user input in URL constructor!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate and whitelist allowed URLs/domains'
+            },
+            {
+                pattern: /HttpURLConnection.*openConnection\s*\(.*request\.get/gi,
+                message: '🌐 A10: SSRF - user input in HTTP connection',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Whitelist allowed hosts and protocols'
+            },
+            {
+                pattern: /RestTemplate\s*\(\s*\)\.getForObject\s*\(.*request\.get/gi,
+                message: '🌐 A10: SSRF - user input in RestTemplate',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate URLs against whitelist'
+            },
+            {
+                pattern: /\.sendRedirect\s*\(\s*request\.getParameter/gi,
+                message: '🌐 A10: Open Redirect - user input in redirect!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate redirect URLs against whitelist'
+            },
+            {
+                pattern: /response\.setHeader\s*\(\s*["']Location["']\s*,\s*request\.get/gi,
+                message: '🌐 A10: Open Redirect - user input in Location header',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate redirect destination'
             },
             // LDAP Injection
             {
