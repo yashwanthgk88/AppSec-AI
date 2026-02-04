@@ -103,9 +103,9 @@ export class ApiClient {
 
             if (files.length === 0) {
                 return {
-                    vulnerabilities: [],
-                    sca_vulnerabilities: [],
-                    secrets: [],
+                    sast: { findings: [] },
+                    sca: { findings: [] },
+                    secrets: { findings: [] },
                     summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0 }
                 };
             }
@@ -135,16 +135,18 @@ export class ApiClient {
                     const result = response.data;
 
                     // Aggregate findings with file path info
+                    // /api/scan/deep returns all findings in one array
                     if (result.findings) {
                         for (const finding of result.findings) {
                             finding.file_path = fileName;
-                            allVulnerabilities.push(finding);
-                        }
-                    }
-                    if (result.secrets) {
-                        for (const secret of result.secrets) {
-                            secret.file_path = fileName;
-                            allSecrets.push(secret);
+                            finding.file = fileName;  // Also set 'file' for compatibility
+
+                            // Separate secrets from vulnerabilities based on source
+                            if (finding.source === 'secret_scanning' || finding.type === 'secret') {
+                                allSecrets.push(finding);
+                            } else {
+                                allVulnerabilities.push(finding);
+                            }
                         }
                     }
                 } catch (fileError: any) {
@@ -165,10 +167,11 @@ export class ApiClient {
                 files_total: files.length
             };
 
+            // Return in format expected by extension.ts
             return {
-                vulnerabilities: allVulnerabilities,
-                sca_vulnerabilities: allScaVulnerabilities,
-                secrets: allSecrets,
+                sast: { findings: allVulnerabilities },
+                sca: { findings: allScaVulnerabilities },
+                secrets: { findings: allSecrets },
                 summary,
                 errors: errors.length > 0 ? errors : undefined
             };
