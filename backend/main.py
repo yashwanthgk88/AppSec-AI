@@ -11,7 +11,19 @@ from datetime import timedelta, datetime
 import os
 import re
 import shutil
+import logging
+import sys
 from dotenv import load_dotenv
+
+# Configure logging to output to stdout for Railway
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger(__name__)
+# Flush stdout immediately
+sys.stdout.reconfigure(line_buffering=True)
 
 # Import models and services
 from models import init_db, get_db, User, Project, Scan, Vulnerability, ThreatModel, ChatMessage
@@ -131,7 +143,7 @@ load_ai_config_from_database()
 import os
 anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
 openai_key = os.getenv("OPENAI_API_KEY", "")
-print(f"[Startup] Environment check: ANTHROPIC_API_KEY={'set' if anthropic_key else 'NOT SET'}, OPENAI_API_KEY={'set' if openai_key else 'NOT SET'}")
+logger.info(f"[Startup] Environment check: ANTHROPIC_API_KEY={'set' if anthropic_key else 'NOT SET'}, OPENAI_API_KEY={'set' if openai_key else 'NOT SET'}")
 
 # Initialize AI Impact Service (for dynamic impact generation)
 ai_impact_service = get_ai_impact_service()
@@ -139,7 +151,7 @@ ai_impact_service = get_ai_impact_service()
 # Initialize services with AI impact integration
 # AI impact is enabled for richer, contextual vulnerability analysis
 threat_service = ThreatModelingService()
-print(f"[Startup] ThreatModelingService initialized: enabled={threat_service.enabled}, provider={threat_service.provider}, model={threat_service.model}")
+logger.info(f"[Startup] ThreatModelingService initialized: enabled={threat_service.enabled}, provider={threat_service.provider}, model={threat_service.model}")
 sast_scanner = SASTScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 sca_scanner = SCAScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 secret_scanner = SecretScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
@@ -414,14 +426,14 @@ async def create_project(
 
     # Auto-generate threat model if requested and architecture provided
     if "threat_model" in project_data.auto_scan_types and project_data.architecture_doc:
-        print(f"[Project Create] Threat modeling requested with architecture doc ({len(project_data.architecture_doc)} chars)")
-        print(f"[Project Create] ThreatService status: enabled={threat_service.enabled}, provider={threat_service.provider}")
+        logger.info(f"[Project Create] Threat modeling requested with architecture doc ({len(project_data.architecture_doc)} chars)")
+        logger.info(f"[Project Create] ThreatService status: enabled={threat_service.enabled}, provider={threat_service.provider}")
         try:
             threat_model_data = threat_service.generate_threat_model(
                 project_data.architecture_doc,
                 project_data.name
             )
-            print(f"[Project Create] Threat model data keys: {threat_model_data.keys() if threat_model_data else 'None'}")
+            logger.info(f"[Project Create] Threat model data keys: {threat_model_data.keys() if threat_model_data else 'None'}")
 
             threat_model = ThreatModel(
                 project_id=project.id,
@@ -437,15 +449,15 @@ async def create_project(
             db.add(threat_model)
             db.commit()
             scan_results["threat_model"] = True
-            print(f"[Project Create] Threat model generated successfully with {threat_model_data['threat_count']} threats")
+            logger.info(f"[Project Create] Threat model generated successfully with {threat_model_data['threat_count']} threats")
         except Exception as e:
             import traceback
-            print(f"[Project Create] ERROR: Threat modeling failed: {e}")
-            print(f"[Project Create] Traceback: {traceback.format_exc()}")
+            logger.error(f"[Project Create] ERROR: Threat modeling failed: {e}")
+            logger.error(f"[Project Create] Traceback: {traceback.format_exc()}")
             # Continue without threat model - don't fail the entire project creation
             scan_results["threat_model"] = False
     elif "threat_model" in project_data.auto_scan_types and not project_data.architecture_doc:
-        print("[Project Create] Threat modeling requested but no architecture doc provided - skipping")
+        logger.info("[Project Create] Threat modeling requested but no architecture doc provided - skipping")
 
     # Clone repository if URL provided
     repo_scanner = None
@@ -988,7 +1000,7 @@ async def regenerate_threat_model(
     db: Session = Depends(get_db)
 ):
     """Regenerate threat model for a project (also works as initial generation)"""
-    print(f"[Threat Model Regenerate] Starting for project {project_id}")
+    logger.info(f"[Threat Model Regenerate] Starting for project {project_id}")
 
     project = db.query(Project).filter(
         Project.id == project_id,
@@ -996,27 +1008,32 @@ async def regenerate_threat_model(
     ).first()
 
     if not project:
+        logger.warning(f"[Threat Model Regenerate] Project {project_id} not found")
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not project.architecture_doc:
+        logger.warning(f"[Threat Model Regenerate] Project {project_id} has no architecture doc")
         raise HTTPException(status_code=400, detail="Project has no architecture document. Please add architecture description first.")
+
+    logger.info(f"[Threat Model Regenerate] Architecture doc length: {len(project.architecture_doc)} chars")
 
     # Delete existing threat model if any
     existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
     if existing:
         db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
         db.commit()
-        print(f"[Threat Model Regenerate] Deleted existing threat model")
+        logger.info(f"[Threat Model Regenerate] Deleted existing threat model")
 
     # Use global threat_service which has proper AI config
-    print(f"[Threat Model Regenerate] Using threat_service: enabled={threat_service.enabled}, provider={threat_service.provider}")
+    logger.info(f"[Threat Model Regenerate] Using threat_service: enabled={threat_service.enabled}, provider={threat_service.provider}")
 
     try:
+        logger.info(f"[Threat Model Regenerate] Calling generate_threat_model...")
         threat_model_data = threat_service.generate_threat_model(
             project.architecture_doc,
             project.name
         )
-        print(f"[Threat Model Regenerate] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
+        logger.info(f"[Threat Model Regenerate] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
 
         threat_model = ThreatModel(
             project_id=project.id,
@@ -1041,8 +1058,8 @@ async def regenerate_threat_model(
         }
     except Exception as e:
         import traceback
-        print(f"[Threat Model Regenerate] ERROR: {e}")
-        print(f"[Threat Model Regenerate] Traceback: {traceback.format_exc()}")
+        logger.error(f"[Threat Model Regenerate] ERROR: {e}")
+        logger.error(f"[Threat Model Regenerate] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to generate threat model: {str(e)}")
 
 # Scanning endpoints
