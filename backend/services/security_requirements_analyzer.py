@@ -48,10 +48,11 @@ Focus on REALISTIC business abuse scenarios, not technical hacking attacks. Exam
 
     DEFAULT_SECURITY_REQ_PROMPT = """Generate 10-15 actionable security requirements. Each requirement must have:
 - id: Unique identifier (SR-001, SR-002, etc.)
-- text: Clear, actionable security control statement
+- requirement: Clear, actionable security control statement
 - priority: Critical/High/Medium
 - category: Authentication/Authorization/Input Validation/Cryptography/Logging/Rate Limiting/API Security/Data Protection/Session Management/Error Handling
-- details: Implementation guidance and rationale
+- rationale: Why this requirement is needed and implementation guidance
+- acceptance_criteria: Bullet-pointed testable criteria (use \\n for line breaks, start each with •)
 
 Requirements should be SPECIFIC to the user story functionality, not generic security controls.
 Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) where applicable."""
@@ -261,7 +262,7 @@ Return ONLY valid JSON with this exact structure:
     {{"category": "Spoofing", "threat": "Threat name", "description": "Detailed description", "risk_level": "High"}}
   ],
   "security_requirements": [
-    {{"id": "SR-001", "text": "Actionable requirement", "priority": "Critical", "category": "Authentication", "details": "Implementation guidance"}}
+    {{"id": "SR-001", "requirement": "Actionable requirement statement", "priority": "Critical", "category": "Authentication", "rationale": "Why this is needed", "acceptance_criteria": "• Specific testable criterion 1\\n• Specific testable criterion 2\\n• Specific testable criterion 3"}}
   ],
   "risk_score": 65
 }}
@@ -288,10 +289,11 @@ Generate at least 5 abuse cases, 6 STRIDE threats, and 10 security requirements.
             "security_requirements": [
                 {
                     "id": "SR-001",
-                    "text": "AI Analysis Required",
+                    "requirement": "AI Analysis Required",
                     "priority": "N/A",
                     "category": "Configuration",
-                    "details": "Configure AI provider (OpenAI or Anthropic) in settings to generate actionable security requirements specific to this user story."
+                    "rationale": "Configure AI provider (OpenAI or Anthropic) in settings to generate actionable security requirements specific to this user story.",
+                    "acceptance_criteria": "• Configure OpenAI or Anthropic API key in Settings\n• Re-analyze this user story to generate specific requirements"
                 }
             ],
             "risk_score": 0,
