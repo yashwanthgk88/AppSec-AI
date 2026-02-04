@@ -1,7 +1,7 @@
 """
 FastAPI Main Application
 """
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
@@ -24,6 +24,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 # Flush stdout immediately
 sys.stdout.reconfigure(line_buffering=True)
+
+# Track threat model generation status (in-memory, resets on restart)
+threat_model_generation_status = {}
 
 # Import models and services
 from models import init_db, get_db, User, Project, Scan, Vulnerability, ThreatModel, ChatMessage
@@ -993,13 +996,77 @@ async def get_threat_model(
         "threat_count": threat_model.threat_count
     }
 
+def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str):
+    """Background task to generate threat model"""
+    from models.database import SessionLocal
+
+    logger.info(f"[Threat Model BG] Starting background generation for project {project_id}")
+    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "analyzing", "progress": 10}
+
+    db = SessionLocal()
+    try:
+        # Delete existing threat model if any
+        existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+        if existing:
+            db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
+            db.commit()
+            logger.info(f"[Threat Model BG] Deleted existing threat model")
+
+        threat_model_generation_status[project_id] = {"status": "in_progress", "step": "generating", "progress": 30}
+
+        logger.info(f"[Threat Model BG] Calling generate_threat_model...")
+        threat_model_data = threat_service.generate_threat_model(
+            architecture_doc,
+            project_name
+        )
+        logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
+
+        threat_model_generation_status[project_id] = {"status": "in_progress", "step": "saving", "progress": 90}
+
+        threat_model = ThreatModel(
+            project_id=project_id,
+            name=f"{project_name} Threat Model",
+            dfd_level=0,
+            dfd_data=threat_model_data['dfd_data'],
+            stride_analysis=threat_model_data['stride_analysis'],
+            mitre_mapping=threat_model_data['mitre_mapping'],
+            trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
+            attack_paths=threat_model_data.get('attack_paths', []),
+            threat_count=threat_model_data['threat_count']
+        )
+        db.add(threat_model)
+        db.commit()
+
+        threat_model_generation_status[project_id] = {
+            "status": "completed",
+            "step": "done",
+            "progress": 100,
+            "threat_count": threat_model_data['threat_count'],
+            "attack_paths_count": len(threat_model_data.get('attack_paths', []))
+        }
+        logger.info(f"[Threat Model BG] Completed successfully for project {project_id}")
+
+    except Exception as e:
+        import traceback
+        logger.error(f"[Threat Model BG] ERROR: {e}")
+        logger.error(f"[Threat Model BG] Traceback: {traceback.format_exc()}")
+        threat_model_generation_status[project_id] = {
+            "status": "failed",
+            "step": "error",
+            "progress": 0,
+            "error": str(e)
+        }
+    finally:
+        db.close()
+
 @app.post("/api/projects/{project_id}/threat-model/regenerate")
 async def regenerate_threat_model(
     project_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Regenerate threat model for a project (also works as initial generation)"""
+    """Start async threat model generation for a project"""
     logger.info(f"[Threat Model Regenerate] Starting for project {project_id}")
 
     project = db.query(Project).filter(
@@ -1017,50 +1084,77 @@ async def regenerate_threat_model(
 
     logger.info(f"[Threat Model Regenerate] Architecture doc length: {len(project.architecture_doc)} chars")
 
-    # Delete existing threat model if any
+    # Check if generation is already in progress
+    if project_id in threat_model_generation_status:
+        status = threat_model_generation_status[project_id]
+        if status.get("status") == "in_progress":
+            return {
+                "success": True,
+                "message": "Threat model generation already in progress",
+                "status": "in_progress",
+                "progress": status.get("progress", 0)
+            }
+
+    # Start background task
+    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5}
+    background_tasks.add_task(
+        _generate_threat_model_background,
+        project_id,
+        project.name,
+        project.architecture_doc
+    )
+
+    logger.info(f"[Threat Model Regenerate] Background task started for project {project_id}")
+
+    return {
+        "success": True,
+        "message": "Threat model generation started",
+        "status": "in_progress",
+        "progress": 5
+    }
+
+@app.get("/api/projects/{project_id}/threat-model/status")
+async def get_threat_model_status(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get threat model generation status"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check if there's an active generation
+    if project_id in threat_model_generation_status:
+        status = threat_model_generation_status[project_id]
+        return {
+            "status": status.get("status", "unknown"),
+            "step": status.get("step", ""),
+            "progress": status.get("progress", 0),
+            "threat_count": status.get("threat_count"),
+            "attack_paths_count": status.get("attack_paths_count"),
+            "error": status.get("error")
+        }
+
+    # Check if threat model exists
     existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
     if existing:
-        db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
-        db.commit()
-        logger.info(f"[Threat Model Regenerate] Deleted existing threat model")
-
-    # Use global threat_service which has proper AI config
-    logger.info(f"[Threat Model Regenerate] Using threat_service: enabled={threat_service.enabled}, provider={threat_service.provider}")
-
-    try:
-        logger.info(f"[Threat Model Regenerate] Calling generate_threat_model...")
-        threat_model_data = threat_service.generate_threat_model(
-            project.architecture_doc,
-            project.name
-        )
-        logger.info(f"[Threat Model Regenerate] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
-
-        threat_model = ThreatModel(
-            project_id=project.id,
-            name=f"{project.name} Threat Model",
-            dfd_level=0,
-            dfd_data=threat_model_data['dfd_data'],
-            stride_analysis=threat_model_data['stride_analysis'],
-            mitre_mapping=threat_model_data['mitre_mapping'],
-            trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
-            attack_paths=threat_model_data.get('attack_paths', []),
-            threat_count=threat_model_data['threat_count']
-        )
-        db.add(threat_model)
-        db.commit()
-        db.refresh(threat_model)
-
         return {
-            "success": True,
-            "message": "Threat model generated successfully",
-            "threat_count": threat_model_data['threat_count'],
-            "attack_paths_count": len(threat_model_data.get('attack_paths', []))
+            "status": "completed",
+            "step": "done",
+            "progress": 100,
+            "threat_count": existing.threat_count
         }
-    except Exception as e:
-        import traceback
-        logger.error(f"[Threat Model Regenerate] ERROR: {e}")
-        logger.error(f"[Threat Model Regenerate] Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Failed to generate threat model: {str(e)}")
+
+    return {
+        "status": "not_started",
+        "step": "",
+        "progress": 0
+    }
 
 # Scanning endpoints
 @app.post("/api/projects/{project_id}/scan/demo")

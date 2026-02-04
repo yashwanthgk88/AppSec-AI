@@ -136,46 +136,92 @@ export default function ThreatModelPage() {
     }
   }
 
-  // Simulate progress during generation
-  const simulateProgress = () => {
-    setCurrentStep(0)
-    setGenerationProgress(0)
+  // Poll status endpoint for generation progress
+  const pollGenerationStatus = async () => {
+    const token = localStorage.getItem('token')
+    let attempts = 0
+    const maxAttempts = 120 // 10 minutes max (5 second intervals)
 
-    const stepDurations = [2000, 3000, 2500, 2000, 1500] // ms per step
-    let totalElapsed = 0
+    const poll = async () => {
+      try {
+        const response = await axios.get(`/api/projects/${id}/threat-model/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
 
-    stepDurations.forEach((duration, index) => {
-      setTimeout(() => {
-        setCurrentStep(index + 1)
-        setGenerationProgress(((index + 1) / GENERATION_STEPS.length) * 100)
-      }, totalElapsed)
-      totalElapsed += duration
-    })
+        const { status, step, progress, threat_count, error } = response.data
+
+        // Map backend step to frontend step index
+        const stepMapping: { [key: string]: number } = {
+          'starting': 1,
+          'analyzing': 1,
+          'generating': 2,
+          'saving': 4,
+          'done': 5
+        }
+        setCurrentStep(stepMapping[step] || 1)
+        setGenerationProgress(progress || 0)
+
+        if (status === 'completed') {
+          setGenerationProgress(100)
+          setCurrentStep(GENERATION_STEPS.length)
+          setGenerationComplete(true)
+          // Show success for 2 seconds, then fetch and display
+          setTimeout(async () => {
+            await fetchThreatModel()
+            setRegenerating(false)
+            setGenerationProgress(0)
+            setCurrentStep(0)
+            setGenerationComplete(false)
+          }, 2000)
+          return
+        }
+
+        if (status === 'failed') {
+          alert(error || 'Failed to generate threat model. Please try again.')
+          setRegenerating(false)
+          setGenerationProgress(0)
+          setCurrentStep(0)
+          return
+        }
+
+        // Continue polling if still in progress
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000) // Poll every 5 seconds
+        } else {
+          alert('Generation is taking too long. Please check back later.')
+          setRegenerating(false)
+        }
+      } catch (error) {
+        console.error('Failed to poll status:', error)
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000)
+        }
+      }
+    }
+
+    // Start polling after a brief delay
+    setTimeout(poll, 2000)
   }
 
   const regenerateThreatModel = async () => {
     setRegenerating(true)
     setGenerationComplete(false)
-    simulateProgress()
+    setCurrentStep(1)
+    setGenerationProgress(5)
+
     try {
       const token = localStorage.getItem('token')
-      await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+      const response = await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setGenerationProgress(100)
-      setCurrentStep(GENERATION_STEPS.length)
-      setGenerationComplete(true)
-      // Show success for 2 seconds, then fetch and display
-      setTimeout(async () => {
-        await fetchThreatModel()
-        setRegenerating(false)
-        setGenerationProgress(0)
-        setCurrentStep(0)
-        setGenerationComplete(false)
-      }, 2000)
+
+      // Start polling for status
+      pollGenerationStatus()
     } catch (error: any) {
-      console.error('Failed to regenerate threat model:', error)
-      const errorMessage = error.response?.data?.detail || 'Failed to regenerate threat model. Please try again.'
+      console.error('Failed to start threat model generation:', error)
+      const errorMessage = error.response?.data?.detail || 'Failed to start threat model generation. Please try again.'
       alert(errorMessage)
       setRegenerating(false)
       setGenerationProgress(0)
@@ -186,32 +232,27 @@ export default function ThreatModelPage() {
   const generateWithSample = async () => {
     setRegenerating(true)
     setGenerationComplete(false)
-    simulateProgress()
+    setCurrentStep(1)
+    setGenerationProgress(5)
+
     try {
       const token = localStorage.getItem('token')
       // First update the project with sample architecture
-      setCurrentStep(1)
       await axios.put(`/api/projects/${id}`, {
         architecture_doc: SAMPLE_ARCHITECTURE
       }, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      // Then generate threat model
+
+      // Then start threat model generation
       await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setGenerationProgress(100)
-      setCurrentStep(GENERATION_STEPS.length)
-      setGenerationComplete(true)
+
       setShowSampleOption(false)
-      // Show success for 2 seconds, then fetch and display
-      setTimeout(async () => {
-        await fetchThreatModel()
-        setRegenerating(false)
-        setGenerationProgress(0)
-        setCurrentStep(0)
-        setGenerationComplete(false)
-      }, 2000)
+
+      // Start polling for status
+      pollGenerationStatus()
     } catch (error: any) {
       console.error('Failed to generate threat model with sample:', error)
       const errorMessage = error.response?.data?.detail || 'Failed to generate threat model. Please try again.'
