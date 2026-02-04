@@ -804,25 +804,25 @@ For each component, determine the most appropriate category from: api, database,
                         "references": self._get_threat_references(threat_template),
                     }
 
-                    # Queue high-severity threats for AI enrichment
+                    # Always add fallback values first (will be overwritten by AI if enriched)
+                    threat_obj.update({
+                        "description": self._generate_threat_description(threat_template, component),
+                        "mitigation": self._generate_mitigation(threat_template, component),
+                        "detection": self._generate_detection_guidance(threat_template),
+                        "attack_vector": self._get_attack_vector(threat_template, component),
+                        "business_impact": self._get_business_impact(threat_template, component),
+                        "affected_assets": self._get_affected_assets(component),
+                        "prerequisites": self._get_attack_prerequisites(threat_template, component),
+                        "attack_complexity": self._get_attack_complexity(threat_template),
+                    })
+
+                    # Queue high-severity threats for AI enrichment (will override fallbacks)
                     if threat_template['severity'] in ['critical', 'high'] and self.anthropic_client:
                         threats_to_enrich.append({
                             'threat_obj': threat_obj,
                             'threat_template': threat_template,
                             'component': component,
                             'stride_cat': stride_cat
-                        })
-                    else:
-                        # Use fallback for lower severity threats
-                        threat_obj.update({
-                            "description": self._generate_threat_description(threat_template, component),
-                            "mitigation": self._generate_mitigation(threat_template, component),
-                            "detection": self._generate_detection_guidance(threat_template),
-                            "attack_vector": self._get_attack_vector(threat_template, component),
-                            "business_impact": self._get_business_impact(threat_template, component),
-                            "affected_assets": self._get_affected_assets(component),
-                            "prerequisites": self._get_attack_prerequisites(threat_template, component),
-                            "attack_complexity": self._get_attack_complexity(threat_template),
                         })
 
                     stride_threats[stride_cat].append(threat_obj)
