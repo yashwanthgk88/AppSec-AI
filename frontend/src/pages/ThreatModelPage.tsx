@@ -40,6 +40,58 @@ const SEVERITY_COLORS = {
   low: 'text-green-700 bg-green-100 border-green-300'
 }
 
+// Sample architecture for demo purposes
+const SAMPLE_ARCHITECTURE = `E-Commerce Web Application
+
+The system consists of the following components:
+
+1. Web Frontend (React SPA)
+   - Serves end users via browser
+   - Handles user authentication flows
+   - Displays product catalog and shopping cart
+
+2. API Gateway (Node.js/Express)
+   - Routes and authenticates incoming API requests
+   - Rate limiting and request validation
+   - JWT token verification
+
+3. Authentication Service
+   - User registration and login
+   - Password hashing with bcrypt
+   - JWT token generation and refresh
+   - OAuth2 integration (Google, GitHub)
+
+4. Product Service (Python/FastAPI)
+   - Product catalog management
+   - Inventory tracking
+   - Search and filtering
+
+5. Order Service (Python/FastAPI)
+   - Shopping cart management
+   - Order processing and status tracking
+   - Order history
+
+6. Payment Service
+   - Stripe API integration
+   - Payment processing
+   - Refund handling
+
+7. Database Layer
+   - PostgreSQL for user data and orders
+   - Redis for session management and caching
+   - Elasticsearch for product search
+
+8. External Integrations
+   - Stripe for payments
+   - SendGrid for email notifications
+   - AWS S3 for image storage
+
+Data Flows:
+- Users → Frontend → API Gateway → Backend Services
+- Backend Services → PostgreSQL/Redis
+- Payment Service → Stripe API
+- Order Service → SendGrid (email notifications)`
+
 export default function ThreatModelPage() {
   const { id } = useParams()
   const [threatModel, setThreatModel] = useState<any>(null)
@@ -52,6 +104,7 @@ export default function ThreatModelPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre'>('threats')
   const [regenerating, setRegenerating] = useState(false)
+  const [showSampleOption, setShowSampleOption] = useState(false)
 
   useEffect(() => {
     fetchThreatModel()
@@ -80,9 +133,36 @@ export default function ThreatModelPage() {
       })
       // Refetch the threat model
       await fetchThreatModel()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to regenerate threat model:', error)
-      alert('Failed to regenerate threat model. Please try again.')
+      const errorMessage = error.response?.data?.detail || 'Failed to regenerate threat model. Please try again.'
+      alert(errorMessage)
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
+  const generateWithSample = async () => {
+    setRegenerating(true)
+    try {
+      const token = localStorage.getItem('token')
+      // First update the project with sample architecture
+      await axios.put(`/api/projects/${id}`, {
+        architecture_doc: SAMPLE_ARCHITECTURE
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      // Then generate threat model
+      await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      // Refetch the threat model
+      await fetchThreatModel()
+      setShowSampleOption(false)
+    } catch (error: any) {
+      console.error('Failed to generate threat model with sample:', error)
+      const errorMessage = error.response?.data?.detail || 'Failed to generate threat model. Please try again.'
+      alert(errorMessage)
     } finally {
       setRegenerating(false)
     }
@@ -122,27 +202,59 @@ export default function ThreatModelPage() {
 
   if (!threatModel) {
     return (
-      <div className="card p-12 text-center">
-        <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Threat Model</h3>
-        <p className="text-gray-600 mb-6">
-          No threat model found. Click below to generate one using AI-powered analysis.
-        </p>
-        <div className="flex justify-center space-x-4">
+      <div className="card p-8">
+        <div className="text-center mb-6">
+          <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Threat Model</h3>
+          <p className="text-gray-600">
+            Generate a threat model using AI-powered STRIDE analysis.
+          </p>
+        </div>
+
+        <div className="flex justify-center space-x-4 mb-6">
           <button
             onClick={regenerateThreatModel}
             disabled={regenerating}
             className="btn btn-primary inline-flex items-center space-x-2"
           >
             <Zap className={`w-4 h-4 ${regenerating ? 'animate-pulse' : ''}`} />
-            <span>{regenerating ? 'Generating Threat Model...' : 'Generate Threat Model'}</span>
+            <span>{regenerating ? 'Generating...' : 'Generate from Project Architecture'}</span>
           </button>
-          <Link to={`/projects/${id}`} className="btn btn-secondary">
+          <button
+            onClick={() => setShowSampleOption(!showSampleOption)}
+            disabled={regenerating}
+            className="btn btn-secondary inline-flex items-center space-x-2"
+          >
+            <Activity className="w-4 h-4" />
+            <span>Use Sample Architecture</span>
+          </button>
+          <Link to={`/projects/${id}`} className="btn btn-ghost">
             Back to Project
           </Link>
         </div>
+
+        {showSampleOption && (
+          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <h4 className="font-medium text-gray-900 mb-2">Sample E-Commerce Architecture</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              This sample describes a typical e-commerce application with authentication, payment processing, and multiple backend services.
+            </p>
+            <pre className="bg-white border border-gray-200 rounded p-3 text-xs text-gray-700 max-h-48 overflow-y-auto mb-4 whitespace-pre-wrap">
+              {SAMPLE_ARCHITECTURE}
+            </pre>
+            <button
+              onClick={generateWithSample}
+              disabled={regenerating}
+              className="btn btn-primary w-full inline-flex items-center justify-center space-x-2"
+            >
+              <Zap className={`w-4 h-4 ${regenerating ? 'animate-pulse' : ''}`} />
+              <span>{regenerating ? 'Generating Threat Model...' : 'Generate with Sample Architecture'}</span>
+            </button>
+          </div>
+        )}
+
         {regenerating && (
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-gray-500 mt-4 text-center">
             Analyzing architecture and generating STRIDE threats. This may take a moment...
           </p>
         )}

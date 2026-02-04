@@ -803,6 +803,59 @@ async def get_project(
         "created_at": project.created_at.isoformat() if project.created_at else None
     }
 
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    architecture_doc: Optional[str] = None
+    repository_url: Optional[str] = None
+    technology_stack: Optional[List[str]] = None
+    compliance_targets: Optional[List[str]] = None
+
+@app.put("/api/projects/{project_id}")
+async def update_project(
+    project_id: int,
+    project_update: ProjectUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update project details including architecture document"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Update only provided fields
+    if project_update.name is not None:
+        project.name = project_update.name
+    if project_update.description is not None:
+        project.description = project_update.description
+    if project_update.architecture_doc is not None:
+        project.architecture_doc = project_update.architecture_doc
+    if project_update.repository_url is not None:
+        project.repository_url = project_update.repository_url
+    if project_update.technology_stack is not None:
+        project.technology_stack = project_update.technology_stack
+    if project_update.compliance_targets is not None:
+        project.compliance_targets = project_update.compliance_targets
+
+    db.commit()
+    db.refresh(project)
+
+    return {
+        "id": project.id,
+        "name": project.name,
+        "description": project.description,
+        "architecture_doc": project.architecture_doc,
+        "repository_url": project.repository_url,
+        "technology_stack": project.technology_stack,
+        "compliance_targets": project.compliance_targets,
+        "risk_score": project.risk_score,
+        "created_at": project.created_at.isoformat() if project.created_at else None
+    }
+
 @app.post("/api/projects/{project_id}/calculate-risk-score")
 async def recalculate_risk_score(
     project_id: int,
