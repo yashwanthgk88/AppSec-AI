@@ -344,6 +344,111 @@ class InlineSecurityProvider {
                 severity: vscode.DiagnosticSeverity.Error,
                 suggestion: 'Avoid shell functions or use escapeshellarg()'
             },
+            // ============================================================
+            // PHP-SPECIFIC VULNERABILITIES (DVWA patterns)
+            // ============================================================
+            {
+                pattern: /\$_(?:GET|POST|REQUEST|COOKIE)\s*\[\s*['"][^'"]+['"]\s*\]/gi,
+                message: '💉 A03: PHP User Input - Potential injection source',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Sanitize with htmlspecialchars(), filter_input(), or prepared statements'
+            },
+            {
+                pattern: /\$(?:query|sql|stmt)\s*=\s*["'].*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: SQL Injection - User input directly in SQL query!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use prepared statements: $stmt = $pdo->prepare(); $stmt->execute()'
+            },
+            {
+                pattern: /["']SELECT.*FROM.*WHERE.*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: SQL Injection - $_GET/$_POST in SELECT query!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use PDO prepared statements with bound parameters'
+            },
+            {
+                pattern: /["']SELECT.*FROM.*WHERE.*['"]?\s*\.\s*\$/gi,
+                message: '💉 A03: SQL Injection - Variable concatenated in query',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never concatenate variables in SQL - use prepared statements'
+            },
+            {
+                pattern: /mysqli?_query\s*\([^,]+,\s*["'].*\$/gi,
+                message: '💉 A03: SQL Injection - Variable in mysqli_query!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use mysqli_prepare() and mysqli_stmt_bind_param()'
+            },
+            {
+                pattern: /mysql_(?:query|real_escape_string|escape_string)/gi,
+                message: '💉 A03: Deprecated mysql_* functions - vulnerable to injection',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use PDO or mysqli with prepared statements'
+            },
+            {
+                pattern: /echo\s+\$_(?:GET|POST|REQUEST|COOKIE)/gi,
+                message: '🔓 A07: XSS - Echoing user input directly!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use htmlspecialchars($_GET["param"], ENT_QUOTES, "UTF-8")'
+            },
+            {
+                pattern: /print\s+\$_(?:GET|POST|REQUEST|COOKIE)/gi,
+                message: '🔓 A07: XSS - Printing user input directly!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use htmlspecialchars() to escape output'
+            },
+            {
+                pattern: /echo\s+["'].*\$(?!this|_(?:SERVER|ENV))/gi,
+                message: '🔓 A07: XSS - Variable in echo without escaping',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Escape with htmlspecialchars() before output'
+            },
+            {
+                pattern: /include\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: LFI/RFI - User input in include()!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never include files based on user input - use whitelist'
+            },
+            {
+                pattern: /require(?:_once)?\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: LFI/RFI - User input in require()!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never require files based on user input'
+            },
+            {
+                pattern: /file_get_contents\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: SSRF/LFI - User input in file_get_contents!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate and whitelist allowed URLs/paths'
+            },
+            {
+                pattern: /header\s*\(\s*["']Location:\s*["']?\s*\.\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '🔓 A10: Open Redirect - User input in redirect!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Validate redirect URLs against whitelist'
+            },
+            {
+                pattern: /unserialize\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)/gi,
+                message: '💉 A08: Insecure Deserialization - User input in unserialize!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never unserialize untrusted data - use JSON instead'
+            },
+            {
+                pattern: /preg_replace\s*\(\s*['"]\/.*\/e['"]/gi,
+                message: '💉 A03: Code Injection - preg_replace with /e modifier!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Use preg_replace_callback() instead of /e modifier'
+            },
+            {
+                pattern: /assert\s*\(\s*\$_(?:GET|POST|REQUEST)/gi,
+                message: '💉 A03: Code Injection - User input in assert()!',
+                severity: vscode.DiagnosticSeverity.Error,
+                suggestion: 'Never use assert() with user input'
+            },
+            {
+                pattern: /\$\w+\s*=\s*\$_(?:GET|POST|REQUEST)\s*\[\s*['"][^'"]+['"]\s*\]\s*;(?!\s*(?:\/\/|\/\*|\$\w+\s*=\s*(?:htmlspecialchars|filter|intval|mysqli_real_escape)))/gi,
+                message: '⚠️ User input assigned without validation',
+                severity: vscode.DiagnosticSeverity.Warning,
+                suggestion: 'Validate/sanitize: filter_input(), htmlspecialchars(), intval()'
+            },
             // LDAP Injection
             {
                 pattern: /ldap_search\s*\(.*\$|ldap_bind\s*\(.*\$/gi,
