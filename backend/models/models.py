@@ -504,3 +504,48 @@ class ProjectIntegration(Base):
 
     # Relationships
     project = relationship("Project", backref="integrations")
+
+
+# ==================== PROMPT FEEDBACK FOR IN-CONTEXT LEARNING ====================
+
+class FeedbackType(str, enum.Enum):
+    ABUSE_CASE = "abuse_case"
+    SECURITY_REQUIREMENT = "security_requirement"
+
+
+class FeedbackRating(str, enum.Enum):
+    POSITIVE = "positive"  # 👍 Good example
+    NEGATIVE = "negative"  # 👎 Bad example
+
+
+class PromptFeedback(Base):
+    """Stores user feedback on AI-generated abuse cases and security requirements
+    Used for in-context learning to improve future AI prompts"""
+    __tablename__ = "prompt_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # What type of content this feedback is for
+    feedback_type = Column(Enum(FeedbackType), nullable=False)
+
+    # The rating: positive (good example) or negative (bad example)
+    rating = Column(Enum(FeedbackRating), nullable=False)
+
+    # The actual content being rated (JSON for flexibility)
+    content = Column(JSON, nullable=False)  # The abuse case or requirement object
+
+    # Context: what user story generated this (for reference)
+    story_title = Column(String(500))
+    story_description = Column(Text)
+
+    # Who provided the feedback
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    # Optional comment explaining why this is good/bad
+    comment = Column(Text)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    user = relationship("User", backref="prompt_feedback")

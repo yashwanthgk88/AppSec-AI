@@ -5,7 +5,7 @@ Analyzes user stories to generate security requirements, threats, and abuse case
 import os
 import json
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Callable
 
 from dotenv import load_dotenv
 load_dotenv()  # Load .env file
@@ -101,11 +101,23 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
 
     def __init__(self, api_key: Optional[str] = None, provider: str = "openai",
                  custom_abuse_case_prompt: Optional[str] = None,
-                 custom_security_req_prompt: Optional[str] = None):
-        """Initialize the analyzer with AI provider and optional custom prompts"""
+                 custom_security_req_prompt: Optional[str] = None,
+                 feedback_fetcher: Optional[Callable] = None):
+        """Initialize the analyzer with AI provider and optional custom prompts
+
+        Args:
+            api_key: API key for the AI provider
+            provider: AI provider to use (openai, anthropic)
+            custom_abuse_case_prompt: Custom prompt for abuse case generation
+            custom_security_req_prompt: Custom prompt for security requirement generation
+            feedback_fetcher: Optional callable that fetches feedback from database
+                             Should return dict with keys: abuse_case_positive, abuse_case_negative,
+                             security_requirement_positive, security_requirement_negative
+        """
         self.provider = provider
         self.client = None
         self.model = None
+        self.feedback_fetcher = feedback_fetcher
 
         # Store custom prompts (use defaults if not provided)
         self.abuse_case_prompt = custom_abuse_case_prompt or self.DEFAULT_ABUSE_CASE_PROMPT
@@ -241,8 +253,12 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         return self._template_analyze(title, description, acceptance_criteria)
 
     def _build_analysis_prompt(self, title: str, description: str, acceptance_criteria: str) -> str:
-        """Build the prompt for AI analysis - generates clean, structured security analysis"""
+        """Build the prompt for AI analysis - generates clean, structured security analysis
+        Includes feedback examples for in-context learning when available."""
         ac_section = f"\nAcceptance Criteria: {acceptance_criteria}" if acceptance_criteria else ""
+
+        # Build feedback examples section if feedback is available
+        feedback_section = self._build_feedback_section()
 
         return f"""You are an expert application security analyst. Analyze the following user story for security threats, abuse cases, and generate security requirements.
 
@@ -252,7 +268,7 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
 {self.abuse_case_prompt}
 
 {self.security_req_prompt}
-
+{feedback_section}
 Return ONLY valid JSON with this exact structure:
 {{
   "abuse_cases": [
@@ -268,6 +284,84 @@ Return ONLY valid JSON with this exact structure:
 }}
 
 Generate at least 5 abuse cases, 6 STRIDE threats, and 10 security requirements. Be SPECIFIC to this user story, not generic."""
+
+    def _build_feedback_section(self) -> str:
+        """Build the feedback examples section for in-context learning.
+        Fetches good and bad examples from the database to guide AI output."""
+        if not self.feedback_fetcher:
+            return ""
+
+        try:
+            feedback = self.feedback_fetcher()
+            if not feedback:
+                return ""
+
+            sections = []
+
+            # Abuse case examples
+            abuse_positive = feedback.get("abuse_case_positive", [])
+            abuse_negative = feedback.get("abuse_case_negative", [])
+
+            if abuse_positive or abuse_negative:
+                sections.append("\n## FEEDBACK-BASED GUIDANCE FOR ABUSE CASES:")
+
+                if abuse_positive:
+                    sections.append("\n**GOOD abuse case examples (generate similar quality):**")
+                    for i, example in enumerate(abuse_positive[:3], 1):  # Limit to 3 examples
+                        content = example.get("content", {})
+                        sections.append(f"""
+Example {i} (👍 Well-received):
+- Title: {content.get('title') or content.get('threat', 'N/A')}
+- Actor: {content.get('actor') or content.get('threat_actor', 'N/A')}
+- Description: {content.get('description', 'N/A')[:200]}...
+- Impact: {content.get('impact', 'N/A')}""")
+
+                if abuse_negative:
+                    sections.append("\n**AVOID these patterns (marked as poor quality):**")
+                    for i, example in enumerate(abuse_negative[:2], 1):  # Limit to 2 examples
+                        content = example.get("content", {})
+                        comment = example.get("comment", "")
+                        sections.append(f"""
+Anti-Example {i} (👎 Avoid):
+- Title: {content.get('title') or content.get('threat', 'N/A')}
+- Why it's poor: {comment if comment else 'Too generic or unrealistic'}""")
+
+            # Security requirement examples
+            req_positive = feedback.get("security_requirement_positive", [])
+            req_negative = feedback.get("security_requirement_negative", [])
+
+            if req_positive or req_negative:
+                sections.append("\n## FEEDBACK-BASED GUIDANCE FOR SECURITY REQUIREMENTS:")
+
+                if req_positive:
+                    sections.append("\n**GOOD security requirement examples (generate similar quality):**")
+                    for i, example in enumerate(req_positive[:3], 1):
+                        content = example.get("content", {})
+                        sections.append(f"""
+Example {i} (👍 Well-received):
+- ID: {content.get('id', 'N/A')}
+- Requirement: {content.get('requirement') or content.get('text', 'N/A')}
+- Category: {content.get('category', 'N/A')}
+- Priority: {content.get('priority', 'N/A')}
+- Acceptance Criteria: {(content.get('acceptance_criteria', 'N/A'))[:150]}...""")
+
+                if req_negative:
+                    sections.append("\n**AVOID these patterns (marked as poor quality):**")
+                    for i, example in enumerate(req_negative[:2], 1):
+                        content = example.get("content", {})
+                        comment = example.get("comment", "")
+                        sections.append(f"""
+Anti-Example {i} (👎 Avoid):
+- Requirement: {content.get('requirement') or content.get('text', 'N/A')}
+- Why it's poor: {comment if comment else 'Too vague or not actionable'}""")
+
+            if sections:
+                return "\n".join(sections) + "\n"
+
+        except Exception as e:
+            print(f"[SecurityAnalyzer] Error building feedback section: {e}")
+
+        return ""
 
     def _template_analyze(self, title: str, description: str, acceptance_criteria: str) -> Dict[str, Any]:
         """Fallback when AI is not available - returns minimal placeholder data"""

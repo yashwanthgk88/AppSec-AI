@@ -12,7 +12,7 @@ from datetime import datetime
 from models import get_db
 from models.models import (
     User, Project, UserStory, SecurityAnalysis, ComplianceMapping,
-    CustomStandard, StorySource
+    CustomStandard, StorySource, PromptFeedback, FeedbackType, FeedbackRating
 )
 from core.security import get_current_active_user
 from services.security_requirements_analyzer import SecurityRequirementsAnalyzer
@@ -236,6 +236,57 @@ async def delete_story(
 
 # ==================== Analysis Endpoints ====================
 
+def create_feedback_fetcher(db: Session):
+    """Create a feedback fetcher function for the analyzer.
+    Returns a callable that fetches feedback examples from the database."""
+    def fetch_feedback():
+        """Fetch feedback examples grouped by type and rating."""
+        result = {
+            "abuse_case_positive": [],
+            "abuse_case_negative": [],
+            "security_requirement_positive": [],
+            "security_requirement_negative": []
+        }
+
+        # Fetch recent positive abuse case examples (limit 5)
+        positive_abuse = db.query(PromptFeedback).filter(
+            PromptFeedback.feedback_type == FeedbackType.ABUSE_CASE,
+            PromptFeedback.rating == FeedbackRating.POSITIVE
+        ).order_by(PromptFeedback.created_at.desc()).limit(5).all()
+        result["abuse_case_positive"] = [{"content": f.content, "comment": f.comment} for f in positive_abuse]
+
+        # Fetch recent negative abuse case examples (limit 3)
+        negative_abuse = db.query(PromptFeedback).filter(
+            PromptFeedback.feedback_type == FeedbackType.ABUSE_CASE,
+            PromptFeedback.rating == FeedbackRating.NEGATIVE
+        ).order_by(PromptFeedback.created_at.desc()).limit(3).all()
+        result["abuse_case_negative"] = [{"content": f.content, "comment": f.comment} for f in negative_abuse]
+
+        # Fetch recent positive security requirement examples (limit 5)
+        positive_req = db.query(PromptFeedback).filter(
+            PromptFeedback.feedback_type == FeedbackType.SECURITY_REQUIREMENT,
+            PromptFeedback.rating == FeedbackRating.POSITIVE
+        ).order_by(PromptFeedback.created_at.desc()).limit(5).all()
+        result["security_requirement_positive"] = [{"content": f.content, "comment": f.comment} for f in positive_req]
+
+        # Fetch recent negative security requirement examples (limit 3)
+        negative_req = db.query(PromptFeedback).filter(
+            PromptFeedback.feedback_type == FeedbackType.SECURITY_REQUIREMENT,
+            PromptFeedback.rating == FeedbackRating.NEGATIVE
+        ).order_by(PromptFeedback.created_at.desc()).limit(3).all()
+        result["security_requirement_negative"] = [{"content": f.content, "comment": f.comment} for f in negative_req]
+
+        total = len(result["abuse_case_positive"]) + len(result["abuse_case_negative"]) + \
+                len(result["security_requirement_positive"]) + len(result["security_requirement_negative"])
+
+        if total > 0:
+            print(f"[FEEDBACK] Fetched {total} feedback examples for in-context learning")
+
+        return result
+
+    return fetch_feedback
+
+
 @router.post("/stories/{story_id}/analyze", response_model=AnalysisResponse)
 async def analyze_story(
     story_id: int,
@@ -267,11 +318,15 @@ async def analyze_story(
     custom_abuse_prompt = current_user.custom_abuse_case_prompt if current_user.use_custom_prompts else None
     custom_req_prompt = current_user.custom_security_req_prompt if current_user.use_custom_prompts else None
 
+    # Create feedback fetcher for in-context learning
+    feedback_fetcher = create_feedback_fetcher(db)
+
     analyzer = SecurityRequirementsAnalyzer(
         api_key=current_user.ai_api_key,
         provider=current_user.ai_provider or "openai",
         custom_abuse_case_prompt=custom_abuse_prompt,
-        custom_security_req_prompt=custom_req_prompt
+        custom_security_req_prompt=custom_req_prompt,
+        feedback_fetcher=feedback_fetcher
     )
 
     # Run analysis
@@ -933,3 +988,173 @@ async def publish_analysis_to_external(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to publish: {str(e)}")
+
+
+# ==================== Feedback Endpoints for In-Context Learning ====================
+
+class FeedbackCreate(BaseModel):
+    feedback_type: str  # "abuse_case" or "security_requirement"
+    rating: str  # "positive" or "negative"
+    content: dict  # The actual abuse case or requirement object
+    story_title: Optional[str] = None
+    story_description: Optional[str] = None
+    comment: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    id: int
+    feedback_type: str
+    rating: str
+    content: dict
+    story_title: Optional[str]
+    comment: Optional[str]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(
+    feedback_data: FeedbackCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Submit feedback (thumbs up/down) for an abuse case or security requirement.
+    This feedback is used to improve AI prompts through in-context learning."""
+
+    # Validate feedback_type
+    try:
+        feedback_type_enum = FeedbackType(feedback_data.feedback_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid feedback_type. Must be 'abuse_case' or 'security_requirement'"
+        )
+
+    # Validate rating
+    try:
+        rating_enum = FeedbackRating(feedback_data.rating)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid rating. Must be 'positive' or 'negative'"
+        )
+
+    feedback = PromptFeedback(
+        feedback_type=feedback_type_enum,
+        rating=rating_enum,
+        content=feedback_data.content,
+        story_title=feedback_data.story_title,
+        story_description=feedback_data.story_description,
+        comment=feedback_data.comment,
+        user_id=current_user.id
+    )
+
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+
+    return FeedbackResponse(
+        id=feedback.id,
+        feedback_type=feedback.feedback_type.value,
+        rating=feedback.rating.value,
+        content=feedback.content,
+        story_title=feedback.story_title,
+        comment=feedback.comment,
+        created_at=feedback.created_at
+    )
+
+
+@router.get("/feedback", response_model=List[FeedbackResponse])
+async def get_feedback(
+    feedback_type: Optional[str] = None,
+    rating: Optional[str] = None,
+    limit: int = 50,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get feedback entries for in-context learning.
+    Filter by feedback_type (abuse_case/security_requirement) and rating (positive/negative)."""
+
+    query = db.query(PromptFeedback)
+
+    if feedback_type:
+        try:
+            ft_enum = FeedbackType(feedback_type)
+            query = query.filter(PromptFeedback.feedback_type == ft_enum)
+        except ValueError:
+            pass
+
+    if rating:
+        try:
+            r_enum = FeedbackRating(rating)
+            query = query.filter(PromptFeedback.rating == r_enum)
+        except ValueError:
+            pass
+
+    feedback_list = query.order_by(PromptFeedback.created_at.desc()).limit(limit).all()
+
+    return [
+        FeedbackResponse(
+            id=f.id,
+            feedback_type=f.feedback_type.value,
+            rating=f.rating.value,
+            content=f.content,
+            story_title=f.story_title,
+            comment=f.comment,
+            created_at=f.created_at
+        )
+        for f in feedback_list
+    ]
+
+
+@router.delete("/feedback/{feedback_id}")
+async def delete_feedback(
+    feedback_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a feedback entry."""
+    feedback = db.query(PromptFeedback).filter(
+        PromptFeedback.id == feedback_id,
+        PromptFeedback.user_id == current_user.id
+    ).first()
+
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    db.delete(feedback)
+    db.commit()
+
+    return {"message": "Feedback deleted successfully"}
+
+
+@router.get("/feedback/stats")
+async def get_feedback_stats(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get feedback statistics for monitoring prompt improvement."""
+
+    # Count by type and rating
+    stats = {}
+
+    for ft in FeedbackType:
+        for r in FeedbackRating:
+            count = db.query(PromptFeedback).filter(
+                PromptFeedback.feedback_type == ft,
+                PromptFeedback.rating == r
+            ).count()
+            key = f"{ft.value}_{r.value}"
+            stats[key] = count
+
+    total = db.query(PromptFeedback).count()
+
+    return {
+        "total_feedback": total,
+        "abuse_case_positive": stats.get("abuse_case_positive", 0),
+        "abuse_case_negative": stats.get("abuse_case_negative", 0),
+        "security_requirement_positive": stats.get("security_requirement_positive", 0),
+        "security_requirement_negative": stats.get("security_requirement_negative", 0)
+    }

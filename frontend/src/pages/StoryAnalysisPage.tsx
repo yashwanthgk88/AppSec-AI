@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import {
   Shield, ArrowLeft, AlertTriangle, CheckCircle, Target,
   RefreshCw, Clock, FileText, Upload,
-  Lock, Zap, Eye, EyeOff, User, Database, Server
+  Lock, Zap, Eye, EyeOff, User, Database, Server,
+  ThumbsUp, ThumbsDown
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -137,10 +138,41 @@ export default function StoryAnalysisPage() {
   const [publishing, setPublishing] = useState(false)
   const [publishMessage, setPublishMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'threats' | 'requirements' | 'compliance'>('threats')
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState<string | null>(null)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchData()
   }, [storyId])
+
+  const submitFeedback = async (
+    feedbackType: 'abuse_case' | 'security_requirement',
+    rating: 'positive' | 'negative',
+    content: any,
+    itemId: string
+  ) => {
+    const feedbackKey = `${feedbackType}-${itemId}-${rating}`
+    if (feedbackSubmitted.has(feedbackKey)) return
+
+    setFeedbackSubmitting(feedbackKey)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post('/api/securereq/feedback', {
+        feedback_type: feedbackType,
+        rating: rating,
+        content: content,
+        story_title: story?.title,
+        story_description: story?.description
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setFeedbackSubmitted(prev => new Set(prev).add(feedbackKey))
+    } catch (error) {
+      console.error('Failed to submit feedback:', error)
+    } finally {
+      setFeedbackSubmitting(null)
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -463,17 +495,46 @@ export default function StoryAnalysisPage() {
                         </div>
                       )}
 
-                      <div className="flex items-center flex-wrap gap-2 mt-3">
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs flex items-center">
-                          <Target className="w-3 h-3 mr-1" />
-                          Actor: {abuse.threat_actor}
-                        </span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.impact)}`}>
-                          Impact: {abuse.impact}
-                        </span>
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.likelihood)}`}>
-                          Likelihood: {abuse.likelihood}
-                        </span>
+                      <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center flex-wrap gap-2">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs flex items-center">
+                            <Target className="w-3 h-3 mr-1" />
+                            Actor: {abuse.threat_actor}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.impact)}`}>
+                            Impact: {abuse.impact}
+                          </span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getImpactColor(abuse.likelihood)}`}>
+                            Likelihood: {abuse.likelihood}
+                          </span>
+                        </div>
+                        {/* Feedback buttons */}
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => submitFeedback('abuse_case', 'positive', abuse, abuse.id)}
+                            disabled={feedbackSubmitted.has(`abuse_case-${abuse.id}-positive`)}
+                            className={`p-1.5 rounded-full transition-colors ${
+                              feedbackSubmitted.has(`abuse_case-${abuse.id}-positive`)
+                                ? 'bg-green-100 text-green-600'
+                                : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
+                            }`}
+                            title="Good abuse case - helps improve AI"
+                          >
+                            <ThumbsUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => submitFeedback('abuse_case', 'negative', abuse, abuse.id)}
+                            disabled={feedbackSubmitted.has(`abuse_case-${abuse.id}-negative`)}
+                            className={`p-1.5 rounded-full transition-colors ${
+                              feedbackSubmitted.has(`abuse_case-${abuse.id}-negative`)
+                                ? 'bg-red-100 text-red-600'
+                                : 'hover:bg-red-50 text-gray-400 hover:text-red-600'
+                            }`}
+                            title="Poor abuse case - helps improve AI"
+                          >
+                            <ThumbsDown className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -576,6 +637,37 @@ export default function StoryAnalysisPage() {
                           <li key={idx}>{point}</li>
                         ))}
                       </ul>
+                    </div>
+
+                    {/* Feedback buttons */}
+                    <div className="flex items-center justify-end mt-3 pt-2 border-t border-gray-100">
+                      <span className="text-xs text-gray-400 mr-2">Was this helpful?</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => submitFeedback('security_requirement', 'positive', req, req.id)}
+                          disabled={feedbackSubmitted.has(`security_requirement-${req.id}-positive`)}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            feedbackSubmitted.has(`security_requirement-${req.id}-positive`)
+                              ? 'bg-green-100 text-green-600'
+                              : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
+                          }`}
+                          title="Good requirement - helps improve AI"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => submitFeedback('security_requirement', 'negative', req, req.id)}
+                          disabled={feedbackSubmitted.has(`security_requirement-${req.id}-negative`)}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            feedbackSubmitted.has(`security_requirement-${req.id}-negative`)
+                              ? 'bg-red-100 text-red-600'
+                              : 'hover:bg-red-50 text-gray-400 hover:text-red-600'
+                          }`}
+                          title="Poor requirement - helps improve AI"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
