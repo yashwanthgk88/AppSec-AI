@@ -92,6 +92,15 @@ Data Flows:
 - Payment Service → Stripe API
 - Order Service → SendGrid (email notifications)`
 
+// Progress steps for threat model generation
+const GENERATION_STEPS = [
+  { id: 1, name: 'Analyzing Architecture', description: 'Parsing system components and data flows' },
+  { id: 2, name: 'Generating STRIDE Threats', description: 'Identifying security threats using STRIDE methodology' },
+  { id: 3, name: 'Mapping MITRE ATT&CK', description: 'Correlating threats with MITRE ATT&CK framework' },
+  { id: 4, name: 'Building Attack Paths', description: 'Analyzing potential attack vectors' },
+  { id: 5, name: 'Finalizing', description: 'Completing threat model generation' },
+]
+
 export default function ThreatModelPage() {
   const { id } = useParams()
   const [threatModel, setThreatModel] = useState<any>(null)
@@ -105,6 +114,8 @@ export default function ThreatModelPage() {
   const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre'>('threats')
   const [regenerating, setRegenerating] = useState(false)
   const [showSampleOption, setShowSampleOption] = useState(false)
+  const [generationProgress, setGenerationProgress] = useState(0)
+  const [currentStep, setCurrentStep] = useState(0)
 
   useEffect(() => {
     fetchThreatModel()
@@ -124,13 +135,33 @@ export default function ThreatModelPage() {
     }
   }
 
+  // Simulate progress during generation
+  const simulateProgress = () => {
+    setCurrentStep(0)
+    setGenerationProgress(0)
+
+    const stepDurations = [2000, 3000, 2500, 2000, 1500] // ms per step
+    let totalElapsed = 0
+
+    stepDurations.forEach((duration, index) => {
+      setTimeout(() => {
+        setCurrentStep(index + 1)
+        setGenerationProgress(((index + 1) / GENERATION_STEPS.length) * 100)
+      }, totalElapsed)
+      totalElapsed += duration
+    })
+  }
+
   const regenerateThreatModel = async () => {
     setRegenerating(true)
+    simulateProgress()
     try {
       const token = localStorage.getItem('token')
       await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      setGenerationProgress(100)
+      setCurrentStep(GENERATION_STEPS.length)
       // Refetch the threat model
       await fetchThreatModel()
     } catch (error: any) {
@@ -139,14 +170,18 @@ export default function ThreatModelPage() {
       alert(errorMessage)
     } finally {
       setRegenerating(false)
+      setGenerationProgress(0)
+      setCurrentStep(0)
     }
   }
 
   const generateWithSample = async () => {
     setRegenerating(true)
+    simulateProgress()
     try {
       const token = localStorage.getItem('token')
       // First update the project with sample architecture
+      setCurrentStep(1)
       await axios.put(`/api/projects/${id}`, {
         architecture_doc: SAMPLE_ARCHITECTURE
       }, {
@@ -156,6 +191,8 @@ export default function ThreatModelPage() {
       await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      setGenerationProgress(100)
+      setCurrentStep(GENERATION_STEPS.length)
       // Refetch the threat model
       await fetchThreatModel()
       setShowSampleOption(false)
@@ -165,6 +202,8 @@ export default function ThreatModelPage() {
       alert(errorMessage)
     } finally {
       setRegenerating(false)
+      setGenerationProgress(0)
+      setCurrentStep(0)
     }
   }
 
@@ -254,9 +293,56 @@ export default function ThreatModelPage() {
         )}
 
         {regenerating && (
-          <p className="text-sm text-gray-500 mt-4 text-center">
-            Analyzing architecture and generating STRIDE threats. This may take a moment...
-          </p>
+          <div className="mt-6 border border-gray-200 rounded-lg p-4 bg-white">
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-medium text-gray-700">Generating Threat Model...</span>
+                <span className="text-gray-500">{Math.round(generationProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div
+                  className="bg-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${generationProgress}%` }}
+                ></div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {GENERATION_STEPS.map((step, index) => (
+                <div
+                  key={step.id}
+                  className={`flex items-center space-x-3 text-sm ${
+                    currentStep > index
+                      ? 'text-green-600'
+                      : currentStep === index
+                      ? 'text-primary-600 font-medium'
+                      : 'text-gray-400'
+                  }`}
+                >
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                    currentStep > index
+                      ? 'bg-green-100'
+                      : currentStep === index
+                      ? 'bg-primary-100'
+                      : 'bg-gray-100'
+                  }`}>
+                    {currentStep > index ? (
+                      <CheckCircle className="w-4 h-4" />
+                    ) : currentStep === index ? (
+                      <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse" />
+                    ) : (
+                      <div className="w-2 h-2 bg-gray-300 rounded-full" />
+                    )}
+                  </div>
+                  <div>
+                    <span>{step.name}</span>
+                    {currentStep === index && (
+                      <span className="text-xs text-gray-500 ml-2">— {step.description}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     )
