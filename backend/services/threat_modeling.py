@@ -842,16 +842,16 @@ For each component, determine the most appropriate category from: api, database,
                 system_context
             )
 
-            # Update threat with AI-generated content
+            # Update threat with AI-generated content (use fallback if AI returns empty)
             threat_obj.update({
-                "description": enriched.get('description', self._generate_threat_description(item['threat_template'], item['component'])),
-                "mitigation": enriched.get('mitigation', self._generate_mitigation(item['threat_template'], item['component'])),
-                "detection": enriched.get('detection', self._generate_detection_guidance(item['threat_template'])),
-                "attack_vector": enriched.get('attack_vector', self._get_attack_vector(item['threat_template'], item['component'])),
-                "business_impact": enriched.get('business_impact', self._get_business_impact(item['threat_template'], item['component'])),
-                "affected_assets": enriched.get('affected_assets', self._get_affected_assets(item['component'])),
-                "prerequisites": enriched.get('prerequisites', self._get_attack_prerequisites(item['threat_template'], item['component'])),
-                "attack_complexity": enriched.get('attack_complexity', self._get_attack_complexity(item['threat_template'])),
+                "description": enriched.get('description') or self._generate_threat_description(item['threat_template'], item['component']),
+                "mitigation": enriched.get('mitigation') or self._generate_mitigation(item['threat_template'], item['component']),
+                "detection": enriched.get('detection') or self._generate_detection_guidance(item['threat_template']),
+                "attack_vector": enriched.get('attack_vector') or self._get_attack_vector(item['threat_template'], item['component']),
+                "business_impact": enriched.get('business_impact') or self._get_business_impact(item['threat_template'], item['component']),
+                "affected_assets": enriched.get('affected_assets') or self._get_affected_assets(item['component']),
+                "prerequisites": enriched.get('prerequisites') or self._get_attack_prerequisites(item['threat_template'], item['component']),
+                "attack_complexity": enriched.get('attack_complexity') or self._get_attack_complexity(item['threat_template']),
             })
 
         # Add data flow threats
@@ -922,12 +922,42 @@ For each component, determine the most appropriate category from: api, database,
             "CWE-307": "Implement account lockout, rate limiting, CAPTCHA, and multi-factor authentication.",
             "CWE-311": "Encrypt sensitive data at rest using AES-256. Implement proper key management.",
             "CWE-918": "Validate and sanitize URLs. Use allowlists for permitted destinations.",
+            "CWE-319": "Implement TLS 1.3 for all data in transit. Enforce HTTPS with HSTS headers.",
+            "CWE-306": "Implement mutual TLS or API key authentication. Validate all incoming requests.",
+            "CWE-287": "Implement strong authentication mechanisms. Use MFA for sensitive operations.",
+            "CWE-862": "Implement role-based access control (RBAC). Verify authorization for all requests.",
+            "CWE-200": "Implement proper error handling. Avoid exposing sensitive information in responses.",
+            "CWE-522": "Use secure password hashing (bcrypt/Argon2). Enforce strong password policies.",
+            "CWE-798": "Remove hardcoded credentials. Use secrets management solutions (Vault, AWS Secrets Manager).",
+            "CWE-502": "Validate and sanitize all deserialized data. Use safe deserialization libraries.",
+            "CWE-611": "Disable external entity processing. Use secure XML parser configurations.",
+            "CWE-94": "Avoid dynamic code execution. Implement strict input validation and sandboxing.",
+            "CWE-78": "Use parameterized commands. Avoid shell execution with user input.",
+            "CWE-434": "Validate file types and content. Store uploads outside web root with random names.",
+            "CWE-352": "Implement CSRF tokens. Validate Origin and Referer headers.",
+            "CWE-269": "Apply principle of least privilege. Review and audit access permissions regularly.",
         }
 
-        return mitigations.get(
-            threat_template.get('cwe'),
-            f"Implement appropriate security controls for {threat_template['threat']}"
-        )
+        cwe = threat_template.get('cwe', '')
+        if cwe in mitigations:
+            return mitigations[cwe]
+
+        # Category-based fallbacks
+        category = threat_template.get('category', '')
+        category_mitigations = {
+            "Spoofing": "Implement strong authentication and identity verification. Use certificates or tokens for service-to-service communication.",
+            "Tampering": "Implement integrity checks using cryptographic signatures. Use secure channels for data transmission.",
+            "Repudiation": "Implement comprehensive audit logging. Use tamper-evident logs with timestamps and digital signatures.",
+            "Information Disclosure": "Encrypt sensitive data at rest and in transit. Implement proper access controls and data masking.",
+            "Denial of Service": "Implement rate limiting, resource quotas, and auto-scaling. Use CDN and DDoS protection.",
+            "Elevation of Privilege": "Implement role-based access control. Apply principle of least privilege. Regular access reviews.",
+        }
+
+        if category in category_mitigations:
+            return category_mitigations[category]
+
+        threat_name = threat_template.get('threat', 'this threat')
+        return f"Implement appropriate security controls to mitigate {threat_name}. Conduct security review and testing."
 
     def _generate_detection_guidance(self, threat_template: Dict) -> str:
         """Generate detection guidance for the threat"""
