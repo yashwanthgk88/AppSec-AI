@@ -992,6 +992,12 @@ Anti-Example {i} (👎 Avoid):
                     req["rationale"] = req["details"]
                 if "implementation_guidance" not in req:
                     req["implementation_guidance"] = req["details"]
+            # Ensure acceptance_criteria exists with a default if not provided by AI
+            if "acceptance_criteria" not in req or not req["acceptance_criteria"]:
+                # Generate a basic acceptance criteria based on the requirement
+                requirement_text = req.get("requirement") or req.get("text", "")
+                category = req.get("category", "Security")
+                req["acceptance_criteria"] = f"• {category} control is implemented and verified\n• Security testing confirms requirement is met\n• Code review validates implementation"
 
         # Handle stride_threats - can be list (securereq-ai) or dict (old format)
         stride_threats = result.get("stride_threats", [])
