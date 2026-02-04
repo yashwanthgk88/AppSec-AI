@@ -126,11 +126,26 @@ export default function ThreatModelPage() {
         <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-900 mb-2">No Threat Model</h3>
         <p className="text-gray-600 mb-6">
-          No threat model found. Create a project with architecture documentation.
+          No threat model found. Click below to generate one using AI-powered analysis.
         </p>
-        <Link to={`/projects/${id}`} className="btn btn-primary">
-          Back to Project
-        </Link>
+        <div className="flex justify-center space-x-4">
+          <button
+            onClick={regenerateThreatModel}
+            disabled={regenerating}
+            className="btn btn-primary inline-flex items-center space-x-2"
+          >
+            <Zap className={`w-4 h-4 ${regenerating ? 'animate-pulse' : ''}`} />
+            <span>{regenerating ? 'Generating Threat Model...' : 'Generate Threat Model'}</span>
+          </button>
+          <Link to={`/projects/${id}`} className="btn btn-secondary">
+            Back to Project
+          </Link>
+        </div>
+        {regenerating && (
+          <p className="text-sm text-gray-500 mt-4">
+            Analyzing architecture and generating STRIDE threats. This may take a moment...
+          </p>
+        )}
       </div>
     )
   }

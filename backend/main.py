@@ -934,7 +934,9 @@ async def regenerate_threat_model(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Regenerate threat model for a project"""
+    """Regenerate threat model for a project (also works as initial generation)"""
+    print(f"[Threat Model Regenerate] Starting for project {project_id}")
+
     project = db.query(Project).filter(
         Project.id == project_id,
         Project.owner_id == current_user.id
@@ -944,40 +946,51 @@ async def regenerate_threat_model(
         raise HTTPException(status_code=404, detail="Project not found")
 
     if not project.architecture_doc:
-        raise HTTPException(status_code=400, detail="Project has no architecture document")
+        raise HTTPException(status_code=400, detail="Project has no architecture document. Please add architecture description first.")
 
-    # Delete existing threat model
-    db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
-    db.commit()
+    # Delete existing threat model if any
+    existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+    if existing:
+        db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
+        db.commit()
+        print(f"[Threat Model Regenerate] Deleted existing threat model")
 
-    # Generate new threat model
-    from services.threat_modeling import ThreatModelingService
-    threat_service = ThreatModelingService()
-    threat_model_data = threat_service.generate_threat_model(
-        project.architecture_doc,
-        project.name
-    )
+    # Use global threat_service which has proper AI config
+    print(f"[Threat Model Regenerate] Using threat_service: enabled={threat_service.enabled}, provider={threat_service.provider}")
 
-    threat_model = ThreatModel(
-        project_id=project.id,
-        name=f"{project.name} Threat Model",
-        dfd_level=0,
-        dfd_data=threat_model_data['dfd_data'],
-        stride_analysis=threat_model_data['stride_analysis'],
-        mitre_mapping=threat_model_data['mitre_mapping'],
-        trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
-        attack_paths=threat_model_data.get('attack_paths', []),
-        threat_count=threat_model_data['threat_count']
-    )
-    db.add(threat_model)
-    db.commit()
-    db.refresh(threat_model)
+    try:
+        threat_model_data = threat_service.generate_threat_model(
+            project.architecture_doc,
+            project.name
+        )
+        print(f"[Threat Model Regenerate] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
 
-    return {
-        "success": True,
-        "message": "Threat model regenerated successfully",
-        "attack_paths_count": len(threat_model_data.get('attack_paths', []))
-    }
+        threat_model = ThreatModel(
+            project_id=project.id,
+            name=f"{project.name} Threat Model",
+            dfd_level=0,
+            dfd_data=threat_model_data['dfd_data'],
+            stride_analysis=threat_model_data['stride_analysis'],
+            mitre_mapping=threat_model_data['mitre_mapping'],
+            trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
+            attack_paths=threat_model_data.get('attack_paths', []),
+            threat_count=threat_model_data['threat_count']
+        )
+        db.add(threat_model)
+        db.commit()
+        db.refresh(threat_model)
+
+        return {
+            "success": True,
+            "message": "Threat model generated successfully",
+            "threat_count": threat_model_data['threat_count'],
+            "attack_paths_count": len(threat_model_data.get('attack_paths', []))
+        }
+    except Exception as e:
+        import traceback
+        print(f"[Threat Model Regenerate] ERROR: {e}")
+        print(f"[Threat Model Regenerate] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate threat model: {str(e)}")
 
 # Scanning endpoints
 @app.post("/api/projects/{project_id}/scan/demo")
