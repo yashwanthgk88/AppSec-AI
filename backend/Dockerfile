@@ -23,6 +23,9 @@ COPY . .
 # Create data directory for SQLite
 RUN mkdir -p /app/data
 
+# Force cache bust with build timestamp
+RUN echo "Build: 2026-02-04-v2-timeout-fix" > /app/build_version.txt
+
 # Default port (Railway will override with PORT env var)
 ENV PORT=8000
 
