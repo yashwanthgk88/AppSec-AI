@@ -94,8 +94,13 @@ class FindingsProvider {
             const filePath = finding.file || finding.location?.file || 'unknown';
             const lineNumber = finding.line || finding.location?.startLine || 0;
             const fileName = filePath.split('/').pop() || filePath;
+            // Check if this is an inter-procedural finding
+            const isInterprocedural = finding.call_chain || finding.callChain || finding.cross_function_flow;
+            const callChain = finding.call_chain || finding.callChain || [];
             const item = new FindingItem(`${finding.title}`, vscode.TreeItemCollapsibleState.None, 'vulnerability', finding.severity, finding);
-            item.description = `${fileName}:${lineNumber}`;
+            // Add indicator for inter-procedural findings
+            const interproceduralIndicator = isInterprocedural ? '🔗 ' : '';
+            item.description = `${interproceduralIndicator}${fileName}:${lineNumber}`;
             // Create detailed tooltip with markdown
             const tooltipMarkdown = new vscode.MarkdownString();
             tooltipMarkdown.appendMarkdown(`### ${finding.title}\n\n`);
@@ -106,6 +111,26 @@ class FindingsProvider {
                 tooltipMarkdown.appendMarkdown(`**CWE:** ${finding.cwe_id}\n\n`);
             }
             tooltipMarkdown.appendMarkdown(`**Description:** ${finding.description || 'No description'}\n\n`);
+            // Add call chain information for inter-procedural findings
+            if (isInterprocedural && callChain.length > 0) {
+                tooltipMarkdown.appendMarkdown(`---\n\n`);
+                tooltipMarkdown.appendMarkdown(`**🔗 Inter-Procedural Analysis**\n\n`);
+                tooltipMarkdown.appendMarkdown(`*Cross-function data flow detected*\n\n`);
+                tooltipMarkdown.appendMarkdown(`**Call Chain:**\n`);
+                callChain.forEach((func, idx) => {
+                    const arrow = idx < callChain.length - 1 ? ' → ' : '';
+                    tooltipMarkdown.appendMarkdown(`\`${func}\`${arrow}`);
+                });
+                tooltipMarkdown.appendMarkdown(`\n\n`);
+            }
+            // Add function summary if available
+            if (finding.function_summary || finding.functionSummary) {
+                const summary = finding.function_summary || finding.functionSummary;
+                tooltipMarkdown.appendMarkdown(`**Function:** \`${summary.name || 'unknown'}\`\n\n`);
+                if (summary.taint_behavior) {
+                    tooltipMarkdown.appendMarkdown(`**Taint Behavior:** ${summary.taint_behavior}\n\n`);
+                }
+            }
             tooltipMarkdown.appendMarkdown(`---\n\n`);
             tooltipMarkdown.appendMarkdown(`*Click to view detailed information and remediation*`);
             tooltipMarkdown.isTrusted = true;

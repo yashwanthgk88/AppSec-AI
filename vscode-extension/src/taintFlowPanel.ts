@@ -121,23 +121,31 @@ export class TaintFlowPanel {
     }
 
     private _getHtmlContent(): string {
-        const findingsData = JSON.stringify(this._findings.map(f => ({
-            id: f.id,
-            title: f.title,
-            type: f.type,
-            severity: f.severity,
-            cweId: f.cweId,
-            owaspCategory: f.owaspCategory,
-            confidence: f.confidence,
-            location: f.location,
-            codeSnippet: f.codeSnippet,
-            taintFlow: f.taintFlow ? {
-                source: f.taintFlow.source,
-                sink: f.taintFlow.sink,
-                path: f.taintFlow.path,
-                sanitizers: f.taintFlow.sanitizers
-            } : null
-        })));
+        const findingsData = JSON.stringify(this._findings.map(f => {
+            // Handle inter-procedural data from backend
+            const finding = f as any;
+            return {
+                id: f.id,
+                title: f.title,
+                type: f.type,
+                severity: f.severity,
+                cweId: f.cweId,
+                owaspCategory: f.owaspCategory,
+                confidence: f.confidence,
+                location: f.location,
+                codeSnippet: f.codeSnippet,
+                // Inter-procedural analysis data
+                callChain: finding.call_chain || finding.callChain || [],
+                functionSummary: finding.function_summary || finding.functionSummary,
+                crossFunctionFlow: finding.cross_function_flow,
+                taintFlow: f.taintFlow ? {
+                    source: f.taintFlow.source,
+                    sink: f.taintFlow.sink,
+                    path: f.taintFlow.path,
+                    sanitizers: f.taintFlow.sanitizers
+                } : null
+            };
+        }));
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -1272,6 +1280,8 @@ export class TaintFlowPanel {
                     </div>
                 </div>
 
+                ${this._renderCallChainSection(finding)}
+
                 <div class="flow-section">
                     <div class="flow-header">
                         <div class="flow-title">
@@ -1316,6 +1326,86 @@ export class TaintFlowPanel {
                 </div>
             </div>
         </div>`;
+    }
+
+    private _renderCallChainSection(finding: SecurityFinding): string {
+        const findingAny = finding as any;
+        const callChain = findingAny.call_chain || findingAny.callChain || [];
+        const functionSummary = findingAny.function_summary || findingAny.functionSummary;
+
+        if (callChain.length === 0 && !functionSummary) {
+            return '';
+        }
+
+        let html = `
+        <div style="margin-bottom: 22px; padding: 18px; background: linear-gradient(135deg, rgba(167, 139, 250, 0.1), rgba(99, 102, 241, 0.05)); border-radius: 12px; border: 1px solid rgba(167, 139, 250, 0.3);">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px;">
+                <span style="font-size: 18px;">&#128279;</span>
+                <span style="font-size: 14px; font-weight: 600; color: var(--accent-purple);">Inter-Procedural Analysis</span>
+            </div>
+        `;
+
+        // Render call chain
+        if (callChain.length > 0) {
+            html += `
+            <div style="margin-bottom: 16px;">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">Cross-Function Call Chain</div>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+            `;
+
+            callChain.forEach((func: string, idx: number) => {
+                const isFirst = idx === 0;
+                const isLast = idx === callChain.length - 1;
+                const bgColor = isFirst ? 'rgba(255, 107, 107, 0.2)' : isLast ? 'rgba(251, 191, 36, 0.2)' : 'rgba(167, 139, 250, 0.15)';
+                const borderColor = isFirst ? 'var(--src-primary)' : isLast ? 'var(--sink-primary)' : 'var(--prop-primary)';
+                const icon = isFirst ? '&#128229;' : isLast ? '&#9888;' : '&#128260;';
+
+                html += `
+                    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                        <span style="font-size: 10px; color: var(--text-muted);">${isFirst ? 'Entry' : isLast ? 'Sink' : 'Flow'}</span>
+                        <div style="padding: 8px 14px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-primary);">
+                            <span style="margin-right: 6px;">${icon}</span>${this._escapeHtml(func)}
+                        </div>
+                    </div>
+                `;
+
+                if (!isLast) {
+                    html += `<span style="color: var(--accent-purple); font-size: 16px;">&#8594;</span>`;
+                }
+            });
+
+            html += `</div></div>`;
+        }
+
+        // Render function summary if available
+        if (functionSummary) {
+            html += `
+            <div style="padding: 12px; background: var(--bg-primary); border-radius: 8px; border: 1px solid var(--border-color);">
+                <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">Function Summary</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+                    <div>
+                        <span style="font-size: 10px; color: var(--text-muted);">Name</span>
+                        <div style="font-size: 12px; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace;">${this._escapeHtml(functionSummary.name || 'N/A')}</div>
+                    </div>
+                    ${functionSummary.taint_behavior ? `
+                    <div>
+                        <span style="font-size: 10px; color: var(--text-muted);">Taint Behavior</span>
+                        <div style="font-size: 12px; color: var(--sink-primary);">${this._escapeHtml(functionSummary.taint_behavior)}</div>
+                    </div>
+                    ` : ''}
+                    ${functionSummary.returns_tainted !== undefined ? `
+                    <div>
+                        <span style="font-size: 10px; color: var(--text-muted);">Returns Tainted</span>
+                        <div style="font-size: 12px; color: ${functionSummary.returns_tainted ? 'var(--accent-red)' : 'var(--accent-green)'};">${functionSummary.returns_tainted ? 'Yes' : 'No'}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+            `;
+        }
+
+        html += `</div>`;
+        return html;
     }
 
     private _renderSvgFlowDiagram(flow: TaintFlow, canvasId: string): string {

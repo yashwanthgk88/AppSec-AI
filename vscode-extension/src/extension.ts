@@ -109,6 +109,13 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Deep Inter-Procedural Scan Command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('appsec.deepScan', async () => {
+            await deepScanCommand(context);
+        })
+    );
+
     context.subscriptions.push(
         vscode.commands.registerCommand('appsec.refreshFindings', async () => {
             await refreshFindingsCommand();
@@ -801,6 +808,182 @@ async function scanFile(fileUri: vscode.Uri) {
     } catch (error: any) {
         updateStatusBar('error');
         scanProgressManager.showScanError(error.message);
+        setTimeout(() => updateStatusBar('connected'), 3000);
+    }
+}
+
+/**
+ * Deep Inter-Procedural Scan Command
+ * Uses the backend's inter-procedural analyzer for cross-function taint tracking
+ */
+async function deepScanCommand(context: vscode.ExtensionContext) {
+    if (!await apiClient.isAuthenticated()) {
+        const login = await vscode.window.showWarningMessage(
+            'Please login to SecureDev AI platform first',
+            'Login'
+        );
+        if (login === 'Login') {
+            await vscode.commands.executeCommand('appsec.login');
+        }
+        return;
+    }
+
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active file to scan');
+        return;
+    }
+
+    const fileUri = editor.document.uri;
+    const fileName = fileUri.fsPath.split('/').pop() || 'file';
+    const startTime = Date.now();
+
+    try {
+        updateStatusBar('scanning');
+
+        const results = await scanProgressManager.showScanProgress(
+            `Deep Scanning ${fileName}`,
+            async (updateProgress) => {
+                updateProgress({
+                    stage: 'initializing',
+                    message: 'Initializing deep scan',
+                    percentage: 10,
+                    details: 'Preparing inter-procedural analysis'
+                });
+
+                await new Promise(resolve => setTimeout(resolve, 300));
+
+                updateProgress({
+                    stage: 'analyzing',
+                    message: 'Building call graph',
+                    percentage: 30,
+                    details: 'Analyzing function calls'
+                });
+
+                updateProgress({
+                    stage: 'analyzing',
+                    message: 'Generating function summaries',
+                    percentage: 50,
+                    details: 'Tracking taint behavior across functions'
+                });
+
+                // Use the deep scan endpoint
+                const scanResults = await apiClient.deepScanFile(fileUri.fsPath);
+
+                updateProgress({
+                    stage: 'detecting',
+                    message: 'Tracking cross-function data flows',
+                    percentage: 70,
+                    details: 'Detecting vulnerabilities with inter-procedural analysis'
+                });
+
+                updateProgress({
+                    stage: 'completing',
+                    message: 'Processing results',
+                    percentage: 90,
+                    details: 'Updating findings'
+                });
+
+                // Process findings from deep scan
+                const deepFindings: any[] = [];
+
+                // Handle SAST findings with inter-procedural data
+                if (scanResults.sast?.findings) {
+                    deepFindings.push(...scanResults.sast.findings);
+                }
+
+                // Handle inter-procedural specific findings
+                if (scanResults.interprocedural?.taint_findings) {
+                    scanResults.interprocedural.taint_findings.forEach((finding: any) => {
+                        deepFindings.push({
+                            ...finding,
+                            title: finding.title || `Cross-Function ${finding.vulnerability_type || 'Vulnerability'}`,
+                            severity: finding.severity || 'high',
+                            category: 'Inter-Procedural Analysis',
+                            call_chain: finding.call_chain || [],
+                            function_summary: finding.function_summary,
+                            cross_function_flow: finding.taint_path || finding.path
+                        });
+                    });
+                }
+
+                // Merge with existing findings
+                const existingFindings = findingsProvider.getAllFindings();
+                const otherFindings = existingFindings.filter((f: any) =>
+                    (f.file || f.location?.file) !== fileUri.fsPath
+                );
+                const allFindings = [...otherFindings, ...deepFindings];
+
+                diagnosticsManager.updateFileFromResults(fileUri, scanResults);
+                findingsProvider.setFindings(allFindings);
+
+                // Store for taint flow visualization
+                if (deepFindings.length > 0) {
+                    enhancedFindings = deepFindings.map(f => ({
+                        id: f.id || `deep_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+                        title: f.title,
+                        type: f.type || f.vulnerability_type || 'security-issue',
+                        severity: f.severity,
+                        description: f.description,
+                        recommendation: f.recommendation || f.remediation || 'Review and fix the security vulnerability',
+                        location: f.location || { file: f.file, startLine: f.line || 1, startColumn: 0, endLine: f.line || 1, endColumn: 80 },
+                        codeSnippet: f.code_snippet || f.codeSnippet || '',
+                        cweId: f.cwe_id || f.cweId,
+                        owaspCategory: f.owasp_category || f.owaspCategory,
+                        confidence: f.confidence || 'high',
+                        taintFlow: f.taintFlow || (f.call_chain ? {
+                            source: { id: 'src', name: f.call_chain[0] || 'source', category: 'user-input', pattern: { type: 'call' as const }, description: 'Taint source' },
+                            sink: { id: 'sink', name: f.call_chain[f.call_chain.length - 1] || 'sink', category: 'dangerous-call', pattern: { type: 'call' as const }, vulnerabilityType: f.type, description: 'Taint sink' },
+                            taintedValue: { variable: 'data', source: null as any, location: f.location, path: [] },
+                            path: f.call_chain.map((func: string, idx: number) => ({
+                                location: f.location || { file: fileUri.fsPath, startLine: f.line || 1, startColumn: 0, endLine: f.line || 1, endColumn: 80 },
+                                description: idx === 0 ? `SOURCE: ${func}` : idx === f.call_chain.length - 1 ? `SINK: ${func}` : `FLOW: ${func}`,
+                                node: { type: 'Call' as const, location: f.location }
+                            })),
+                            sanitizers: []
+                        } : undefined)
+                    }));
+                }
+
+                updateProgress({
+                    stage: 'complete',
+                    message: 'Deep scan complete',
+                    percentage: 100
+                });
+
+                return { ...scanResults, deepFindings };
+            }
+        );
+
+        updateStatusBar('connected');
+
+        const totalFindings = results.deepFindings?.length || 0;
+        const callGraphInfo = results.interprocedural?.call_graph;
+        const functionsAnalyzed = callGraphInfo?.nodes?.length || 0;
+
+        if (totalFindings > 0) {
+            const interproceduralCount = results.deepFindings?.filter((f: any) => f.call_chain?.length > 0).length || 0;
+
+            const action = await vscode.window.showWarningMessage(
+                `🔗 Deep scan found ${totalFindings} issue(s) (${interproceduralCount} cross-function flows) in ${fileName}`,
+                'View Taint Flows',
+                'View Details'
+            );
+
+            if (action === 'View Taint Flows' && enhancedFindings.length > 0) {
+                TaintFlowPanel.show(enhancedFindings, context.extensionUri);
+            } else if (action === 'View Details') {
+                vscode.commands.executeCommand('workbench.view.extension.appsec-sidebar');
+            }
+        } else {
+            vscode.window.showInformationMessage(
+                `✅ Deep scan complete: No cross-function vulnerabilities found. Analyzed ${functionsAnalyzed} functions.`
+            );
+        }
+
+    } catch (error: any) {
+        updateStatusBar('error');
+        vscode.window.showErrorMessage('Deep scan failed: ' + error.message);
         setTimeout(() => updateStatusBar('connected'), 3000);
     }
 }
