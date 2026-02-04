@@ -99,7 +99,7 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         },
     }
 
-    def __init__(self, api_key: Optional[str] = None, provider: str = "openai",
+    def __init__(self, api_key: Optional[str] = None, provider: str = "anthropic",
                  custom_abuse_case_prompt: Optional[str] = None,
                  custom_security_req_prompt: Optional[str] = None,
                  feedback_fetcher: Optional[Callable] = None):
@@ -107,7 +107,7 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
 
         Args:
             api_key: API key for the AI provider
-            provider: AI provider to use (openai, anthropic)
+            provider: AI provider to use (anthropic, openai) - defaults to anthropic (Claude)
             custom_abuse_case_prompt: Custom prompt for abuse case generation
             custom_security_req_prompt: Custom prompt for security requirement generation
             feedback_fetcher: Optional callable that fetches feedback from database
@@ -126,13 +126,13 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         print(f"[SecurityAnalyzer] Initializing with provider={provider}, api_key={'SET' if api_key else 'NOT SET'}")
         print(f"[SecurityAnalyzer] OPENAI_AVAILABLE={OPENAI_AVAILABLE}, ANTHROPIC_AVAILABLE={ANTHROPIC_AVAILABLE}")
 
-        # Try primary provider first
+        # Try primary provider first - prefer Anthropic (Claude) for better security analysis
         if provider == "anthropic" and ANTHROPIC_AVAILABLE:
             key = api_key or os.getenv("ANTHROPIC_API_KEY")
             if key:
                 self.client = anthropic.Anthropic(api_key=key)
-                self.model = "claude-sonnet-4-20250514"  # Use Sonnet for faster analysis
-                print(f"[SecurityAnalyzer] Using Anthropic with model={self.model}")
+                self.model = "claude-sonnet-4-20250514"  # Claude Sonnet for security analysis
+                print(f"[SecurityAnalyzer] Using Anthropic Claude with model={self.model}")
             else:
                 print("[SecurityAnalyzer] Anthropic selected but no API key found, trying OpenAI fallback")
         elif provider == "openai" and OPENAI_AVAILABLE:

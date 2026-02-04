@@ -2560,31 +2560,33 @@ async def generate_ai_fix(
 ):
     """
     Generate AI-powered fix for any vulnerability.
+    Uses Claude (Anthropic) as primary, falls back to OpenAI.
     Used by VS Code extension for local enhanced scan findings.
     """
-    # Check if OpenAI API key is configured
+    # Check for API keys - prefer Anthropic (Claude), fallback to OpenAI
+    anthropic_api_key = os.getenv('ANTHROPIC_API_KEY')
     openai_api_key = os.getenv('OPENAI_API_KEY')
-    if not openai_api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key not configured. Please add OPENAI_API_KEY to your environment.")
 
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=openai_api_key)
+    if not anthropic_api_key and not openai_api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="No AI API key configured. Please add ANTHROPIC_API_KEY or OPENAI_API_KEY to your environment."
+        )
 
-        # Detect language from file extension if not provided
-        language = request.language
-        if not language:
-            ext = request.file_path.split('.')[-1].lower() if '.' in request.file_path else ''
-            lang_map = {
-                'py': 'Python', 'js': 'JavaScript', 'ts': 'TypeScript',
-                'jsx': 'JavaScript React', 'tsx': 'TypeScript React',
-                'java': 'Java', 'go': 'Go', 'rb': 'Ruby', 'php': 'PHP',
-                'cs': 'C#', 'cpp': 'C++', 'c': 'C', 'kt': 'Kotlin', 'swift': 'Swift'
-            }
-            language = lang_map.get(ext, 'Unknown')
+    # Detect language from file extension if not provided
+    language = request.language
+    if not language:
+        ext = request.file_path.split('.')[-1].lower() if '.' in request.file_path else ''
+        lang_map = {
+            'py': 'Python', 'js': 'JavaScript', 'ts': 'TypeScript',
+            'jsx': 'JavaScript React', 'tsx': 'TypeScript React',
+            'java': 'Java', 'go': 'Go', 'rb': 'Ruby', 'php': 'PHP',
+            'cs': 'C#', 'cpp': 'C++', 'c': 'C', 'kt': 'Kotlin', 'swift': 'Swift'
+        }
+        language = lang_map.get(ext, 'Unknown')
 
-        # Build the prompt
-        prompt = f"""You are a security expert. A vulnerability has been detected with the following details:
+    # Build the prompt
+    prompt = f"""You are a security expert. A vulnerability has been detected with the following details:
 
 **Vulnerability Type:** {request.vulnerability_type}
 **Title:** {request.title}
@@ -2623,58 +2625,92 @@ EXPLANATION:
 <brief explanation of what was changed and why>
 """
 
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a security expert specialized in fixing code vulnerabilities. Provide practical, ready-to-use code fixes."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3,
-            max_tokens=2000
-        )
+    system_prompt = "You are a security expert specialized in fixing code vulnerabilities. Provide practical, ready-to-use code fixes that are minimal and focused on the security issue."
 
-        ai_response = response.choices[0].message.content
+    ai_response = None
+    model_used = None
 
-        # Parse the response
-        fixed_code = ""
-        explanation = ""
+    # Try Claude (Anthropic) first
+    if anthropic_api_key:
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=anthropic_api_key)
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=2000,
+                system=system_prompt,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            ai_response = response.content[0].text
+            model_used = "claude-sonnet-4-20250514"
+            print(f"[AI-Fix] Generated fix using Claude ({model_used})")
+        except Exception as e:
+            print(f"[AI-Fix] Claude failed: {e}, falling back to OpenAI")
 
-        if "FIXED_CODE:" in ai_response:
-            parts = ai_response.split("FIXED_CODE:")
-            if len(parts) > 1:
-                code_section = parts[1].split("EXPLANATION:")[0]
-                if "```" in code_section:
-                    code_parts = code_section.split("```")
-                    if len(code_parts) > 1:
-                        fixed_code = code_parts[1].strip()
-                        # Remove language identifier if present
-                        first_line = fixed_code.split('\n')[0].lower()
-                        if first_line in ['python', 'java', 'javascript', 'typescript', 'go', 'ruby', 'php', 'c', 'cpp', 'csharp', 'kotlin', 'swift', 'jsx', 'tsx']:
-                            fixed_code = '\n'.join(fixed_code.split('\n')[1:]).strip()
-                else:
-                    fixed_code = code_section.strip()
+    # Fallback to OpenAI if Claude failed or not available
+    if ai_response is None and openai_api_key:
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=2000
+            )
+            ai_response = response.choices[0].message.content
+            model_used = "gpt-4o-mini"
+            print(f"[AI-Fix] Generated fix using OpenAI ({model_used})")
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Failed to generate AI fix: {str(e)}",
+                "remediation_code": None
+            }
 
-        if "EXPLANATION:" in ai_response:
-            explanation = ai_response.split("EXPLANATION:")[1].strip()
-
-        if not fixed_code:
-            fixed_code = ai_response
-
-        return {
-            "success": True,
-            "remediation_code": fixed_code,
-            "explanation": explanation,
-            "vulnerability_type": request.vulnerability_type,
-            "model": "gpt-4o-mini"
-        }
-
-    except Exception as e:
+    if ai_response is None:
         return {
             "success": False,
-            "message": f"Failed to generate AI fix: {str(e)}",
+            "message": "No AI provider available to generate fix",
             "remediation_code": None
         }
+
+    # Parse the response
+    fixed_code = ""
+    explanation = ""
+
+    if "FIXED_CODE:" in ai_response:
+        parts = ai_response.split("FIXED_CODE:")
+        if len(parts) > 1:
+            code_section = parts[1].split("EXPLANATION:")[0]
+            if "```" in code_section:
+                code_parts = code_section.split("```")
+                if len(code_parts) > 1:
+                    fixed_code = code_parts[1].strip()
+                    # Remove language identifier if present
+                    first_line = fixed_code.split('\n')[0].lower()
+                    if first_line in ['python', 'java', 'javascript', 'typescript', 'go', 'ruby', 'php', 'c', 'cpp', 'csharp', 'kotlin', 'swift', 'jsx', 'tsx']:
+                        fixed_code = '\n'.join(fixed_code.split('\n')[1:]).strip()
+            else:
+                fixed_code = code_section.strip()
+
+    if "EXPLANATION:" in ai_response:
+        explanation = ai_response.split("EXPLANATION:")[1].strip()
+
+    if not fixed_code:
+        fixed_code = ai_response
+
+    return {
+        "success": True,
+        "remediation_code": fixed_code,
+        "explanation": explanation,
+        "vulnerability_type": request.vulnerability_type,
+        "model": model_used,
+        "provider": "anthropic" if "claude" in model_used else "openai"
+    }
 
 
 @app.get("/api/vulnerabilities/{vuln_id}/taint-flow")

@@ -311,7 +311,8 @@ async def analyze_story(
     new_version = (latest_analysis.version + 1) if latest_analysis else 1
 
     # Initialize analyzer with user's AI settings and custom prompts if enabled
-    print(f"[ANALYZE] Initializing analyzer with provider={current_user.ai_provider or 'openai'}")
+    # Default to Anthropic (Claude) for better security analysis quality
+    print(f"[ANALYZE] Initializing analyzer with provider={current_user.ai_provider or 'anthropic'}")
     print(f"[ANALYZE] Custom prompts enabled: {current_user.use_custom_prompts or False}")
 
     # Pass custom prompts if user has enabled them
@@ -323,7 +324,7 @@ async def analyze_story(
 
     analyzer = SecurityRequirementsAnalyzer(
         api_key=current_user.ai_api_key,
-        provider=current_user.ai_provider or "openai",
+        provider=current_user.ai_provider or "anthropic",  # Default to Claude
         custom_abuse_case_prompt=custom_abuse_prompt,
         custom_security_req_prompt=custom_req_prompt,
         feedback_fetcher=feedback_fetcher
