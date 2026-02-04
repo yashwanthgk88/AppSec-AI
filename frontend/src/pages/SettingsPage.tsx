@@ -1579,11 +1579,13 @@ export default function SettingsPage() {
             <li><strong>🚀 PRODUCTION READY:</strong> Full cloud backend support for enterprise deployment</li>
             <li><strong>⚡ PARALLEL SCANNING:</strong> 5x faster workspace scans with parallel file processing</li>
             <li><strong>🎯 SMART FILE PRIORITIZATION:</strong> Automatically prioritizes source folders for better vulnerability coverage</li>
+            <li><strong>🛡️ 140+ OWASP PATTERNS:</strong> Comprehensive PHP & Java inline detection for all OWASP Top 10 2021 categories</li>
+            <li><strong>🔍 REAL-TIME INLINE DETECTION:</strong> See security issues as you type - no scan required</li>
+            <li><strong>🔧 AI FIX APPLY:</strong> One-click AI-powered remediation with automatic code fixes</li>
             <li><strong>🌐 REMOTE BACKEND:</strong> Seamlessly scan files using cloud-hosted backend (Railway, AWS, etc.)</li>
             <li><strong>🔗 INTER-PROCEDURAL ANALYSIS:</strong> Cross-function taint tracking across method boundaries</li>
             <li><strong>📊 CALL GRAPH VISUALIZATION:</strong> Interactive diagrams showing data flow from source to sink</li>
             <li><strong>🔐 ENHANCED AUTH:</strong> Improved token validation with automatic session management</li>
-            <li><strong>🛡️ OWASP TOP 10 2021:</strong> Complete coverage with 100+ security patterns</li>
           </ul>
         </div>
 
