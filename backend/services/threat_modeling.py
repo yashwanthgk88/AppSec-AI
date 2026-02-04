@@ -477,11 +477,12 @@ Be specific to this system and path. Reference actual component names."""
                                      diagram_media_type: str = "image/png") -> Dict[str, Any]:
         """Use AI to deeply analyze architecture and extract components with context"""
 
-        if not self.anthropic_client:
+        if not self.enabled or not self._ai_client:
             # Fallback to basic parsing if no AI available
+            logger.info("[ThreatModeling] AI not available, using basic parsing")
             return self._parse_architecture_basic(architecture_doc)
 
-        prompt = """Analyze this software architecture and extract a detailed threat model structure.
+        prompt = f"""Analyze this software architecture and extract a detailed threat model structure.
 
 ARCHITECTURE DESCRIPTION:
 {architecture_doc}
@@ -534,43 +535,34 @@ For each component, determine the most appropriate category from: api, database,
 """
 
         try:
-            messages = [{"role": "user", "content": []}]
+            # Use the unified chat_completion interface
+            messages = [
+                {"role": "user", "content": prompt}
+            ]
 
-            # Add image if provided
-            if architecture_diagram:
-                messages[0]["content"].append({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": diagram_media_type,
-                        "data": architecture_diagram
-                    }
-                })
-
-            messages[0]["content"].append({
-                "type": "text",
-                "text": prompt.format(architecture_doc=architecture_doc)
-            })
-
-            response = self.anthropic_client.messages.create(
-                model="claude-sonnet-4-20250514",
+            logger.info(f"[ThreatModeling] Calling AI for architecture analysis (provider={self.provider})")
+            response = self._ai_client.chat_completion(
+                messages=messages,
                 max_tokens=4000,
-                messages=messages
+                temperature=0.3
             )
 
             # Extract JSON from response
-            response_text = response.content[0].text
+            response_text = response.get("content", "")
+            logger.info(f"[ThreatModeling] AI response received, length={len(response_text)}")
 
             # Try to find JSON in the response
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
                 parsed = json.loads(json_match.group())
+                logger.info(f"[ThreatModeling] Parsed {len(parsed.get('components', []))} components from AI response")
                 return parsed
             else:
+                logger.warning("[ThreatModeling] No JSON found in AI response, using basic parsing")
                 return self._parse_architecture_basic(architecture_doc)
 
         except Exception as e:
-            print(f"AI analysis failed: {e}, falling back to basic parsing")
+            logger.error(f"[ThreatModeling] AI analysis failed: {e}, falling back to basic parsing")
             return self._parse_architecture_basic(architecture_doc)
 
     def _parse_architecture_basic(self, architecture_doc: str) -> Dict[str, Any]:
