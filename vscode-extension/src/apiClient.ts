@@ -116,9 +116,20 @@ export class ApiClient {
             const allSecrets: any[] = [];
             const errors: string[] = [];
 
-            // Limit files to scan (reduced for faster completion)
-            const filesToScan = files.slice(0, 25);
+            // Prioritize source files likely to have vulnerabilities
+            const prioritizedFiles = files.sort((a, b) => {
+                const priorityPatterns = ['source/', 'src/', 'lib/', 'app/', 'controller', 'model', 'handler'];
+                const aHasPriority = priorityPatterns.some(p => a.toLowerCase().includes(p));
+                const bHasPriority = priorityPatterns.some(p => b.toLowerCase().includes(p));
+                if (aHasPriority && !bHasPriority) return -1;
+                if (!aHasPriority && bHasPriority) return 1;
+                return 0;
+            });
+
+            // Scan up to 50 files for better coverage
+            const filesToScan = prioritizedFiles.slice(0, 50);
             let scannedCount = 0;
+            console.log(`[SecureDev AI] Scanning ${filesToScan.length} files out of ${files.length} total`);
 
             // Scan files in parallel batches of 5
             const batchSize = 5;
