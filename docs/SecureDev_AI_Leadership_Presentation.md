@@ -38,34 +38,34 @@ SecureDev AI is an AI-native Application Security platform that embeds security 
 ## AI-Powered Features
 
 ### 1. Security Requirements Generator
-- **Technology:** OpenAI GPT-4o with custom security prompts
+- **Technology:** Claude Sonnet (Anthropic) with custom security prompts, OpenAI fallback
 - **Function:** Analyzes user stories and automatically generates relevant security requirements
 - **Output:** Category, description, priority, acceptance criteria, OWASP mapping
 - **Benefit:** Ensures security is considered from the start of development
 
 ### 2. Abuse Case Generator
-- **Technology:** OpenAI GPT-4o with threat intelligence context
+- **Technology:** Claude Sonnet (Anthropic) with threat intelligence context, OpenAI fallback
 - **Function:** Generates potential attack scenarios based on user story functionality
 - **Output:** Threat actor, attack vector, impact assessment, mitigation strategies
 - **Benefit:** Proactive identification of security risks before code is written
 
 ### 3. AI Threat Modeling
-- **Technology:** OpenAI GPT-4o with STRIDE/DREAD frameworks
+- **Technology:** Claude Sonnet (Anthropic) with STRIDE/DREAD frameworks
 - **Function:** Automated threat model generation from application descriptions
 - **Output:** Assets, threats, data flows, trust boundaries, mitigations
 - **Benefit:** Makes threat modeling accessible to all teams, not just security experts
 
 ### 4. Intelligent Security Chat
-- **Technology:** OpenAI GPT-4o with RAG (Retrieval Augmented Generation)
+- **Technology:** Multi-provider support (Claude, OpenAI, Azure, Google, Ollama)
 - **Function:** Context-aware security assistant that understands scan results
 - **Capabilities:** Explains vulnerabilities, suggests fixes, answers security questions
 - **Benefit:** On-demand security expertise for every developer
 
-### 5. SAST Scanner with AI Remediation
-- **Technology:** Semgrep rules + AI-powered fix suggestions
-- **Function:** Static analysis with intelligent remediation guidance
-- **Output:** Vulnerability details, severity, fix recommendations, code examples
-- **Benefit:** Reduces time-to-fix with actionable remediation steps
+### 5. SAST Scanner with AI Fix
+- **Technology:** Semgrep rules + Claude Sonnet for intelligent fix generation (OpenAI fallback)
+- **Function:** Static analysis with AI-powered code fix generation
+- **Output:** Vulnerability details, severity, ready-to-use fixed code, explanation
+- **Benefit:** Reduces time-to-fix with actionable, copy-paste remediation code
 
 ### 6. SCA Scanner with Dependency Intelligence
 - **Technology:** OSV database + AI impact analysis
@@ -219,7 +219,9 @@ Story + AI Security Requirements → Design + AI Threat Model → Code + AI Guid
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| AI Engine | OpenAI GPT-4o | Security analysis, requirement generation, chat |
+| AI Engine (Primary) | Claude Sonnet (Anthropic) | Security analysis, requirement generation, AI fix |
+| AI Engine (Fallback) | OpenAI GPT-4o / GPT-4o-mini | Fallback when Anthropic unavailable |
+| AI Chat | Multi-provider (Claude, OpenAI, Azure, Google, Ollama) | Configurable security assistant |
 | Backend | Python FastAPI | API services, scanner orchestration |
 | Frontend | React + TypeScript | User interface |
 | Database | SQLite/PostgreSQL | Data persistence |
@@ -227,6 +229,16 @@ Story + AI Security Requirements → Design + AI Threat Model → Code + AI Guid
 | SCA | OSV Database | Dependency vulnerability scanning |
 | Secret Detection | Custom + Entropy | Credential detection |
 | Deployment | Railway | Cloud hosting |
+
+### AI Provider Configuration
+
+| Feature | Primary Provider | Fallback | Model |
+|---------|-----------------|----------|-------|
+| Security Requirements | Anthropic | OpenAI | Claude Sonnet / GPT-4o |
+| Abuse Cases | Anthropic | OpenAI | Claude Sonnet / GPT-4o |
+| AI Fix Generation | Anthropic | OpenAI | Claude Sonnet / GPT-4o-mini |
+| Security Chat | User Configurable | - | Multiple options |
+| Threat Modeling | Anthropic | OpenAI | Claude Sonnet / GPT-4o |
 
 ---
 
@@ -254,4 +266,8 @@ SecureDev AI represents the next evolution in application security—moving from
 ---
 
 *Document generated for SecureDev AI Leadership Presentation*
-*Version 1.0 | February 2026*
+*Version 1.1 | February 2026*
+
+**Changelog:**
+- v1.1: Updated AI provider to Claude (Anthropic) as primary with OpenAI fallback
+- v1.0: Initial release
