@@ -133,6 +133,7 @@ ai_impact_service = get_ai_impact_service()
 # Initialize services with AI impact integration
 # AI impact is enabled for richer, contextual vulnerability analysis
 threat_service = ThreatModelingService()
+print(f"[Startup] ThreatModelingService initialized: enabled={threat_service.enabled}, provider={threat_service.provider}")
 sast_scanner = SASTScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 sca_scanner = SCAScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
 secret_scanner = SecretScanner(ai_impact_service=ai_impact_service, ai_impact_enabled=True)
@@ -407,25 +408,34 @@ async def create_project(
 
     # Auto-generate threat model if requested and architecture provided
     if "threat_model" in project_data.auto_scan_types and project_data.architecture_doc:
-        threat_model_data = threat_service.generate_threat_model(
-            project_data.architecture_doc,
-            project_data.name
-        )
+        print(f"[Project Create] Threat modeling requested with architecture doc ({len(project_data.architecture_doc)} chars)")
+        try:
+            threat_model_data = threat_service.generate_threat_model(
+                project_data.architecture_doc,
+                project_data.name
+            )
 
-        threat_model = ThreatModel(
-            project_id=project.id,
-            name=f"{project_data.name} Threat Model",
-            dfd_level=0,
-            dfd_data=threat_model_data['dfd_data'],
-            stride_analysis=threat_model_data['stride_analysis'],
-            mitre_mapping=threat_model_data['mitre_mapping'],
-            trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
-            attack_paths=threat_model_data.get('attack_paths', []),
-            threat_count=threat_model_data['threat_count']
-        )
-        db.add(threat_model)
-        db.commit()
-        scan_results["threat_model"] = True
+            threat_model = ThreatModel(
+                project_id=project.id,
+                name=f"{project_data.name} Threat Model",
+                dfd_level=0,
+                dfd_data=threat_model_data['dfd_data'],
+                stride_analysis=threat_model_data['stride_analysis'],
+                mitre_mapping=threat_model_data['mitre_mapping'],
+                trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
+                attack_paths=threat_model_data.get('attack_paths', []),
+                threat_count=threat_model_data['threat_count']
+            )
+            db.add(threat_model)
+            db.commit()
+            scan_results["threat_model"] = True
+            print(f"[Project Create] Threat model generated successfully with {threat_model_data['threat_count']} threats")
+        except Exception as e:
+            print(f"[Project Create] ERROR: Threat modeling failed: {e}")
+            # Continue without threat model - don't fail the entire project creation
+            scan_results["threat_model"] = False
+    elif "threat_model" in project_data.auto_scan_types and not project_data.architecture_doc:
+        print("[Project Create] Threat modeling requested but no architecture doc provided - skipping")
 
     # Clone repository if URL provided
     repo_scanner = None
