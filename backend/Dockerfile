@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Cache bust: 2026-02-04-v1-threat-model-timeout
-ARG CACHEBUST=1
+ARG CACHEBUST=20260204
 
 WORKDIR /app
 
