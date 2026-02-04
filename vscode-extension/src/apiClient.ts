@@ -97,15 +97,119 @@ export class ApiClient {
 
     async scanWorkspace(workspacePath: string): Promise<any> {
         try {
-            const response = await this.axiosInstance.post('/api/scan', {
-                path: workspacePath,
-                scan_types: ['sast', 'sca', 'secrets']
-            });
+            // For remote backends, we need to scan files individually
+            // Get all scannable files in the workspace
+            const files = this.getScannableFiles(workspacePath);
 
-            return response.data;
+            if (files.length === 0) {
+                return {
+                    vulnerabilities: [],
+                    sca_vulnerabilities: [],
+                    secrets: [],
+                    summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0 }
+                };
+            }
+
+            // Aggregate results from scanning each file
+            const allVulnerabilities: any[] = [];
+            const allScaVulnerabilities: any[] = [];
+            const allSecrets: any[] = [];
+            const errors: string[] = [];
+
+            // Scan files (limit to first 50 to avoid timeout)
+            const filesToScan = files.slice(0, 50);
+
+            for (const filePath of filesToScan) {
+                try {
+                    const fileContent = fs.readFileSync(filePath, 'utf-8');
+                    const fileName = path.relative(workspacePath, filePath);
+
+                    const response = await this.axiosInstance.post('/api/scan/deep', {
+                        source_code: fileContent,
+                        file_name: fileName,
+                        include_call_graph: false,  // Skip for speed in batch mode
+                        include_function_summaries: false,
+                        include_taint_flows: true
+                    }, { timeout: 30000 });
+
+                    const result = response.data;
+
+                    // Aggregate findings with file path info
+                    if (result.findings) {
+                        for (const finding of result.findings) {
+                            finding.file_path = fileName;
+                            allVulnerabilities.push(finding);
+                        }
+                    }
+                    if (result.secrets) {
+                        for (const secret of result.secrets) {
+                            secret.file_path = fileName;
+                            allSecrets.push(secret);
+                        }
+                    }
+                } catch (fileError: any) {
+                    // Skip files that fail to scan
+                    console.log(`[SecureDev AI] Skipping ${filePath}: ${fileError.message}`);
+                    errors.push(`${filePath}: ${fileError.message}`);
+                }
+            }
+
+            // Calculate summary
+            const summary = {
+                total: allVulnerabilities.length + allSecrets.length,
+                critical: allVulnerabilities.filter(v => v.severity === 'critical').length,
+                high: allVulnerabilities.filter(v => v.severity === 'high').length,
+                medium: allVulnerabilities.filter(v => v.severity === 'medium').length,
+                low: allVulnerabilities.filter(v => v.severity === 'low').length,
+                files_scanned: filesToScan.length,
+                files_total: files.length
+            };
+
+            return {
+                vulnerabilities: allVulnerabilities,
+                sca_vulnerabilities: allScaVulnerabilities,
+                secrets: allSecrets,
+                summary,
+                errors: errors.length > 0 ? errors : undefined
+            };
         } catch (error: any) {
+            if (error.response?.status === 401) {
+                await this.clearToken();
+                throw new Error('Session expired. Please login again.');
+            }
             throw new Error(error.response?.data?.detail || 'Scan failed');
         }
+    }
+
+    /**
+     * Get all scannable source code files in a directory
+     */
+    private getScannableFiles(dirPath: string, files: string[] = []): string[] {
+        const extensions = ['.py', '.js', '.ts', '.jsx', '.tsx', '.java', '.go', '.php', '.rb', '.cs', '.c', '.cpp', '.h'];
+        const ignoreDirs = ['node_modules', '.git', '__pycache__', 'venv', 'env', '.venv', 'dist', 'build', 'target', '.next'];
+
+        try {
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+            for (const entry of entries) {
+                const fullPath = path.join(dirPath, entry.name);
+
+                if (entry.isDirectory()) {
+                    if (!ignoreDirs.includes(entry.name) && !entry.name.startsWith('.')) {
+                        this.getScannableFiles(fullPath, files);
+                    }
+                } else if (entry.isFile()) {
+                    const ext = path.extname(entry.name).toLowerCase();
+                    if (extensions.includes(ext)) {
+                        files.push(fullPath);
+                    }
+                }
+            }
+        } catch (err) {
+            // Skip directories we can't read
+        }
+
+        return files;
     }
 
     async scanFile(filePath: string): Promise<any> {
