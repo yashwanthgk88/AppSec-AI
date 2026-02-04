@@ -95,7 +95,7 @@ export class ApiClient {
         await this.context.secrets.delete(this.tokenKey);
     }
 
-    async scanWorkspace(workspacePath: string): Promise<any> {
+    async scanWorkspace(workspacePath: string, onProgress?: (current: number, total: number) => void): Promise<any> {
         try {
             // For remote backends, we need to scan files individually
             // Get all scannable files in the workspace
@@ -116,43 +116,57 @@ export class ApiClient {
             const allSecrets: any[] = [];
             const errors: string[] = [];
 
-            // Scan files (limit to first 50 to avoid timeout)
-            const filesToScan = files.slice(0, 50);
+            // Limit files to scan (reduced for faster completion)
+            const filesToScan = files.slice(0, 25);
+            let scannedCount = 0;
 
-            for (const filePath of filesToScan) {
-                try {
-                    const fileContent = fs.readFileSync(filePath, 'utf-8');
-                    const fileName = path.relative(workspacePath, filePath);
+            // Scan files in parallel batches of 5
+            const batchSize = 5;
+            for (let i = 0; i < filesToScan.length; i += batchSize) {
+                const batch = filesToScan.slice(i, i + batchSize);
 
-                    const response = await this.axiosInstance.post('/api/scan/deep', {
-                        source_code: fileContent,
-                        file_name: fileName,
-                        include_call_graph: false,  // Skip for speed in batch mode
-                        include_function_summaries: false,
-                        include_taint_flows: true
-                    }, { timeout: 30000 });
+                const batchPromises = batch.map(async (filePath) => {
+                    try {
+                        const fileContent = fs.readFileSync(filePath, 'utf-8');
+                        const fileName = path.relative(workspacePath, filePath);
 
-                    const result = response.data;
+                        const response = await this.axiosInstance.post('/api/scan/deep', {
+                            source_code: fileContent,
+                            file_name: fileName,
+                            include_call_graph: false,
+                            include_function_summaries: false,
+                            include_taint_flows: false  // Skip for speed
+                        }, { timeout: 15000 });  // Shorter timeout
 
-                    // Aggregate findings with file path info
-                    // /api/scan/deep returns all findings in one array
-                    if (result.findings) {
-                        for (const finding of result.findings) {
-                            finding.file_path = fileName;
-                            finding.file = fileName;  // Also set 'file' for compatibility
+                        return { success: true, data: response.data, fileName };
+                    } catch (fileError: any) {
+                        console.log(`[SecureDev AI] Skipping ${filePath}: ${fileError.message}`);
+                        return { success: false, error: fileError.message, filePath };
+                    }
+                });
 
-                            // Separate secrets from vulnerabilities based on source
+                const batchResults = await Promise.all(batchPromises);
+
+                for (const result of batchResults) {
+                    scannedCount++;
+                    if (onProgress) {
+                        onProgress(scannedCount, filesToScan.length);
+                    }
+
+                    if (result.success && result.data?.findings) {
+                        for (const finding of result.data.findings) {
+                            finding.file_path = result.fileName;
+                            finding.file = result.fileName;
+
                             if (finding.source === 'secret_scanning' || finding.type === 'secret') {
                                 allSecrets.push(finding);
                             } else {
                                 allVulnerabilities.push(finding);
                             }
                         }
+                    } else if (!result.success) {
+                        errors.push(`${result.filePath}: ${result.error}`);
                     }
-                } catch (fileError: any) {
-                    // Skip files that fail to scan
-                    console.log(`[SecureDev AI] Skipping ${filePath}: ${fileError.message}`);
-                    errors.push(`${filePath}: ${fileError.message}`);
                 }
             }
 
