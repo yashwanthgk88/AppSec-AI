@@ -2278,13 +2278,66 @@ data = file.read(MAX_FILE_SIZE)"""
         },
     }
 
-    def __init__(self, ai_impact_service=None, ai_impact_enabled: bool = True):
+    # Safe patterns that indicate code is likely not vulnerable (false positive reduction)
+    SAFE_PATTERNS = {
+        "sql_injection": [
+            r'\.execute\s*\([^,]+,\s*[\(\[]',  # Parameterized query with tuple/list
+            r'\.execute\s*\([^,]+,\s*\{',  # Named parameters
+            r'session\.query\(',  # SQLAlchemy ORM
+            r'Model\.objects\.',  # Django ORM
+            r'\.filter\(',  # ORM filter method
+        ],
+        "xss": [
+            r'DOMPurify\.sanitize',
+            r'escape\s*\(',
+            r'sanitize\s*\(',
+            r'textContent\s*=',
+            r'html\.escape\(',
+            r'bleach\.clean',
+        ],
+        "command_injection": [
+            r'subprocess\.run\s*\(\s*\[',  # List arguments (safe)
+            r'subprocess\.call\s*\(\s*\[',
+            r'shell\s*=\s*False',
+            r'shlex\.quote',
+        ],
+        "path_traversal": [
+            r'os\.path\.basename\s*\(',
+            r'secure_filename\s*\(',
+            r'os\.path\.realpath.*?startswith',
+        ],
+        "deserialization": [
+            r'yaml\.safe_load',
+            r'json\.loads?',
+            r'Loader=yaml\.SafeLoader',
+        ],
+        "crypto": [
+            r'bcrypt\.',
+            r'argon2',
+            r'sha256|sha384|sha512|sha3',
+            r'pbkdf2',
+            r'scrypt',
+        ],
+    }
+
+    # Exclusion patterns for hardcoded credentials (common false positives)
+    CREDENTIAL_EXCLUSIONS = [
+        r'(example|test|sample|placeholder|xxx+|your[_-]?|dummy|fake)',
+        r'os\.environ',
+        r'getenv',
+        r'config\[',
+        r'settings\.',
+        r'process\.env',
+    ]
+
+    def __init__(self, ai_impact_service=None, ai_impact_enabled: bool = True, use_v2_patterns: bool = True):
         """
         Initialize the scanner
 
         Args:
             ai_impact_service: Optional AI impact service for dynamic impact generation
             ai_impact_enabled: Whether to use AI for impact generation (default True)
+            use_v2_patterns: Whether to use improved V2 patterns (default True)
         """
         self.scanned_files = 0
         self.skipped_files = 0
@@ -2295,6 +2348,18 @@ data = file.read(MAX_FILE_SIZE)"""
         # AI Impact Service configuration
         self.ai_impact_service = ai_impact_service
         self.ai_impact_enabled = ai_impact_enabled
+        self.use_v2_patterns = use_v2_patterns
+
+        # Try to load V2 patterns for improved detection
+        self._v2_patterns = None
+        if use_v2_patterns:
+            try:
+                from services.sast_patterns_v2 import VULNERABILITY_PATTERNS_V2, SAFE_PATTERNS as V2_SAFE_PATTERNS
+                self._v2_patterns = VULNERABILITY_PATTERNS_V2
+                self.SAFE_PATTERNS.update(V2_SAFE_PATTERNS)
+                logger.info("[SASTScanner] Using V2 patterns for improved detection")
+            except ImportError:
+                logger.warning("[SASTScanner] V2 patterns not available, using default patterns")
 
     def scan_code(self, code_content: str, file_path: str = "unknown", language: str = None) -> List[Dict[str, Any]]:
         """
@@ -2340,9 +2405,26 @@ data = file.read(MAX_FILE_SIZE)"""
                                 continue
                             seen_findings.add(finding_key)
 
+                            # Check if match is inside a string literal (potential false positive)
+                            if self._is_in_string_literal(line, match.start()):
+                                # Still report but with reduced confidence
+                                pass
+
+                            # Check if finding should be skipped entirely (very likely false positive)
+                            if self._should_skip_finding(vuln_name, line, file_path):
+                                continue
+
                             # Add category prefix for better organization
                             category = self._get_vulnerability_category(vuln_name)
                             formatted_title = f"{category}: {vuln_name}" if category != vuln_name else vuln_name
+
+                            # Calculate confidence based on multiple factors
+                            confidence = self._calculate_confidence(
+                                vuln_name=vuln_name,
+                                line=line,
+                                file_path=file_path,
+                                base_severity=vuln_info['severity']
+                            )
 
                             # Generate AI-powered impact statement
                             impact_data = self._generate_impact(
@@ -2370,18 +2452,157 @@ data = file.read(MAX_FILE_SIZE)"""
                                 "technical_impact": impact_data.get('technical_impact', ''),
                                 "recommendations": impact_data.get('recommendations', vuln_info['remediation']),
                                 "remediation": vuln_info['remediation'],
-                                "remediation_code": vuln_info['remediation_code'],
+                                "remediation_code": vuln_info.get('remediation_code', ''),
                                 "cvss_score": self._calculate_cvss(vuln_info['severity']),
                                 "stride_category": self._map_to_stride(vuln_name),
                                 "mitre_attack_id": self._map_to_mitre(vuln_name),
                                 "language": language,
-                                "confidence": "high" if "critical" in vuln_info['severity'] else "medium",
+                                "confidence": confidence,
                                 "impact_generated_by": impact_data.get('generated_by', 'static')
                             })
                     except re.error as e:
                         self.errors.append(f"Regex error in pattern '{pattern}': {e}")
 
         # Scan with custom rules (user-defined and AI-generated)
+        custom_findings = self._scan_with_custom_rules(code_content, file_path, language, lines)
+        findings.extend(custom_findings)
+
+        return findings
+
+    def scan_code_v2(self, code_content: str, file_path: str = "unknown", language: str = None) -> List[Dict[str, Any]]:
+        """
+        Enhanced scan using V2 patterns with improved precision and reduced false positives.
+
+        Features:
+        - Per-pattern confidence scoring
+        - Safe pattern exclusion
+        - Better false positive reduction
+        - Context-aware detection
+
+        Args:
+            code_content: Source code to scan
+            file_path: Path to the source file
+            language: Programming language (auto-detected if not provided)
+
+        Returns:
+            List of vulnerability findings with confidence scores
+        """
+        if not self._v2_patterns:
+            logger.info("[SASTScanner] V2 patterns not available, falling back to standard scan")
+            return self.scan_code(code_content, file_path, language)
+
+        findings = []
+        lines = code_content.split('\n')
+
+        if not language:
+            language = self._detect_language(file_path)
+
+        # Track unique findings to avoid duplicates
+        seen_findings: Set[str] = set()
+        is_test = self._is_test_file(file_path)
+
+        for vuln_name, vuln_info in self._v2_patterns.items():
+            patterns = vuln_info.get('patterns', [])
+            safe_category = vuln_info.get('safe_patterns')
+
+            for pattern_obj in patterns:
+                # V2 patterns are dicts with regex, confidence, description
+                if isinstance(pattern_obj, dict):
+                    pattern = pattern_obj.get('regex')
+                    base_confidence = pattern_obj.get('confidence', 'medium')
+                    pattern_desc = pattern_obj.get('description', '')
+                else:
+                    # Fallback for simple string patterns
+                    pattern = pattern_obj
+                    base_confidence = 'medium'
+                    pattern_desc = ''
+
+                if not pattern:
+                    continue
+
+                for line_num, line in enumerate(lines, start=1):
+                    # Skip comments
+                    if self._is_comment(line, language):
+                        continue
+
+                    try:
+                        match = re.search(pattern, line, re.IGNORECASE)
+                        if match:
+                            finding_key = f"{file_path}:{line_num}:{vuln_name}"
+                            if finding_key in seen_findings:
+                                continue
+                            seen_findings.add(finding_key)
+
+                            # Check if finding should be skipped
+                            if self._should_skip_finding(vuln_name, line, file_path):
+                                continue
+
+                            # Check for safe patterns (reduces confidence significantly)
+                            has_safe_pattern = False
+                            if safe_category:
+                                has_safe_pattern = self._has_safe_pattern(line, vuln_name)
+
+                            # Calculate adjusted confidence
+                            confidence_levels = ['low', 'medium', 'high', 'critical']
+                            conf_idx = confidence_levels.index(base_confidence) if base_confidence in confidence_levels else 1
+
+                            if has_safe_pattern:
+                                conf_idx = max(0, conf_idx - 2)
+                            if is_test:
+                                conf_idx = max(0, conf_idx - 1)
+                            if self._is_in_string_literal(line, match.start()):
+                                conf_idx = max(0, conf_idx - 1)
+
+                            final_confidence = confidence_levels[conf_idx]
+
+                            # Skip very low confidence findings in V2 mode
+                            if final_confidence == 'low' and has_safe_pattern:
+                                continue
+
+                            category = self._get_vulnerability_category(vuln_name)
+                            formatted_title = f"{category}: {vuln_name}" if category != vuln_name else vuln_name
+
+                            # Generate impact
+                            impact_data = self._generate_impact(
+                                title=formatted_title,
+                                severity=vuln_info['severity'],
+                                cwe_id=vuln_info['cwe'],
+                                owasp_category=vuln_info['owasp'],
+                                file_path=file_path,
+                                language=language,
+                                code_snippet=line.strip(),
+                                fallback_impact=vuln_info.get('impact', ''),
+                                fallback_remediation=vuln_info.get('remediation', '')
+                            )
+
+                            findings.append({
+                                "title": formatted_title,
+                                "description": vuln_info['description'],
+                                "severity": vuln_info['severity'],
+                                "cwe_id": vuln_info['cwe'],
+                                "owasp_category": vuln_info['owasp'],
+                                "file_path": file_path,
+                                "line_number": line_num,
+                                "code_snippet": line.strip(),
+                                "business_impact": impact_data.get('business_impact', ''),
+                                "technical_impact": impact_data.get('technical_impact', ''),
+                                "recommendations": impact_data.get('recommendations', vuln_info.get('remediation', '')),
+                                "remediation": vuln_info.get('remediation', ''),
+                                "remediation_code": vuln_info.get('remediation_code', ''),
+                                "cvss_score": self._calculate_cvss(vuln_info['severity']),
+                                "stride_category": self._map_to_stride(vuln_name),
+                                "mitre_attack_id": self._map_to_mitre(vuln_name),
+                                "language": language,
+                                "confidence": final_confidence,
+                                "pattern_description": pattern_desc,
+                                "has_safe_pattern": has_safe_pattern,
+                                "impact_generated_by": impact_data.get('generated_by', 'static'),
+                                "scanner_version": "v2"
+                            })
+                    except re.error as e:
+                        self.errors.append(f"V2 Regex error in pattern '{pattern}': {e}")
+
+        # Also scan with custom rules
         custom_findings = self._scan_with_custom_rules(code_content, file_path, language, lines)
         findings.extend(custom_findings)
 
@@ -2496,6 +2717,129 @@ data = file.read(MAX_FILE_SIZE)"""
 
         markers = comment_markers.get(language, [])
         return any(stripped.startswith(marker) for marker in markers)
+
+    def _is_in_string_literal(self, line: str, match_pos: int) -> bool:
+        """Check if a match position is inside a string literal (potential false positive)."""
+        if match_pos <= 0:
+            return False
+
+        # Count quotes before the match position
+        prefix = line[:match_pos]
+        single_quotes = prefix.count("'") - prefix.count("\\'")
+        double_quotes = prefix.count('"') - prefix.count('\\"')
+
+        # If odd number of quotes, we're inside a string
+        return (single_quotes % 2 == 1) or (double_quotes % 2 == 1)
+
+    def _has_safe_pattern(self, line: str, vuln_type: str) -> bool:
+        """Check if line contains patterns that indicate safe usage."""
+        # Map vulnerability names to safe pattern categories
+        vuln_to_category = {
+            "SQL Injection": "sql_injection",
+            "XSS (Cross-Site Scripting)": "xss",
+            "Command Injection": "command_injection",
+            "Path Traversal": "path_traversal",
+            "Insecure Deserialization": "deserialization",
+            "Weak Cryptography": "crypto",
+            "Weak Password Storage": "crypto",
+        }
+
+        category = vuln_to_category.get(vuln_type)
+        if not category:
+            return False
+
+        safe_patterns = self.SAFE_PATTERNS.get(category, [])
+        for pattern in safe_patterns:
+            try:
+                if re.search(pattern, line, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+        return False
+
+    def _is_test_file(self, file_path: str) -> bool:
+        """Check if file is a test file (reduce confidence for test files)."""
+        test_indicators = [
+            'test_', '_test.', '.test.', 'tests/', '/test/',
+            'spec_', '_spec.', '.spec.', 'specs/', '/spec/',
+            '__tests__', 'mock_', '_mock.', '/mocks/',
+            'fixture', 'conftest', 'pytest'
+        ]
+        lower_path = file_path.lower()
+        return any(ind in lower_path for ind in test_indicators)
+
+    def _calculate_confidence(self, vuln_name: str, line: str, file_path: str, base_severity: str) -> str:
+        """
+        Calculate finding confidence based on multiple factors.
+        Returns: 'high', 'medium', or 'low'
+        """
+        # Start with base confidence from severity
+        if base_severity == 'critical':
+            confidence_score = 3  # high
+        elif base_severity == 'high':
+            confidence_score = 2  # medium
+        else:
+            confidence_score = 1  # low
+
+        # Reduce confidence if safe patterns detected
+        if self._has_safe_pattern(line, vuln_name):
+            confidence_score -= 2
+
+        # Reduce confidence for test files
+        if self._is_test_file(file_path):
+            confidence_score -= 1
+
+        # Check for hardcoded credential false positives
+        if vuln_name == "Hardcoded Credentials":
+            for exclusion in self.CREDENTIAL_EXCLUSIONS:
+                if re.search(exclusion, line, re.IGNORECASE):
+                    confidence_score -= 2
+                    break
+
+        # Map score to confidence level
+        if confidence_score >= 3:
+            return "high"
+        elif confidence_score >= 1:
+            return "medium"
+        else:
+            return "low"
+
+    def _should_skip_finding(self, vuln_name: str, line: str, file_path: str) -> bool:
+        """
+        Determine if a finding should be skipped entirely (very likely false positive).
+        Returns True to skip the finding.
+        """
+        # Skip if line is likely documentation/example
+        doc_indicators = [
+            r'^["\'].*?(example|documentation|usage|sample).*?["\']$',
+            r'^#.*?(example|todo|note|fixme)',
+            r'^//.*?(example|todo|note)',
+            r'""".*?"""',
+            r"'''.*?'''",
+        ]
+
+        stripped = line.strip().lower()
+        for pattern in doc_indicators:
+            try:
+                if re.search(pattern, stripped, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+
+        # Skip hardcoded credentials if they look like placeholders
+        if vuln_name == "Hardcoded Credentials":
+            placeholder_patterns = [
+                r'["\']<.*?>["\']',  # <your_password>
+                r'["\']xxx+["\']',  # "xxx" or "xxxxxxxx"
+                r'["\']your[_-]?\w+["\']',  # "your_password"
+                r'["\']changeme["\']',
+                r'["\']placeholder["\']',
+            ]
+            for pattern in placeholder_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    return True
+
+        return False
 
     def _calculate_cvss(self, severity: str) -> float:
         """Calculate CVSS score based on severity"""
