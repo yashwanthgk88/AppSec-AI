@@ -40,6 +40,18 @@ try:
 except ImportError:
     FEEDS_AVAILABLE = False
 
+# Import real-time CVE service
+try:
+    from .realtime_cve_service import (
+        RealtimeCVEService,
+        get_realtime_cve_service,
+        initialize_realtime_cve_service
+    )
+    REALTIME_CVE_AVAILABLE = True
+except ImportError:
+    REALTIME_CVE_AVAILABLE = False
+    logger.warning("[SCA] Real-time CVE service not available")
+
 
 @dataclass
 class ParsedVersion:
@@ -1986,13 +1998,21 @@ class SCAScanner:
         "Unlicense": {"risk": "low", "commercial_use": True, "category": "Public Domain"},
     }
 
-    def __init__(self, ai_impact_service=None, ai_impact_enabled: bool = True):
+    def __init__(
+        self,
+        ai_impact_service=None,
+        ai_impact_enabled: bool = True,
+        realtime_cve_enabled: bool = True,
+        realtime_cve_service: Optional[Any] = None
+    ):
         """
         Initialize with pre-indexed database and compiled constraints
 
         Args:
             ai_impact_service: Optional AI impact service for dynamic impact generation
             ai_impact_enabled: Whether to use AI for impact generation (default True)
+            realtime_cve_enabled: Whether to fetch CVEs in real-time from NVD/OSV/GitHub (default True)
+            realtime_cve_service: Optional pre-configured RealtimeCVEService instance
         """
         self.scanned_packages = 0
         self.errors = []
@@ -2000,6 +2020,19 @@ class SCAScanner:
         # AI Impact Service configuration
         self.ai_impact_service = ai_impact_service
         self.ai_impact_enabled = ai_impact_enabled
+
+        # Real-time CVE Service configuration
+        self.realtime_cve_enabled = realtime_cve_enabled and REALTIME_CVE_AVAILABLE
+        self._realtime_cve_service = realtime_cve_service
+
+        # Initialize real-time CVE service if enabled and not provided
+        if self.realtime_cve_enabled and self._realtime_cve_service is None:
+            try:
+                self._realtime_cve_service = get_realtime_cve_service()
+                logger.info("[SCA] Real-time CVE service initialized")
+            except Exception as e:
+                logger.warning(f"[SCA] Failed to initialize real-time CVE service: {e}")
+                self.realtime_cve_enabled = False
 
         # Pre-index vulnerabilities by ecosystem for O(1) lookup
         self._vuln_by_ecosystem: Dict[str, Dict[str, List[Dict]]] = {}
@@ -2424,19 +2457,123 @@ class SCAScanner:
         }
 
     async def scan_dependencies_async(self, dependencies: Dict[str, str], ecosystem: str = "npm") -> Dict[str, Any]:
-        """Async version of scan_dependencies with NVD enrichment"""
-        # First run local scan
-        results = self.scan_dependencies(dependencies, ecosystem)
+        """
+        Async version of scan_dependencies with real-time CVE fetching from NVD/OSV/GitHub.
 
-        # Enrich with NVD data if we have findings
+        This method:
+        1. First checks the local static vulnerability database (fast)
+        2. Then queries real-time CVE sources (OSV, NVD, GitHub Advisory) for additional/newer CVEs
+        3. Merges and deduplicates results
+        4. Returns comprehensive vulnerability findings
+
+        Args:
+            dependencies: {"package_name": "version"}
+            ecosystem: Package ecosystem (npm, pip, maven, etc.)
+
+        Returns:
+            Scan results with vulnerabilities from both static and real-time sources
+        """
+        # First run local scan against static database (fast)
+        results = self.scan_dependencies(dependencies, ecosystem)
+        existing_cves = {f['cve'] for f in results['findings'] if f.get('cve')}
+
+        logger.info(f"[SCA] Local scan found {len(results['findings'])} vulnerabilities")
+
+        # Query real-time CVE sources if enabled
+        if self.realtime_cve_enabled and self._realtime_cve_service:
+            try:
+                # Prepare batch query
+                packages_to_query = [
+                    (pkg, ver, ecosystem) for pkg, ver in dependencies.items()
+                ]
+
+                logger.info(f"[SCA] Querying real-time CVE sources for {len(packages_to_query)} packages...")
+
+                # Query real-time sources in batch
+                realtime_results = await self._realtime_cve_service.query_batch(packages_to_query)
+
+                # Process real-time results
+                realtime_findings = 0
+                for key, vulns in realtime_results.items():
+                    for vuln in vulns:
+                        cve_id = vuln.get('cve', '')
+                        # Skip if already found in static database
+                        if cve_id in existing_cves:
+                            continue
+
+                        # Check if this version is actually affected
+                        pkg_name = vuln.get('package', key.split('@')[0])
+                        pkg_version = key.split('@')[1] if '@' in key else ''
+
+                        # Create finding from real-time data
+                        impact_info = self._generate_sca_impact(
+                            vuln_type=vuln.get('vulnerability', 'Security Vulnerability'),
+                            severity=vuln.get('severity', 'medium'),
+                            cve=cve_id,
+                            package=pkg_name,
+                            installed_version=pkg_version,
+                            ecosystem=ecosystem,
+                            cvss_score=vuln.get('cvss', 0.0)
+                        )
+
+                        finding = {
+                            "package": pkg_name,
+                            "installed_version": pkg_version,
+                            "vulnerability": vuln.get('vulnerability', 'Security Vulnerability'),
+                            "cve": cve_id,
+                            "all_cves": [cve_id],
+                            "severity": vuln.get('severity', 'medium'),
+                            "cvss_score": vuln.get('cvss', 0.0),
+                            "cwe_id": vuln.get('cwe', 'CWE-Unknown'),
+                            "owasp_category": "A06:2021 - Vulnerable and Outdated Components",
+                            "description": vuln.get('description', '')[:500],
+                            "remediation": f"Upgrade {pkg_name} to the latest patched version",
+                            "business_impact": impact_info.get('business_impact', ''),
+                            "technical_impact": impact_info.get('technical_impact', ''),
+                            "recommendations": impact_info.get('recommendations', ''),
+                            "published_date": vuln.get('published', 'N/A'),
+                            "stride_category": self._map_to_stride(vuln.get('vulnerability', '')),
+                            "mitre_attack_id": "T1195.001",
+                            "ecosystem": ecosystem,
+                            "source": vuln.get('source', 'realtime'),
+                            "references": vuln.get('references', []),
+                            "impact_generated_by": impact_info.get('generated_by', 'static')
+                        }
+
+                        results['findings'].append(finding)
+                        existing_cves.add(cve_id)
+                        realtime_findings += 1
+
+                        # Update severity counts
+                        sev = finding['severity']
+                        if sev in results['severity_counts']:
+                            results['severity_counts'][sev] += 1
+
+                if realtime_findings > 0:
+                    results['total_vulnerabilities'] = len(results['findings'])
+                    results['realtime_cves_found'] = realtime_findings
+                    logger.info(f"[SCA] Real-time sources found {realtime_findings} additional vulnerabilities")
+
+                # Get stats from real-time service
+                results['realtime_stats'] = self._realtime_cve_service.get_stats()
+
+            except Exception as e:
+                self.errors.append(f"Real-time CVE lookup failed: {e}")
+                logger.warning(f"[SCA] Real-time CVE lookup failed: {e}")
+                results['realtime_error'] = str(e)
+
+        # Legacy NVD enrichment for findings without detailed NVD data
         if results['findings'] and self._nvd_api_key:
             try:
-                cve_ids = [f['cve'] for f in results['findings'] if f['cve'].startswith('CVE-')]
+                cve_ids = [f['cve'] for f in results['findings'] if f['cve'].startswith('CVE-') and not f.get('nvd_cvss')]
                 if cve_ids:
                     nvd_data = await self._fetch_nvd_batch(cve_ids[:20])  # Limit to 20
                     results = self._enrich_with_nvd(results, nvd_data)
             except Exception as e:
                 self.errors.append(f"NVD enrichment failed: {e}")
+
+        # Mark scan as using real-time sources
+        results['realtime_enabled'] = self.realtime_cve_enabled
 
         return results
 
@@ -3513,6 +3650,80 @@ class SCAScanner:
 
         return results
 
+    def get_realtime_cve_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics from the real-time CVE service.
 
-# Global instance with pre-built indices
-sca_scanner = SCAScanner()
+        Returns:
+            Dictionary with cache stats, query counts, and error information
+        """
+        if self.realtime_cve_enabled and self._realtime_cve_service:
+            return self._realtime_cve_service.get_stats()
+        return {
+            "enabled": False,
+            "message": "Real-time CVE service is not enabled"
+        }
+
+    def clear_realtime_cache(self):
+        """Clear the real-time CVE cache"""
+        if self._realtime_cve_service:
+            self._realtime_cve_service.clear_cache()
+            logger.info("[SCA] Real-time CVE cache cleared")
+
+    async def scan_with_realtime_cves(
+        self,
+        dependencies: Dict[str, str],
+        ecosystem: str = "npm",
+        include_reachability: bool = False,
+        project_path: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Full async scan with real-time CVE fetching and optional reachability analysis.
+
+        This is the recommended method for comprehensive vulnerability scanning:
+        1. Scans against local static CVE database
+        2. Queries real-time sources (OSV, NVD, GitHub Advisory)
+        3. Optionally performs code reachability analysis
+
+        Args:
+            dependencies: {"package_name": "version"}
+            ecosystem: Package ecosystem (npm, pip, maven, etc.)
+            include_reachability: Whether to analyze code paths for exploitability
+            project_path: Project root (required if include_reachability=True)
+
+        Returns:
+            Comprehensive scan results with real-time CVE data
+        """
+        # Run async scan with real-time CVE lookup
+        results = await self.scan_dependencies_async(dependencies, ecosystem)
+
+        # Optionally add reachability analysis
+        if include_reachability and project_path and results.get("findings"):
+            try:
+                from services.reachability_analyzer import analyze_code_reachability
+
+                reachability_results = analyze_code_reachability(
+                    project_path,
+                    results["findings"],
+                    ecosystem
+                )
+
+                results["findings"] = reachability_results.get("findings", results["findings"])
+                results["reachability_summary"] = reachability_results.get("summary", {})
+
+                exploitable_count = sum(
+                    1 for f in results["findings"]
+                    if f.get("reachability", {}).get("is_exploitable")
+                )
+                results["exploitable_vulnerabilities"] = exploitable_count
+                results["non_exploitable_vulnerabilities"] = len(results["findings"]) - exploitable_count
+
+            except Exception as e:
+                logger.warning(f"[SCA] Reachability analysis failed: {e}")
+                results["reachability_error"] = str(e)
+
+        return results
+
+
+# Global instance with pre-built indices and real-time CVE support
+sca_scanner = SCAScanner(realtime_cve_enabled=True)

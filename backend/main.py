@@ -4285,6 +4285,101 @@ async def get_sca_feeds_status(
     }
 
 
+@app.get("/api/sca/realtime/stats")
+async def get_realtime_cve_stats(
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get real-time CVE service statistics.
+
+    Returns cache stats, query counts, and configuration status for:
+    - OSV (Open Source Vulnerabilities) - Primary source
+    - NVD (National Vulnerability Database) - Secondary source
+    - GitHub Advisory Database - Additional coverage
+    """
+    from services.sca_scanner import sca_scanner
+
+    stats = sca_scanner.get_realtime_cve_stats()
+
+    return {
+        "realtime_cve_service": stats,
+        "description": {
+            "osv": "Open Source Vulnerabilities - Free, comprehensive, no rate limits",
+            "nvd": "National Vulnerability Database - Authoritative CVE data",
+            "github": "GitHub Advisory Database - Good for GitHub ecosystem packages"
+        }
+    }
+
+
+@app.post("/api/sca/realtime/clear-cache")
+async def clear_realtime_cve_cache(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Clear the real-time CVE service cache to force fresh lookups."""
+    from services.sca_scanner import sca_scanner
+
+    sca_scanner.clear_realtime_cache()
+
+    return {"success": True, "message": "Real-time CVE cache cleared"}
+
+
+@app.post("/api/sca/scan/realtime")
+async def scan_with_realtime_cves(
+    request: dict,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Scan dependencies with real-time CVE fetching from NVD, OSV, and GitHub Advisory.
+
+    This endpoint:
+    1. Scans against local static vulnerability database (fast)
+    2. Queries real-time CVE sources for additional/newer vulnerabilities
+    3. Merges and deduplicates results
+    4. Optionally performs code reachability analysis
+
+    Request body:
+    {
+        "dependencies": {"package_name": "version", ...},
+        "ecosystem": "npm" | "pip" | "maven" | ...,
+        "include_reachability": false,
+        "project_path": "/path/to/project"  // Required if include_reachability=true
+    }
+    """
+    from services.sca_scanner import sca_scanner
+
+    dependencies = request.get("dependencies", {})
+    ecosystem = request.get("ecosystem", "npm")
+    include_reachability = request.get("include_reachability", False)
+    project_path = request.get("project_path")
+
+    if not dependencies:
+        raise HTTPException(status_code=400, detail="No dependencies provided")
+
+    if include_reachability and not project_path:
+        raise HTTPException(
+            status_code=400,
+            detail="project_path is required when include_reachability is true"
+        )
+
+    try:
+        results = await sca_scanner.scan_with_realtime_cves(
+            dependencies=dependencies,
+            ecosystem=ecosystem,
+            include_reachability=include_reachability,
+            project_path=project_path
+        )
+
+        return {
+            "success": True,
+            "scan_type": "realtime",
+            "results": results
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Real-time CVE scan failed: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
