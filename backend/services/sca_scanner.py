@@ -1245,6 +1245,728 @@ class SCAScanner:
                 "ecosystem": "nuget"
             },
         ],
+        "Microsoft.AspNetCore.Http": [
+            {
+                "versions": ["<2.2.8", ">=3.0.0,<3.1.18"],
+                "vulnerability": "HTTP Request Smuggling",
+                "cve": ["CVE-2021-26701"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "HTTP request smuggling vulnerability in ASP.NET Core.",
+                "remediation": "Upgrade to Microsoft.AspNetCore.Http >= 2.2.8 or >= 3.1.18",
+                "cwe": "CWE-444",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2021-03-09",
+                "ecosystem": "nuget"
+            },
+        ],
+        "System.Security.Cryptography.Xml": [
+            {
+                "versions": ["<4.7.1", ">=5.0.0,<5.0.1"],
+                "vulnerability": "XML Signature Verification Bypass",
+                "cve": ["CVE-2021-1724"],
+                "severity": "medium",
+                "cvss": 6.5,
+                "description": "Signature verification can be bypassed.",
+                "remediation": "Upgrade to System.Security.Cryptography.Xml >= 4.7.1 or >= 5.0.1",
+                "cwe": "CWE-347",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2021-01-12",
+                "ecosystem": "nuget"
+            },
+        ],
+        "Microsoft.Data.SqlClient": [
+            {
+                "versions": ["<2.1.4", ">=3.0.0,<3.1.1", ">=4.0.0,<4.1.1"],
+                "vulnerability": "Information Disclosure",
+                "cve": ["CVE-2022-41064"],
+                "severity": "medium",
+                "cvss": 5.5,
+                "description": "Sensitive information disclosure vulnerability.",
+                "remediation": "Upgrade to Microsoft.Data.SqlClient >= 2.1.4, >= 3.1.1, or >= 4.1.1",
+                "cwe": "CWE-200",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-11-08",
+                "ecosystem": "nuget"
+            },
+        ],
+        "Serilog": [
+            {
+                "versions": ["<2.10.0"],
+                "vulnerability": "Log Injection",
+                "cve": ["CVE-2021-43138"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "Log injection vulnerability via template syntax.",
+                "remediation": "Upgrade to Serilog >= 2.10.0",
+                "cwe": "CWE-117",
+                "owasp": "A03:2021 - Injection",
+                "published": "2021-11-22",
+                "ecosystem": "nuget"
+            },
+        ],
+
+        # ==================== MORE PHP PACKAGES ====================
+        "guzzlehttp/guzzle": [
+            {
+                "versions": ["<6.5.8", ">=7.0.0,<7.4.5"],
+                "vulnerability": "Cross-Domain Cookie Leakage",
+                "cve": ["CVE-2022-31042", "CVE-2022-31043"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Cookies sent to wrong domain via redirect following.",
+                "remediation": "Upgrade to guzzlehttp/guzzle >= 6.5.8 or >= 7.4.5",
+                "cwe": "CWE-200",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-06-10",
+                "ecosystem": "composer"
+            },
+        ],
+        "guzzlehttp/psr7": [
+            {
+                "versions": ["<1.8.4", ">=2.0.0,<2.1.1"],
+                "vulnerability": "HTTP Header Injection",
+                "cve": ["CVE-2022-24775"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "HTTP header injection via untrusted input.",
+                "remediation": "Upgrade to guzzlehttp/psr7 >= 1.8.4 or >= 2.1.1",
+                "cwe": "CWE-113",
+                "owasp": "A03:2021 - Injection",
+                "published": "2022-03-21",
+                "ecosystem": "composer"
+            },
+        ],
+        "doctrine/dbal": [
+            {
+                "versions": ["<2.12.1", ">=3.0.0,<3.1.4"],
+                "vulnerability": "SQL Injection",
+                "cve": ["CVE-2021-43608"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "SQL injection via Query Builder.",
+                "remediation": "Upgrade to doctrine/dbal >= 2.12.1 or >= 3.1.4",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2021-11-22",
+                "ecosystem": "composer"
+            },
+        ],
+        "symfony/security-bundle": [
+            {
+                "versions": ["<4.4.50", ">=5.0.0,<5.4.20", ">=6.0.0,<6.0.20"],
+                "vulnerability": "Authentication Bypass",
+                "cve": ["CVE-2023-27899"],
+                "severity": "high",
+                "cvss": 8.1,
+                "description": "Firewall bypass via HTTP headers.",
+                "remediation": "Upgrade to symfony/security-bundle >= 4.4.50, >= 5.4.20, or >= 6.0.20",
+                "cwe": "CWE-287",
+                "owasp": "A07:2021 - Identification and Authentication Failures",
+                "published": "2023-02-03",
+                "ecosystem": "composer"
+            },
+        ],
+        "twig/twig": [
+            {
+                "versions": ["<2.15.3", ">=3.0.0,<3.4.3"],
+                "vulnerability": "Server-Side Template Injection",
+                "cve": ["CVE-2022-39261"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Template injection via source loader.",
+                "remediation": "Upgrade to twig/twig >= 2.15.3 or >= 3.4.3",
+                "cwe": "CWE-94",
+                "owasp": "A03:2021 - Injection",
+                "published": "2022-09-28",
+                "ecosystem": "composer"
+            },
+        ],
+        "phpunit/phpunit": [
+            {
+                "versions": [">=4.8.19,<4.8.28", ">=5.0.10,<5.6.3"],
+                "vulnerability": "Remote Code Execution",
+                "cve": ["CVE-2017-9841"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "RCE via eval-stdin.php script.",
+                "remediation": "Upgrade to phpunit >= 4.8.28 or >= 5.6.3",
+                "cwe": "CWE-94",
+                "owasp": "A03:2021 - Injection",
+                "published": "2017-06-27",
+                "ecosystem": "composer"
+            },
+        ],
+        "league/flysystem": [
+            {
+                "versions": ["<1.1.4", ">=2.0.0,<2.3.2"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2021-32708"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Path traversal allows reading/writing arbitrary files.",
+                "remediation": "Upgrade to league/flysystem >= 1.1.4 or >= 2.3.2",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2021-06-24",
+                "ecosystem": "composer"
+            },
+        ],
+        "firebase/php-jwt": [
+            {
+                "versions": ["<5.4.0"],
+                "vulnerability": "Algorithm Confusion Attack",
+                "cve": ["CVE-2021-46743"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "JWT signature bypass via algorithm confusion.",
+                "remediation": "Upgrade to firebase/php-jwt >= 5.4.0",
+                "cwe": "CWE-347",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2022-01-21",
+                "ecosystem": "composer"
+            },
+        ],
+
+        # ==================== MORE GO PACKAGES ====================
+        "github.com/gorilla/mux": [
+            {
+                "versions": ["<1.8.0"],
+                "vulnerability": "Query Parameter Handling Issue",
+                "cve": ["CVE-2023-45283"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "Improper handling of query parameters.",
+                "remediation": "Upgrade to github.com/gorilla/mux >= 1.8.0",
+                "cwe": "CWE-20",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-11-02",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/gorilla/websocket": [
+            {
+                "versions": ["<1.5.1"],
+                "vulnerability": "Integer Overflow",
+                "cve": ["CVE-2020-27813"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Integer overflow leading to DoS.",
+                "remediation": "Upgrade to github.com/gorilla/websocket >= 1.5.1",
+                "cwe": "CWE-190",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2020-12-02",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/go-yaml/yaml": [
+            {
+                "versions": ["<2.2.8", ">=3.0.0,<3.0.0-20220512140231-539c8e751b99"],
+                "vulnerability": "Denial of Service via YAML Parsing",
+                "cve": ["CVE-2022-28948"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via recursive node anchors.",
+                "remediation": "Upgrade to gopkg.in/yaml.v2 >= 2.2.8 or v3 >= v3.0.0-20220512140231",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-05-19",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/labstack/echo": [
+            {
+                "versions": ["<4.9.0"],
+                "vulnerability": "Open Redirect",
+                "cve": ["CVE-2022-40083"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "Open redirect via improper URL validation.",
+                "remediation": "Upgrade to github.com/labstack/echo/v4 >= 4.9.0",
+                "cwe": "CWE-601",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2022-09-08",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/go-chi/chi": [
+            {
+                "versions": ["<5.0.8"],
+                "vulnerability": "Path Traversal in Static File Serving",
+                "cve": ["CVE-2023-26152"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Path traversal vulnerability.",
+                "remediation": "Upgrade to github.com/go-chi/chi/v5 >= 5.0.8",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2023-03-01",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/valyala/fasthttp": [
+            {
+                "versions": ["<1.47.0"],
+                "vulnerability": "HTTP Request Smuggling",
+                "cve": ["CVE-2023-29406"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Request smuggling via chunked encoding.",
+                "remediation": "Upgrade to github.com/valyala/fasthttp >= 1.47.0",
+                "cwe": "CWE-444",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-06-21",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/hashicorp/vault": [
+            {
+                "versions": ["<1.13.1", ">=1.14.0,<1.14.7"],
+                "vulnerability": "Authentication Bypass",
+                "cve": ["CVE-2023-5077"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "PKI issuer auth bypass.",
+                "remediation": "Upgrade to vault >= 1.13.1 or >= 1.14.7",
+                "cwe": "CWE-287",
+                "owasp": "A07:2021 - Identification and Authentication Failures",
+                "published": "2023-09-28",
+                "ecosystem": "go"
+            },
+        ],
+        "github.com/minio/minio": [
+            {
+                "versions": ["<2023.11.20"],
+                "vulnerability": "Privilege Escalation",
+                "cve": ["CVE-2023-49070"],
+                "severity": "high",
+                "cvss": 8.8,
+                "description": "Privilege escalation via OIDC claims.",
+                "remediation": "Upgrade to minio >= RELEASE.2023-11-20T22-40-07Z",
+                "cwe": "CWE-269",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2023-11-21",
+                "ecosystem": "go"
+            },
+        ],
+        "golang.org/x/net": [
+            {
+                "versions": ["<0.0.0-20220906165146-f3363e06e74c", ">=0.1.0,<0.7.0"],
+                "vulnerability": "HTTP/2 Rapid Reset Attack",
+                "cve": ["CVE-2023-39325", "CVE-2023-44487"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "HTTP/2 rapid reset causes DoS.",
+                "remediation": "Upgrade to golang.org/x/net >= 0.17.0",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-10-10",
+                "ecosystem": "go"
+            },
+        ],
+
+        # ==================== REACT/JAVASCRIPT FRONTEND PACKAGES ====================
+        "react": [
+            {
+                "versions": ["<16.8.6", ">=17.0.0,<17.0.1"],
+                "vulnerability": "Cross-Site Scripting (XSS)",
+                "cve": ["CVE-2021-27047"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "XSS via dangerouslySetInnerHTML edge case.",
+                "remediation": "Upgrade to react >= 16.8.6 or >= 17.0.1",
+                "cwe": "CWE-79",
+                "owasp": "A03:2021 - Injection",
+                "published": "2021-02-12",
+                "ecosystem": "npm"
+            },
+        ],
+        "next": [
+            {
+                "versions": ["<12.2.4", ">=13.0.0,<13.1.1"],
+                "vulnerability": "Server-Side Request Forgery",
+                "cve": ["CVE-2022-36945"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "SSRF via image optimization endpoint.",
+                "remediation": "Upgrade to next >= 12.2.4 or >= 13.1.1",
+                "cwe": "CWE-918",
+                "owasp": "A10:2021 - Server-Side Request Forgery",
+                "published": "2022-08-02",
+                "ecosystem": "npm"
+            },
+            {
+                "versions": ["<14.0.4"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2024-24831"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Path traversal in server actions.",
+                "remediation": "Upgrade to next >= 14.0.4",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2024-01-20",
+                "ecosystem": "npm"
+            },
+        ],
+        "gatsby": [
+            {
+                "versions": ["<4.25.6", ">=5.0.0,<5.3.3"],
+                "vulnerability": "Directory Traversal",
+                "cve": ["CVE-2023-22491"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Directory traversal in dev server.",
+                "remediation": "Upgrade to gatsby >= 4.25.6 or >= 5.3.3",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2023-01-13",
+                "ecosystem": "npm"
+            },
+        ],
+        "vue": [
+            {
+                "versions": [">=2.0.0,<2.7.13", ">=3.0.0,<3.2.47"],
+                "vulnerability": "Cross-Site Scripting (XSS)",
+                "cve": ["CVE-2023-22461"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "XSS in template compilation.",
+                "remediation": "Upgrade to vue >= 2.7.13 or >= 3.2.47",
+                "cwe": "CWE-79",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-01-10",
+                "ecosystem": "npm"
+            },
+        ],
+        "svelte": [
+            {
+                "versions": ["<3.49.0"],
+                "vulnerability": "Cross-Site Scripting via SSR",
+                "cve": ["CVE-2022-36054"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "XSS via server-side rendering.",
+                "remediation": "Upgrade to svelte >= 3.49.0",
+                "cwe": "CWE-79",
+                "owasp": "A03:2021 - Injection",
+                "published": "2022-09-02",
+                "ecosystem": "npm"
+            },
+        ],
+        "react-router": [
+            {
+                "versions": ["<6.4.0"],
+                "vulnerability": "URL Parsing Issue",
+                "cve": ["CVE-2022-39359"],
+                "severity": "medium",
+                "cvss": 5.3,
+                "description": "URL parsing bypass in route matching.",
+                "remediation": "Upgrade to react-router >= 6.4.0",
+                "cwe": "CWE-20",
+                "owasp": "A03:2021 - Injection",
+                "published": "2022-10-10",
+                "ecosystem": "npm"
+            },
+        ],
+        "@angular/core": [
+            {
+                "versions": ["<11.2.14", ">=12.0.0,<12.0.5", ">=12.1.0,<12.1.3"],
+                "vulnerability": "DOM Clobbering",
+                "cve": ["CVE-2021-22538"],
+                "severity": "medium",
+                "cvss": 6.1,
+                "description": "DOM clobbering via sanitization bypass.",
+                "remediation": "Upgrade to @angular/core >= 11.2.14, >= 12.0.5, or >= 12.1.3",
+                "cwe": "CWE-79",
+                "owasp": "A03:2021 - Injection",
+                "published": "2021-07-06",
+                "ecosystem": "npm"
+            },
+        ],
+        "webpack": [
+            {
+                "versions": ["<5.76.0"],
+                "vulnerability": "Path Traversal",
+                "cve": ["CVE-2023-28154"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Path traversal in source maps.",
+                "remediation": "Upgrade to webpack >= 5.76.0",
+                "cwe": "CWE-22",
+                "owasp": "A01:2021 - Broken Access Control",
+                "published": "2023-03-17",
+                "ecosystem": "npm"
+            },
+        ],
+        "vite": [
+            {
+                "versions": ["<2.9.14", ">=3.0.0,<3.2.5", ">=4.0.0,<4.0.5"],
+                "vulnerability": "Server-Side Request Forgery",
+                "cve": ["CVE-2023-34092"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "SSRF via development server.",
+                "remediation": "Upgrade to vite >= 2.9.14, >= 3.2.5, or >= 4.0.5",
+                "cwe": "CWE-918",
+                "owasp": "A10:2021 - Server-Side Request Forgery",
+                "published": "2023-06-01",
+                "ecosystem": "npm"
+            },
+        ],
+        "socket.io": [
+            {
+                "versions": ["<4.6.2"],
+                "vulnerability": "Resource Exhaustion",
+                "cve": ["CVE-2024-38355"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Memory exhaustion via malformed packets.",
+                "remediation": "Upgrade to socket.io >= 4.6.2",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2024-06-19",
+                "ecosystem": "npm"
+            },
+        ],
+        "mongoose": [
+            {
+                "versions": ["<5.13.15", ">=6.0.0,<6.7.2"],
+                "vulnerability": "Prototype Pollution via __proto__",
+                "cve": ["CVE-2022-24304"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Prototype pollution in update operations.",
+                "remediation": "Upgrade to mongoose >= 5.13.15 or >= 6.7.2",
+                "cwe": "CWE-1321",
+                "owasp": "A06:2021 - Vulnerable and Outdated Components",
+                "published": "2022-03-31",
+                "ecosystem": "npm"
+            },
+        ],
+        "sequelize": [
+            {
+                "versions": ["<6.28.1"],
+                "vulnerability": "SQL Injection",
+                "cve": ["CVE-2023-22578"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "SQL injection via raw query interpolation.",
+                "remediation": "Upgrade to sequelize >= 6.28.1",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-01-31",
+                "ecosystem": "npm"
+            },
+        ],
+        "mysql2": [
+            {
+                "versions": ["<3.9.1"],
+                "vulnerability": "SQL Injection via Named Placeholders",
+                "cve": ["CVE-2024-21508"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "SQL injection vulnerability in named placeholder parsing.",
+                "remediation": "Upgrade to mysql2 >= 3.9.1",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2024-02-21",
+                "ecosystem": "npm"
+            },
+        ],
+        "pg": [
+            {
+                "versions": ["<8.11.4"],
+                "vulnerability": "SQL Injection",
+                "cve": ["CVE-2024-21510"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "SQL injection via parameter handling.",
+                "remediation": "Upgrade to pg >= 8.11.4",
+                "cwe": "CWE-89",
+                "owasp": "A03:2021 - Injection",
+                "published": "2024-02-20",
+                "ecosystem": "npm"
+            },
+        ],
+
+        # ==================== C/C++ PACKAGES (vcpkg/Conan) ====================
+        "openssl": [
+            {
+                "versions": [">=1.1.0,<1.1.1t", ">=3.0.0,<3.0.8"],
+                "vulnerability": "X.509 Certificate Verification Bypass",
+                "cve": ["CVE-2023-0286"],
+                "severity": "high",
+                "cvss": 7.4,
+                "description": "Certificate verification bypass via type confusion.",
+                "remediation": "Upgrade to openssl >= 1.1.1t or >= 3.0.8",
+                "cwe": "CWE-295",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2023-02-07",
+                "ecosystem": "vcpkg"
+            },
+            {
+                "versions": [">=1.0.2,<1.0.2zg", ">=1.1.1,<1.1.1t", ">=3.0.0,<3.0.8"],
+                "vulnerability": "Timing Side-Channel Attack",
+                "cve": ["CVE-2022-4304"],
+                "severity": "medium",
+                "cvss": 5.9,
+                "description": "Timing oracle in RSA decryption.",
+                "remediation": "Upgrade to openssl >= 1.0.2zg, >= 1.1.1t, or >= 3.0.8",
+                "cwe": "CWE-208",
+                "owasp": "A02:2021 - Cryptographic Failures",
+                "published": "2023-02-07",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "libxml2": [
+            {
+                "versions": ["<2.10.4"],
+                "vulnerability": "Buffer Over-read",
+                "cve": ["CVE-2023-39615"],
+                "severity": "medium",
+                "cvss": 6.5,
+                "description": "Global buffer over-read in xmlHTMLParser.",
+                "remediation": "Upgrade to libxml2 >= 2.10.4",
+                "cwe": "CWE-125",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-08-29",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "curl": [
+            {
+                "versions": [">=7.77.0,<8.4.0"],
+                "vulnerability": "SOCKS5 Proxy Heap Buffer Overflow",
+                "cve": ["CVE-2023-38545"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "Heap buffer overflow in SOCKS5 proxy handshake.",
+                "remediation": "Upgrade to curl >= 8.4.0",
+                "cwe": "CWE-787",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-10-11",
+                "ecosystem": "vcpkg"
+            },
+            {
+                "versions": [">=7.16.0,<8.4.0"],
+                "vulnerability": "Cookie Injection",
+                "cve": ["CVE-2023-38546"],
+                "severity": "low",
+                "cvss": 3.7,
+                "description": "Cookie injection via libcurl.",
+                "remediation": "Upgrade to curl >= 8.4.0",
+                "cwe": "CWE-20",
+                "owasp": "A03:2021 - Injection",
+                "published": "2023-10-11",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "zlib": [
+            {
+                "versions": ["<1.2.12"],
+                "vulnerability": "Memory Corruption",
+                "cve": ["CVE-2018-25032"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Memory corruption via deflate compression.",
+                "remediation": "Upgrade to zlib >= 1.2.12",
+                "cwe": "CWE-787",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-03-25",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "sqlite3": [
+            {
+                "versions": ["<3.44.0"],
+                "vulnerability": "Heap Buffer Overflow",
+                "cve": ["CVE-2023-7104"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Heap buffer overflow in JSON parsing.",
+                "remediation": "Upgrade to sqlite3 >= 3.44.0",
+                "cwe": "CWE-122",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-12-21",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "libssh": [
+            {
+                "versions": ["<0.10.6", ">=0.11.0,<0.11.1"],
+                "vulnerability": "Authentication Bypass",
+                "cve": ["CVE-2023-6004"],
+                "severity": "critical",
+                "cvss": 9.8,
+                "description": "ProxyCommand injection via hostname.",
+                "remediation": "Upgrade to libssh >= 0.10.6 or >= 0.11.1",
+                "cwe": "CWE-78",
+                "owasp": "A03:2021 - Injection",
+                "published": "2024-01-03",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "libpng": [
+            {
+                "versions": ["<1.6.40"],
+                "vulnerability": "Integer Overflow",
+                "cve": ["CVE-2023-4863"],
+                "severity": "high",
+                "cvss": 8.8,
+                "description": "Integer overflow in PNG decoding.",
+                "remediation": "Upgrade to libpng >= 1.6.40",
+                "cwe": "CWE-190",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-09-12",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "protobuf": [
+            {
+                "versions": ["<3.18.3", ">=3.19.0,<3.19.5", ">=3.20.0,<3.20.2"],
+                "vulnerability": "Denial of Service",
+                "cve": ["CVE-2022-1941"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via parsing deeply nested messages.",
+                "remediation": "Upgrade to protobuf >= 3.18.3, >= 3.19.5, or >= 3.20.2",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-09-22",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "grpc": [
+            {
+                "versions": ["<1.53.1"],
+                "vulnerability": "Denial of Service via HTTP/2",
+                "cve": ["CVE-2023-32732"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "DoS via HTTP/2 frame handling.",
+                "remediation": "Upgrade to grpc >= 1.53.1",
+                "cwe": "CWE-400",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2023-06-09",
+                "ecosystem": "vcpkg"
+            },
+        ],
+        "boost": [
+            {
+                "versions": ["<1.80.0"],
+                "vulnerability": "Integer Overflow in Beast WebSocket",
+                "cve": ["CVE-2022-42916"],
+                "severity": "high",
+                "cvss": 7.5,
+                "description": "Integer overflow in WebSocket parsing.",
+                "remediation": "Upgrade to boost >= 1.80.0",
+                "cwe": "CWE-190",
+                "owasp": "A04:2021 - Insecure Design",
+                "published": "2022-10-29",
+                "ecosystem": "vcpkg"
+            },
+        ],
     }
 
     # Comprehensive license database
@@ -1303,7 +2025,7 @@ class SCAScanner:
 
     def _build_indices(self):
         """Build optimized indices for O(1) vulnerability lookup"""
-        ecosystems = ['npm', 'pip', 'maven', 'gradle', 'composer', 'bundler', 'go', 'cargo', 'nuget']
+        ecosystems = ['npm', 'pip', 'maven', 'gradle', 'composer', 'bundler', 'go', 'cargo', 'nuget', 'vcpkg']
 
         for ecosystem in ecosystems:
             self._vuln_by_ecosystem[ecosystem] = {}
@@ -1792,6 +2514,8 @@ class SCAScanner:
             'go': self.parse_go_mod,
             'cargo': self.parse_cargo_toml,
             'nuget': self.parse_csproj,
+            'vcpkg': self.parse_vcpkg_json,
+            'conan': self.parse_conanfile_txt,
         }
 
         parser = parsers.get(file_type)
@@ -2233,6 +2957,94 @@ class SCAScanner:
             version = match.group(2) or "latest"
             deps[pkg] = version
 
+        return deps
+
+    def parse_vcpkg_json(self, content: str) -> Dict[str, str]:
+        """Parse vcpkg.json manifest for C/C++ dependencies"""
+        deps = {}
+        try:
+            data = json.loads(content)
+
+            # Parse dependencies array
+            dependencies = data.get("dependencies", [])
+            for dep in dependencies:
+                if isinstance(dep, str):
+                    # Simple string dependency
+                    deps[dep] = "latest"
+                elif isinstance(dep, dict):
+                    # Object dependency with version constraint
+                    name = dep.get("name", "")
+                    version = dep.get("version>=", dep.get("version", "latest"))
+                    if name:
+                        deps[name] = version
+
+            # Also check overrides for pinned versions
+            overrides = data.get("overrides", [])
+            for override in overrides:
+                if isinstance(override, dict):
+                    name = override.get("name", "")
+                    version = override.get("version", "")
+                    if name and version:
+                        deps[name] = version
+
+            logger.info(f"[SCA] Parsed vcpkg.json: {len(deps)} dependencies")
+            return deps
+        except Exception as e:
+            self.errors.append(f"Error parsing vcpkg.json: {e}")
+            logger.error(f"[SCA] Error parsing vcpkg.json: {e}")
+            return {}
+
+    def parse_conanfile_txt(self, content: str) -> Dict[str, str]:
+        """Parse Conan conanfile.txt for C/C++ dependencies"""
+        deps = {}
+        in_requires = False
+
+        for line in content.split('\n'):
+            line = line.strip()
+
+            # Check for [requires] section
+            if line == '[requires]':
+                in_requires = True
+                continue
+            elif line.startswith('[') and in_requires:
+                in_requires = False
+                continue
+
+            if in_requires and line and not line.startswith('#'):
+                # Format: package/version or package/version@user/channel
+                parts = line.split('/')
+                if len(parts) >= 2:
+                    package = parts[0]
+                    version = parts[1].split('@')[0]  # Remove @user/channel if present
+                    deps[package] = version
+
+        logger.info(f"[SCA] Parsed conanfile.txt: {len(deps)} dependencies")
+        return deps
+
+    def parse_conanfile_py(self, content: str) -> Dict[str, str]:
+        """Parse Conan conanfile.py for C/C++ dependencies"""
+        deps = {}
+
+        # Match requires attribute or method
+        # Pattern: requires = "package/version"
+        single_pattern = re.compile(r'requires\s*=\s*["\']([^/]+)/([^"\'@]+)')
+        for match in single_pattern.finditer(content):
+            deps[match.group(1)] = match.group(2)
+
+        # Pattern: requires = ("package1/version1", "package2/version2")
+        tuple_pattern = re.compile(r'requires\s*=\s*\((.*?)\)', re.DOTALL)
+        for tuple_match in tuple_pattern.finditer(content):
+            items = tuple_match.group(1)
+            item_pattern = re.compile(r'["\']([^/]+)/([^"\'@]+)')
+            for item_match in item_pattern.finditer(items):
+                deps[item_match.group(1)] = item_match.group(2)
+
+        # Pattern: self.requires("package/version")
+        method_pattern = re.compile(r'self\.requires\s*\(\s*["\']([^/]+)/([^"\'@]+)')
+        for match in method_pattern.finditer(content):
+            deps[match.group(1)] = match.group(2)
+
+        logger.info(f"[SCA] Parsed conanfile.py: {len(deps)} dependencies")
         return deps
 
     def scan_licenses(self, dependencies: Dict[str, Dict[str, str]]) -> Dict[str, Any]:
