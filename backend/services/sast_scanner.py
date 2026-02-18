@@ -276,6 +276,19 @@ Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'
                 r'os\.(system|popen|exec).*?(\+|f["\'])',
                 r'Runtime\.getRuntime\(\)\.exec\s*\([^)]*\+',
                 r'cmd\s*/c.*?(\+|\$)',
+                # PHP-specific patterns - shell functions with concatenation
+                r'system\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'exec\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'shell_exec\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'passthru\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'popen\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'proc_open\s*\(\s*["\'][^"\']*["\']?\s*\.\s*\$',
+                r'pcntl_exec\s*\(',
+                # PHP backtick operator with variable
+                r'`[^`]*\$[a-zA-Z_]',
+                # Go-specific patterns
+                r'exec\.Command\s*\(\s*["\'](?:sh|bash|cmd)["\'].*?-c.*?(\+|\%)',
+                r'exec\.Command\s*\([^)]*\+[^)]*userHost',
             ],
             "cwe": "CWE-78",
             "owasp": "A05:2025 - Injection",
@@ -449,6 +462,12 @@ dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
                 r'(password|passwd|pwd|secret|api[_-]?key|token|auth)\s*=\s*["\'][^"\']{6,}["\']',
                 r'(DB_PASSWORD|DATABASE_PASSWORD|SECRET_KEY)\s*=\s*["\'][^"\']{6,}["\']',
                 r'(AWS_SECRET|PRIVATE_KEY|CLIENT_SECRET)\s*=\s*["\'][^"\']{8,}["\']',
+                # Database connection strings with embedded credentials
+                r'(postgres|postgresql|mysql|mongodb|redis|amqp|mssql)://[^:]+:[^@]+@',
+                r'(connection[_-]?string|database[_-]?url|db[_-]?url)\s*=\s*["\'][^"\']*://[^:]+:[^@]+@',
+                # Go-specific patterns
+                r'(password|passwd|pwd|secret|apiKey)\s*:=\s*["`][^"`]{8,}["`]',
+                r'(password|passwd|pwd|secret)\s*=\s*["`][A-Za-z0-9!@#$%^&*]{8,}["`]',
             ],
             "cwe": "CWE-798",
             "owasp": "A07:2025 - Authentication Failures",
@@ -734,6 +753,8 @@ User user = mapper.readValue(jsonString, User.class);"""
                 r'open\s*\([^)]*\.format',  # open with format
                 r'pathlib\.Path\s*\([^)]*\+',
                 r'shutil\.(copy|move|rmtree)\s*\([^)]*\+',
+                r'shutil\.(copy|move|rmtree|copyfile|copytree)\s*\(\s*\w*user\w*',  # shutil with user variable
+                r'shutil\.(copy|move|rmtree|copyfile|copytree)\s*\(\s*\w*path\w*',  # shutil with path variable
                 r'os\.(remove|unlink|rmdir|mkdir|makedirs)\s*\([^)]*\+',
                 # Detecting path concatenation patterns (before open)
                 r'path\s*=\s*["\'][^"\']*["\'].*?\+',  # path = "..." + something
@@ -918,6 +939,24 @@ if validate_upload(file):
                 r'(MD5|SHA1)DigestUtils',
                 r'Cipher\.getInstance\s*\(["\']DES',
                 r'crypto\.createCipheriv\s*\(["\']des',
+                # Python DES/3DES/Blowfish imports
+                r'from\s+Crypto\.Cipher\s+import\s+(DES|DES3|Blowfish|ARC2|ARC4)',
+                r'from\s+Cryptodome\.Cipher\s+import\s+(DES|DES3|Blowfish|ARC2|ARC4)',
+                r'from\s+pyDes\s+import',
+                # Direct DES/weak cipher usage
+                r'DES\.new\s*\(',
+                r'DES3\.new\s*\(',
+                r'Blowfish\.new\s*\(',
+                r'ARC4\.new\s*\(',
+                # Node.js weak ciphers
+                r'createCipher\s*\(\s*["\'](?:des|des-ede|des-ede3|rc2|rc4|blowfish)',
+                r'createCipheriv\s*\(\s*["\'](?:des|des-ede|des-ede3|rc2|rc4|blowfish)',
+                # Java weak ciphers
+                r'Cipher\.getInstance\s*\(\s*["\'](?:DES|DESede|RC2|RC4|Blowfish)',
+                # Go weak crypto imports
+                r'crypto/des',
+                r'des\.NewCipher\s*\(',
+                r'des\.NewTripleDESCipher\s*\(',
             ],
             "cwe": "CWE-327",
             "owasp": "A04:2025 - Cryptographic Failures",
@@ -1486,6 +1525,10 @@ def reset_password():
                 # Go SSRF
                 r'http\.Get\s*\([^)]*\+',
                 r'http\.Post\s*\([^)]*\+',
+                r'http\.Get\s*\(\s*\w+\s*\)',  # http.Get(variable)
+                r'http\.Post\s*\(\s*\w+\s*,',  # http.Post(variable, ...)
+                r'http\.NewRequest\s*\([^)]*\w+\)',  # http.NewRequest(..., variable)
+                r'client\.Get\s*\(\s*\w+\s*\)',  # client.Get(variable)
             ],
             "cwe": "CWE-918",
             "owasp": "A08:2025 - Server-Side Request Forgery (SSRF)",
