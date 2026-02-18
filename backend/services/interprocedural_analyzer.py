@@ -196,13 +196,19 @@ class CallGraphBuilder:
         """Build call graph using regex for non-Python languages"""
         lines = source_code.split('\n')
 
-        # Patterns for function definitions
+        # Enhanced patterns for function definitions
         func_patterns = {
-            'javascript': r'(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*:\s*(?:async\s*)?\()',
-            'java': r'(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\(',
-            'go': r'func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\(',
-            'php': r'function\s+(\w+)\s*\(',
-            'csharp': r'(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\(',
+            'javascript': r'(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\(|(\w+)\s*:\s*(?:async\s*)?\(|(\w+)\s*=\s*async\s*\()',
+            'typescript': r'(?:function\s+(\w+)|(?:const|let|var)\s+(\w+)\s*[:<]\s*|(\w+)\s*:\s*(?:async\s*)?\(|(?:async\s+)?(\w+)\s*<[^>]*>\s*\()',
+            'java': r'(?:public|private|protected)?\s*(?:static)?\s*(?:final)?\s*(?:<[^>]+>\s*)?\w+(?:<[^>]+>)?\s+(\w+)\s*\(',
+            'go': r'func\s+(?:\(\s*\w+\s+\*?(\w+)\s*\)\s+)?(\w+)\s*\(',
+            'php': r'(?:public|private|protected)?\s*(?:static)?\s*function\s+(\w+)\s*\(',
+            'csharp': r'(?:public|private|protected|internal)?\s*(?:static|async|override|virtual)?\s*(?:\w+(?:<[^>]+>)?)\s+(\w+)\s*\(',
+            'ruby': r'def\s+(?:self\.)?(\w+)',
+            'kotlin': r'(?:fun|suspend\s+fun)\s+(?:<[^>]+>\s*)?(\w+)\s*\(',
+            'swift': r'func\s+(\w+)\s*(?:<[^>]+>)?\s*\(',
+            'rust': r'(?:pub\s+)?(?:async\s+)?fn\s+(\w+)',
+            'scala': r'def\s+(\w+)\s*(?:\[[^\]]+\])?\s*\(',
         }
 
         func_pattern = func_patterns.get(self.language, r'(?:function|def|func)\s+(\w+)')
@@ -211,17 +217,32 @@ class CallGraphBuilder:
         function_stack = []
         brace_count = 0
 
-        for line_num, line in enumerate(lines, 1):
-            stripped = line.strip()
+        # Go-specific: Track method receivers for qualified names
+        go_receivers: Dict[str, str] = {}
 
+        for line_num, line in enumerate(lines, 1):
             # Track function definitions
             match = re.search(func_pattern, line)
             if match:
-                func_name = next((g for g in match.groups() if g), None)
+                groups = [g for g in match.groups() if g]
+                func_name = groups[-1] if groups else None  # Last non-None group is the function name
+
                 if func_name:
+                    # Go-specific: Handle method receivers
+                    qualified_name = func_name
+                    if self.language == 'go' and len(groups) > 1:
+                        receiver_type = groups[0]
+                        qualified_name = f"{receiver_type}.{func_name}"
+                        go_receivers[func_name] = receiver_type
+
+                    # Check if function is a source/sink/sanitizer based on patterns
+                    is_source = self._is_generic_source(func_name, line)
+                    is_sink = self._is_generic_sink(func_name, line)
+                    is_sanitizer = self._is_generic_sanitizer(func_name)
+
                     sig = FunctionSignature(
                         name=func_name,
-                        qualified_name=func_name,
+                        qualified_name=qualified_name,
                         file_path=file_path,
                         start_line=line_num,
                         end_line=line_num,
@@ -231,9 +252,9 @@ class CallGraphBuilder:
                         called_by=[],
                         tainted_params=set(),
                         returns_tainted=False,
-                        is_sanitizer=False,
-                        is_sink=False,
-                        is_source=False
+                        is_sanitizer=is_sanitizer,
+                        is_sink=is_sink,
+                        is_source=is_source
                     )
                     self.functions[func_name] = sig
                     function_stack.append(func_name)
@@ -247,23 +268,39 @@ class CallGraphBuilder:
                     self.functions[func].end_line = line_num
                 current_function = function_stack[-1] if function_stack else None
 
-            # Find function calls
+            # Find function calls with improved pattern
             call_pattern = r'(\w+(?:\.\w+)*)\s*\('
             for match in re.finditer(call_pattern, line):
                 callee = match.group(1)
-                # Skip keywords
-                if callee.split('.')[-1] in {'if', 'for', 'while', 'switch', 'catch', 'function', 'class', 'return'}:
+
+                # Skip language keywords
+                keywords = {
+                    'if', 'for', 'while', 'switch', 'catch', 'function', 'class', 'return',
+                    'func', 'def', 'else', 'elif', 'try', 'except', 'finally', 'with',
+                    'new', 'delete', 'typeof', 'instanceof', 'import', 'export', 'from',
+                    'go', 'select', 'case', 'default', 'range', 'defer', 'panic', 'recover',
+                    'public', 'private', 'protected', 'static', 'final', 'abstract',
+                    'throw', 'throws', 'catch', 'async', 'await', 'yield',
+                }
+                if callee.split('.')[-1] in keywords:
                     continue
 
                 caller = current_function or "<module>"
+
+                # Extract arguments for better taint tracking
+                args = self._extract_call_arguments(line, match.end())
+
+                # Detect return variable assignment
+                return_var = self._detect_return_assignment(line, match.start())
+
                 call_site = CallSite(
                     id=f"call_{line_num}_{callee}",
                     caller_function=caller,
                     callee_function=callee,
                     file_path=file_path,
                     line_number=line_num,
-                    arguments=[],
-                    return_var=None,
+                    arguments=args,
+                    return_var=return_var,
                     context=f"{caller}:{line_num}"
                 )
                 self.call_sites.append(call_site)
@@ -272,10 +309,118 @@ class CallGraphBuilder:
                 self.reverse_call_graph[callee].add(caller)
 
             # Track return statements
-            if 'return ' in line and current_function and current_function in self.functions:
+            return_patterns = {
+                'go': r'\breturn\b',
+                'python': r'\breturn\b',
+                'java': r'\breturn\b',
+                'javascript': r'\breturn\b',
+                'ruby': r'\breturn\b|\bend\b',  # Ruby implicit returns
+            }
+            return_pattern = return_patterns.get(self.language, r'\breturn\b')
+            if re.search(return_pattern, line) and current_function and current_function in self.functions:
                 self.functions[current_function].return_statements.append(line_num)
 
         return self._get_call_graph_summary()
+
+    def _is_generic_source(self, func_name: str, line: str) -> bool:
+        """Check if function is a taint source based on common patterns"""
+        source_patterns = {
+            'go': ['Handler', 'ServeHTTP', 'Handle', 'Get', 'Post', 'Put', 'Delete', 'Patch'],
+            'javascript': ['get', 'post', 'put', 'delete', 'patch', 'route', 'use'],
+            'java': ['doGet', 'doPost', 'doPut', 'doDelete', 'service', 'handleRequest'],
+            'python': ['route', 'get', 'post', 'put', 'delete', 'api_view'],
+            'php': [],
+            'ruby': [],
+            'csharp': ['Get', 'Post', 'Put', 'Delete', 'HttpGet', 'HttpPost'],
+        }
+
+        patterns = source_patterns.get(self.language, [])
+
+        # Check function name
+        for pattern in patterns:
+            if pattern.lower() in func_name.lower():
+                return True
+
+        # Check for HTTP handler signatures
+        if self.language == 'go':
+            if 'http.ResponseWriter' in line or 'http.Request' in line:
+                return True
+            if 'gin.Context' in line or 'echo.Context' in line or 'fiber.Ctx' in line:
+                return True
+
+        return False
+
+    def _is_generic_sink(self, func_name: str, line: str) -> bool:
+        """Check if function contains/is a dangerous sink"""
+        sink_indicators = ['execute', 'query', 'exec', 'eval', 'system', 'write', 'render']
+        return any(s in func_name.lower() for s in sink_indicators)
+
+    def _is_generic_sanitizer(self, func_name: str) -> bool:
+        """Check if function is a sanitizer based on naming"""
+        sanitizer_names = ['escape', 'sanitize', 'clean', 'validate', 'encode', 'quote',
+                          'filter', 'purify', 'strip', 'normalize']
+        return any(s in func_name.lower() for s in sanitizer_names)
+
+    def _extract_call_arguments(self, line: str, start_pos: int) -> List[str]:
+        """Extract function call arguments from line"""
+        args = []
+        paren_count = 0
+        current_arg = ""
+        in_string = False
+        string_char = None
+
+        for i, char in enumerate(line[start_pos:]):
+            if char in '"\'`' and (i == 0 or line[start_pos + i - 1] != '\\'):
+                if not in_string:
+                    in_string = True
+                    string_char = char
+                elif char == string_char:
+                    in_string = False
+                    string_char = None
+
+            if not in_string:
+                if char == '(':
+                    paren_count += 1
+                    if paren_count == 1:
+                        continue
+                elif char == ')':
+                    paren_count -= 1
+                    if paren_count == 0:
+                        if current_arg.strip():
+                            args.append(current_arg.strip())
+                        break
+                elif char == ',' and paren_count == 1:
+                    if current_arg.strip():
+                        args.append(current_arg.strip())
+                    current_arg = ""
+                    continue
+
+            if paren_count >= 1:
+                current_arg += char
+
+        return args[:10]  # Limit to first 10 args
+
+    def _detect_return_assignment(self, line: str, call_start: int) -> Optional[str]:
+        """Detect if the function call result is assigned to a variable"""
+        before_call = line[:call_start].strip()
+
+        # Go: var result = fn() or result := fn() or result, err := fn()
+        go_assign = re.search(r'(\w+(?:\s*,\s*\w+)*)\s*:?=\s*$', before_call)
+        if go_assign:
+            vars_str = go_assign.group(1)
+            return vars_str.split(',')[0].strip()
+
+        # Python/JS: result = fn()
+        simple_assign = re.search(r'(\w+)\s*=\s*$', before_call)
+        if simple_assign:
+            return simple_assign.group(1)
+
+        # Java: Type result = fn()
+        java_assign = re.search(r'(?:\w+(?:<[^>]+>)?)\s+(\w+)\s*=\s*$', before_call)
+        if java_assign:
+            return java_assign.group(1)
+
+        return None
 
     def _extract_params(self, line: str) -> List[str]:
         """Extract function parameters from definition line"""
@@ -433,29 +578,189 @@ class FunctionSummaryGenerator:
     - What sanitization is performed
     """
 
-    # Known sources by language
+    # Comprehensive taint sources by language
     TAINT_SOURCES = {
-        'python': ['request', 'input', 'sys.argv', 'os.environ', 'open', 'recv'],
-        'javascript': ['req.query', 'req.body', 'req.params', 'window.location', 'document.URL'],
-        'java': ['getParameter', 'getHeader', 'getInputStream', 'Scanner'],
-        'go': ['r.URL.Query', 'r.FormValue', 'r.Body'],
-        'php': ['$_GET', '$_POST', '$_REQUEST', '$_COOKIE'],
+        'python': [
+            # Flask/Django
+            'request.args', 'request.form', 'request.json', 'request.data', 'request.files',
+            'request.values', 'request.cookies', 'request.headers', 'request.get_json',
+            # Django
+            'request.GET', 'request.POST', 'request.body',
+            # General
+            'input(', 'sys.argv', 'os.environ', 'open(', 'socket.recv', 'urlopen',
+            'subprocess.check_output', 'raw_input',
+        ],
+        'javascript': [
+            # Express
+            'req.query', 'req.body', 'req.params', 'req.headers', 'req.cookies',
+            'req.path', 'req.url', 'req.originalUrl',
+            # Browser
+            'window.location', 'document.URL', 'document.referrer', 'document.cookie',
+            'location.search', 'location.hash', 'location.pathname',
+            'URLSearchParams', 'FormData',
+            # File/Network
+            'readFileSync', 'fetch(', 'axios',
+        ],
+        'typescript': [
+            'req.query', 'req.body', 'req.params', 'req.headers', 'req.cookies',
+            'request.query', 'request.body', 'request.params',
+        ],
+        'java': [
+            # Servlet
+            'getParameter', 'getHeader', 'getCookies', 'getInputStream', 'getReader',
+            'getQueryString', 'getPathInfo', 'getRequestURI', 'getRequestURL',
+            # Spring
+            '@RequestParam', '@PathVariable', '@RequestBody', '@RequestHeader',
+            'HttpServletRequest',
+            # General
+            'Scanner', 'BufferedReader', 'DataInputStream',
+        ],
+        'go': [
+            # net/http
+            'r.URL.Query', 'r.FormValue', 'r.Body', 'r.PostFormValue', 'r.Form',
+            'r.Header.Get', 'r.Cookie', 'r.URL.Path', 'r.URL.RawQuery',
+            'r.ParseForm', 'r.ParseMultipartForm', 'r.MultipartForm',
+            # Gin
+            'c.Query', 'c.Param', 'c.PostForm', 'c.FormFile', 'c.GetHeader',
+            'c.BindJSON', 'c.ShouldBindJSON', 'c.Request',
+            # Echo
+            'c.QueryParam', 'c.PathParam', 'c.FormValue', 'c.Bind',
+            # Fiber
+            'c.Query', 'c.Params', 'c.FormValue', 'c.Body',
+            # Chi
+            'chi.URLParam',
+            # File/Network
+            'os.Stdin', 'bufio.Scanner', 'ioutil.ReadAll', 'io.ReadAll',
+        ],
+        'php': [
+            '$_GET', '$_POST', '$_REQUEST', '$_COOKIE', '$_FILES', '$_SERVER',
+            'php://input', 'file_get_contents', 'fgets', 'fread',
+        ],
+        'ruby': [
+            'params', 'request.params', 'request.body', 'request.cookies',
+            'ENV', 'ARGV', 'gets', 'readline',
+        ],
+        'csharp': [
+            'Request.Query', 'Request.Form', 'Request.Body', 'Request.Headers',
+            'Request.Cookies', 'HttpContext.Request',
+            '[FromBody]', '[FromQuery]', '[FromRoute]', '[FromForm]',
+        ],
     }
 
-    # Known sinks by category
+    # Comprehensive sinks by vulnerability category
     SINKS = {
-        'sql': ['execute', 'query', 'cursor', 'raw', 'executeQuery'],
-        'command': ['system', 'exec', 'popen', 'subprocess', 'spawn'],
-        'xss': ['innerHTML', 'document.write', 'render_template_string'],
-        'path': ['open', 'readFile', 'include', 'require'],
-        'deserialize': ['pickle.loads', 'yaml.load', 'unserialize'],
+        'sql': {
+            'python': ['execute', 'executemany', 'cursor.execute', 'raw(', 'extra(', 'RawSQL'],
+            'javascript': ['query(', 'execute(', 'sequelize.query', 'knex.raw'],
+            'java': ['executeQuery', 'executeUpdate', 'execute(', 'prepareStatement', 'createQuery', 'nativeQuery'],
+            'go': ['db.Query', 'db.QueryRow', 'db.Exec', 'tx.Query', 'tx.Exec', 'Raw(', 'Exec('],
+            'php': ['mysql_query', 'mysqli_query', 'pg_query', 'PDO::query', 'execute'],
+            'generic': ['execute', 'query', 'cursor', 'raw', 'executeQuery', 'Exec', 'Query'],
+        },
+        'command': {
+            'python': ['os.system', 'os.popen', 'subprocess.call', 'subprocess.run', 'subprocess.Popen', 'commands.getoutput'],
+            'javascript': ['exec(', 'execSync', 'spawn(', 'spawnSync', 'execFile', 'child_process'],
+            'java': ['Runtime.exec', 'ProcessBuilder', 'Runtime.getRuntime().exec'],
+            'go': ['exec.Command', 'exec.CommandContext', 'os.StartProcess', 'syscall.Exec'],
+            'php': ['system', 'exec', 'shell_exec', 'passthru', 'popen', 'proc_open', 'pcntl_exec'],
+            'generic': ['system', 'exec', 'popen', 'subprocess', 'spawn', 'shell_exec'],
+        },
+        'xss': {
+            'python': ['render_template_string', 'Markup(', 'safe|', '|safe'],
+            'javascript': ['innerHTML', 'outerHTML', 'document.write', 'insertAdjacentHTML', 'eval(', 'Function('],
+            'java': ['getWriter().print', 'getWriter().write', 'getOutputStream'],
+            'go': ['template.HTML', 'w.Write', 'io.WriteString', 'fmt.Fprintf(w'],
+            'php': ['echo', 'print', 'printf'],
+            'generic': ['innerHTML', 'document.write', 'render_template_string', 'html('],
+        },
+        'path': {
+            'python': ['open(', 'file(', 'os.path.join', 'shutil.copy', 'send_file'],
+            'javascript': ['readFile', 'writeFile', 'readFileSync', 'createReadStream', 'require('],
+            'java': ['FileInputStream', 'FileOutputStream', 'File(', 'Paths.get'],
+            'go': ['os.Open', 'os.Create', 'ioutil.ReadFile', 'os.ReadFile', 'filepath.Join', 'http.ServeFile'],
+            'php': ['include', 'require', 'include_once', 'require_once', 'fopen', 'file_get_contents', 'readfile'],
+            'generic': ['open', 'readFile', 'include', 'require', 'fopen'],
+        },
+        'deserialize': {
+            'python': ['pickle.loads', 'pickle.load', 'yaml.load', 'yaml.unsafe_load', 'marshal.loads', 'shelve.open'],
+            'javascript': ['JSON.parse', 'eval(', 'Function(', 'deserialize'],
+            'java': ['ObjectInputStream.readObject', 'XMLDecoder', 'readObject', 'fromXML'],
+            'go': ['gob.Decode', 'json.Unmarshal', 'yaml.Unmarshal', 'xml.Unmarshal'],
+            'php': ['unserialize'],
+            'generic': ['pickle.loads', 'yaml.load', 'unserialize', 'readObject', 'Unmarshal'],
+        },
+        'ssrf': {
+            'python': ['requests.get', 'requests.post', 'urllib.request.urlopen', 'http.client', 'httplib'],
+            'javascript': ['fetch(', 'axios', 'http.get', 'https.get', 'request('],
+            'java': ['HttpURLConnection', 'URL.openConnection', 'HttpClient', 'WebClient'],
+            'go': ['http.Get', 'http.Post', 'http.NewRequest', 'client.Do', 'client.Get'],
+            'php': ['file_get_contents', 'curl_exec', 'fopen'],
+            'generic': ['http.get', 'fetch', 'urlopen', 'request'],
+        },
+        'redirect': {
+            'python': ['redirect(', 'HttpResponseRedirect'],
+            'javascript': ['res.redirect', 'window.location', 'location.href'],
+            'java': ['sendRedirect', 'forward'],
+            'go': ['http.Redirect', 'c.Redirect'],
+            'php': ['header("Location'],
+            'generic': ['redirect', 'sendRedirect', 'location'],
+        },
+        'ldap': {
+            'generic': ['ldap_search', 'search_s', 'ldap.search', 'LdapContext'],
+        },
+        'xpath': {
+            'generic': ['xpath(', 'evaluate', 'selectNodes', 'XPathExpression'],
+        },
+        'regex_dos': {
+            'generic': ['re.match', 're.search', 'Pattern.compile', 'RegExp('],
+        },
     }
 
+    # Comprehensive sanitizers by vulnerability category
     SANITIZERS = {
-        'sql': ['escape', 'quote', 'parameterized', 'prepared'],
-        'xss': ['escape', 'htmlspecialchars', 'DOMPurify', 'sanitize'],
-        'command': ['shlex.quote', 'escapeshellarg'],
-        'path': ['basename', 'realpath', 'secure_filename'],
+        'sql': {
+            'python': ['escape_string', 'quote', 'parameterized', '%s', '?'],
+            'javascript': ['escape', 'mysql.escape', 'pg.escapeLiteral', 'sequelize.escape'],
+            'java': ['PreparedStatement', 'setString', 'setInt', 'createNamedQuery'],
+            'go': ['$1', '$2', '?', 'Prepare', 'stmt.Exec', 'sqlx.Named'],
+            'php': ['mysqli_real_escape_string', 'PDO::quote', 'addslashes'],
+            'generic': ['escape', 'quote', 'parameterized', 'prepared', 'bindParam'],
+        },
+        'xss': {
+            'python': ['escape(', 'html.escape', 'markupsafe.escape', 'bleach.clean', 'cgi.escape'],
+            'javascript': ['DOMPurify.sanitize', 'textContent', 'createTextNode', 'encodeURIComponent', 'escape('],
+            'java': ['StringEscapeUtils.escapeHtml', 'HtmlUtils.htmlEscape', 'ESAPI.encoder'],
+            'go': ['html.EscapeString', 'template.HTMLEscapeString', 'html/template'],
+            'php': ['htmlspecialchars', 'htmlentities', 'strip_tags'],
+            'generic': ['escape', 'htmlspecialchars', 'DOMPurify', 'sanitize', 'encode'],
+        },
+        'command': {
+            'python': ['shlex.quote', 'shlex.split', 'pipes.quote'],
+            'javascript': ['shell-escape', 'escapeshellarg'],
+            'java': ['ProcessBuilder(list)', 'new ProcessBuilder'],
+            'go': ['exec.Command(cmd, args...)', 'filepath.Clean'],
+            'php': ['escapeshellarg', 'escapeshellcmd'],
+            'generic': ['shlex.quote', 'escapeshellarg', 'shell-escape'],
+        },
+        'path': {
+            'python': ['os.path.basename', 'secure_filename', 'os.path.realpath', 'pathlib'],
+            'javascript': ['path.basename', 'path.normalize', 'path.resolve'],
+            'java': ['FilenameUtils.getName', 'normalize', 'getCanonicalPath'],
+            'go': ['filepath.Base', 'filepath.Clean', 'filepath.Abs', 'strings.HasPrefix'],
+            'php': ['basename', 'realpath'],
+            'generic': ['basename', 'realpath', 'secure_filename', 'normalize', 'Clean'],
+        },
+        'ssrf': {
+            'generic': ['allowlist', 'whitelist', 'isPrivate', 'isLoopback', 'validateURL', 'url.Parse'],
+        },
+        'deserialize': {
+            'python': ['json.loads', 'yaml.safe_load', 'SafeLoader'],
+            'javascript': ['JSON.parse'],
+            'java': ['ObjectInputFilter', 'ValidatingObjectInputStream'],
+            'go': ['json.Unmarshal'],  # JSON is safe
+            'php': ['json_decode'],
+            'generic': ['json.loads', 'safe_load', 'json_decode'],
+        },
     }
 
     def __init__(self, language: str):
@@ -478,6 +783,28 @@ class FunctionSummaryGenerator:
 
         return self.summaries
 
+    def _get_sinks_for_language(self, sink_type: str) -> List[str]:
+        """Get sinks for a specific vulnerability type, language-aware"""
+        sink_dict = self.SINKS.get(sink_type, {})
+        if isinstance(sink_dict, dict):
+            # New format with language-specific sinks
+            lang_sinks = sink_dict.get(self.language, [])
+            generic_sinks = sink_dict.get('generic', [])
+            return list(set(lang_sinks + generic_sinks))
+        else:
+            # Legacy format (list)
+            return sink_dict
+
+    def _get_sanitizers_for_language(self, san_type: str) -> List[str]:
+        """Get sanitizers for a specific vulnerability type, language-aware"""
+        san_dict = self.SANITIZERS.get(san_type, {})
+        if isinstance(san_dict, dict):
+            lang_sans = san_dict.get(self.language, [])
+            generic_sans = san_dict.get('generic', [])
+            return list(set(lang_sans + generic_sans))
+        else:
+            return san_dict
+
     def _analyze_function(
         self,
         source_code: str,
@@ -493,51 +820,88 @@ class FunctionSummaryGenerator:
         # Determine which parameters can carry taint (conservatively all)
         tainted_params = set(range(len(sig.parameters)))
 
-        # Check if any parameter flows to a sink
+        # Check if any parameter flows to a sink (language-aware)
         param_to_sink = {}
+        sink_details = []
         for i, param in enumerate(sig.parameters):
-            for sink_type, sinks in self.SINKS.items():
+            for sink_type in self.SINKS.keys():
+                sinks = self._get_sinks_for_language(sink_type)
                 for sink in sinks:
                     # Check if parameter appears near a sink
-                    pattern = rf'\b{re.escape(param)}\b.*{re.escape(sink)}|{re.escape(sink)}.*\b{re.escape(param)}\b'
-                    if re.search(pattern, func_code, re.IGNORECASE):
+                    # Escape special regex chars in sink but handle ( specially
+                    sink_escaped = re.escape(sink).replace(r'\(', r'\s*\(')
+                    param_escaped = re.escape(param)
+                    pattern = rf'\b{param_escaped}\b[^;{{}}]*{sink_escaped}|{sink_escaped}[^;{{}}]*\b{param_escaped}\b'
+                    match = re.search(pattern, func_code, re.IGNORECASE)
+                    if match:
                         param_to_sink[i] = sink_type
+                        sink_details.append({
+                            'param': param,
+                            'param_idx': i,
+                            'sink_type': sink_type,
+                            'sink_pattern': sink,
+                            'line_content': match.group(0)[:100]
+                        })
 
-        # Check if function sanitizes input
+        # Check if function sanitizes input (language-aware)
         sanitizes = {}
-        for san_type, sanitizers in self.SANITIZERS.items():
+        sanitizer_details = []
+        for san_type in self.SANITIZERS.keys():
+            sanitizers = self._get_sanitizers_for_language(san_type)
             for san in sanitizers:
                 if san.lower() in func_code.lower():
                     sanitizes[san_type] = True
+                    sanitizer_details.append({
+                        'type': san_type,
+                        'sanitizer': san
+                    })
 
         # Check if return value can be tainted
         returns_tainted = False
+        taint_propagation = []
         for param in sig.parameters:
             # Check if parameter influences return value
-            if re.search(rf'return\s+.*\b{re.escape(param)}\b', func_code):
+            param_escaped = re.escape(param)
+            if re.search(rf'return\s+.*\b{param_escaped}\b', func_code):
                 returns_tainted = True
+                taint_propagation.append({'from': param, 'to': 'return'})
                 break
 
-        # Check if function calls sources
+        # Check if function calls sources (language-aware)
         calls_source = False
+        source_calls = []
         sources = self.TAINT_SOURCES.get(self.language, [])
         for source in sources:
             if source in func_code:
                 calls_source = True
                 returns_tainted = True
-                break
+                source_calls.append(source)
+
+        # Determine confidence based on language and analysis depth
+        confidence = "high"
+        if self.language in ['python', 'java']:
+            confidence = "high"
+        elif self.language in ['go', 'javascript', 'typescript']:
+            confidence = "high" if param_to_sink else "medium"
+        else:
+            confidence = "medium"
 
         return {
             "name": sig.name,
             "parameters": sig.parameters,
             "tainted_params": list(tainted_params),
             "param_to_sink": param_to_sink,
+            "sink_details": sink_details,
             "sanitizes": sanitizes,
+            "sanitizer_details": sanitizer_details,
             "returns_tainted": returns_tainted,
+            "taint_propagation": taint_propagation,
             "calls_source": calls_source,
+            "source_calls": source_calls,
             "is_sink": sig.is_sink or bool(param_to_sink),
             "is_sanitizer": sig.is_sanitizer or bool(sanitizes),
-            "confidence": "high" if self.language == 'python' else "medium"
+            "confidence": confidence,
+            "language": self.language
         }
 
     def _propagate_summaries(self, call_graph: CallGraphBuilder, max_iterations: int = 10):
@@ -809,31 +1173,71 @@ class InterproceduralTaintAnalyzer:
                 'cwe': 'CWE-89',
                 'title': 'SQL Injection',
                 'severity': 'critical',
-                'owasp': 'A03:2021'
+                'owasp': 'A03:2021',
+                'remediation': 'Use parameterized queries or prepared statements. Never concatenate user input into SQL queries.'
             },
             'command': {
                 'cwe': 'CWE-78',
                 'title': 'OS Command Injection',
                 'severity': 'critical',
-                'owasp': 'A03:2021'
+                'owasp': 'A03:2021',
+                'remediation': 'Avoid shell commands with user input. Use subprocess with shell=False and pass arguments as list.'
             },
             'xss': {
                 'cwe': 'CWE-79',
                 'title': 'Cross-Site Scripting (XSS)',
                 'severity': 'high',
-                'owasp': 'A03:2021'
+                'owasp': 'A03:2021',
+                'remediation': 'Escape all user input before rendering. Use templating engines with auto-escaping enabled.'
             },
             'path': {
                 'cwe': 'CWE-22',
                 'title': 'Path Traversal',
                 'severity': 'high',
-                'owasp': 'A01:2021'
+                'owasp': 'A01:2021',
+                'remediation': 'Validate and sanitize file paths. Use os.path.basename() and check against allowed directories.'
             },
             'deserialize': {
                 'cwe': 'CWE-502',
                 'title': 'Insecure Deserialization',
                 'severity': 'critical',
-                'owasp': 'A08:2021'
+                'owasp': 'A08:2021',
+                'remediation': 'Never deserialize untrusted data. Use safe serialization formats like JSON.'
+            },
+            'ssrf': {
+                'cwe': 'CWE-918',
+                'title': 'Server-Side Request Forgery (SSRF)',
+                'severity': 'high',
+                'owasp': 'A10:2021',
+                'remediation': 'Validate URLs against allowlist. Block internal IP ranges and cloud metadata endpoints.'
+            },
+            'redirect': {
+                'cwe': 'CWE-601',
+                'title': 'Open Redirect',
+                'severity': 'medium',
+                'owasp': 'A01:2021',
+                'remediation': 'Validate redirect URLs against allowlist. Use relative URLs when possible.'
+            },
+            'ldap': {
+                'cwe': 'CWE-90',
+                'title': 'LDAP Injection',
+                'severity': 'high',
+                'owasp': 'A03:2021',
+                'remediation': 'Use parameterized LDAP queries. Escape special characters in user input.'
+            },
+            'xpath': {
+                'cwe': 'CWE-643',
+                'title': 'XPath Injection',
+                'severity': 'high',
+                'owasp': 'A03:2021',
+                'remediation': 'Use parameterized XPath queries or sanitize user input.'
+            },
+            'regex_dos': {
+                'cwe': 'CWE-1333',
+                'title': 'Regex Denial of Service (ReDoS)',
+                'severity': 'medium',
+                'owasp': 'A06:2021',
+                'remediation': 'Avoid unbounded repetition in regex. Use atomic groups or possessive quantifiers.'
             },
         }
 
