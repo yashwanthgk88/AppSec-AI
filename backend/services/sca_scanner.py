@@ -3420,5 +3420,99 @@ class SCAScanner:
         return transitive_results
 
 
+# ==================== REACHABILITY ANALYSIS INTEGRATION ====================
+
+    def analyze_reachability(
+        self,
+        findings: List[Dict[str, Any]],
+        project_path: str,
+        ecosystem: str = "npm"
+    ) -> List[Dict[str, Any]]:
+        """
+        Analyze code reachability for SCA findings to determine exploitability.
+
+        Args:
+            findings: List of SCA findings from scan_dependencies
+            project_path: Path to project root for code scanning
+            ecosystem: Package ecosystem (npm, pip, maven, etc.)
+
+        Returns:
+            Enhanced findings with reachability information
+        """
+        try:
+            from services.reachability_analyzer import analyze_code_reachability
+
+            result = analyze_code_reachability(project_path, findings, ecosystem)
+            logger.info(f"[SCA] Reachability analysis complete: {result.get('summary', {})}")
+            return result.get("findings", findings)
+        except ImportError:
+            logger.warning("[SCA] Reachability analyzer not available")
+            return findings
+        except Exception as e:
+            logger.error(f"[SCA] Reachability analysis failed: {e}")
+            return findings
+
+    def scan_with_reachability(
+        self,
+        dependencies: Dict[str, str],
+        project_path: str,
+        ecosystem: str = "npm"
+    ) -> Dict[str, Any]:
+        """
+        Scan dependencies and analyze code reachability in one call.
+
+        Args:
+            dependencies: {"package_name": "version"}
+            project_path: Path to project root for code scanning
+            ecosystem: Package ecosystem
+
+        Returns:
+            Scan results with reachability analysis
+        """
+        # First run the standard scan
+        results = self.scan_dependencies(dependencies, ecosystem)
+
+        # Then analyze reachability
+        if results.get("findings"):
+            try:
+                from services.reachability_analyzer import (
+                    ReachabilityAnalyzer,
+                    analyze_code_reachability
+                )
+
+                reachability_results = analyze_code_reachability(
+                    project_path,
+                    results["findings"],
+                    ecosystem
+                )
+
+                # Replace findings with enhanced versions
+                results["findings"] = reachability_results.get("findings", results["findings"])
+                results["reachability_summary"] = reachability_results.get("summary", {})
+                results["reachability_coverage"] = reachability_results.get("reachability_coverage", "0%")
+
+                # Calculate exploitability statistics
+                exploitable_count = sum(
+                    1 for f in results["findings"]
+                    if f.get("reachability", {}).get("is_exploitable")
+                )
+                results["exploitable_vulnerabilities"] = exploitable_count
+                results["non_exploitable_vulnerabilities"] = len(results["findings"]) - exploitable_count
+
+                logger.info(
+                    f"[SCA] Scan with reachability complete: "
+                    f"{exploitable_count} exploitable, "
+                    f"{results.get('total_vulnerabilities', 0)} total vulnerabilities"
+                )
+
+            except ImportError:
+                logger.warning("[SCA] Reachability analyzer not available, skipping analysis")
+            except Exception as e:
+                logger.error(f"[SCA] Reachability analysis failed: {e}")
+                results["reachability_error"] = str(e)
+
+        return results
+
+
 # Global instance with pre-built indices
 sca_scanner = SCAScanner()
