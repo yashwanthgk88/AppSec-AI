@@ -2282,41 +2282,147 @@ data = file.read(MAX_FILE_SIZE)"""
     SAFE_PATTERNS = {
         "sql_injection": [
             r'\.execute\s*\([^,]+,\s*[\(\[]',  # Parameterized query with tuple/list
-            r'\.execute\s*\([^,]+,\s*\{',  # Named parameters
+            r'\.execute\s*\([^,]+,\s*\{',  # Named parameters with dict
+            r'\.execute\s*\([^)]+%s[^)]+,\s*[\(\[]',  # %s with tuple/list params
             r'session\.query\(',  # SQLAlchemy ORM
             r'Model\.objects\.',  # Django ORM
             r'\.filter\(',  # ORM filter method
+            r'\.filter_by\(',  # SQLAlchemy filter_by
+            r'\.where\(\w+\s*==',  # SQLAlchemy where with comparison
+            r'text\s*\([^)]+\)\.bindparams',  # SQLAlchemy text with bindparams
+            r'cursor\.executemany\s*\([^,]+,\s*[\(\[]',  # executemany with params
+            r'PreparedStatement',  # Java prepared statement
+            r'createNamedQuery',  # JPA named query
+            r'\?\s*,',  # Question mark placeholder with comma (params follow)
+            r'\$\d',  # PostgreSQL $1, $2 placeholders
+            r'db\.Query\s*\([^)]+,\s*\w+\)',  # Go parameterized
+            r'db\.Exec\s*\([^)]+,\s*\w+\)',  # Go parameterized exec
+            r'\.Raw\s*\([^)]+,\s*\w+\)',  # GORM Raw with params
         ],
         "xss": [
-            r'DOMPurify\.sanitize',
-            r'escape\s*\(',
-            r'sanitize\s*\(',
-            r'textContent\s*=',
-            r'html\.escape\(',
-            r'bleach\.clean',
+            r'DOMPurify\.sanitize',  # DOMPurify sanitization
+            r'escape\s*\(',  # Generic escape function
+            r'sanitize\s*\(',  # Generic sanitize function
+            r'textContent\s*=',  # Safe textContent assignment
+            r'createTextNode\s*\(',  # Safe text node creation
+            r'html\.escape\(',  # Python html.escape
+            r'markupsafe\.escape',  # MarkupSafe
+            r'bleach\.clean',  # Bleach sanitizer
+            r'encodeURIComponent\s*\(',  # URL encoding
+            r'htmlspecialchars\s*\(',  # PHP htmlspecialchars
+            r'htmlentities\s*\(',  # PHP htmlentities
+            r'\.text\s*\(',  # jQuery .text() is safe
+            r'innerText\s*=',  # innerText is safe
+            r'template\.HTMLEscapeString',  # Go html escape
+            r'html/template',  # Go html/template (auto-escapes)
         ],
         "command_injection": [
             r'subprocess\.run\s*\(\s*\[',  # List arguments (safe)
-            r'subprocess\.call\s*\(\s*\[',
-            r'shell\s*=\s*False',
-            r'shlex\.quote',
+            r'subprocess\.call\s*\(\s*\[',  # List arguments (safe)
+            r'subprocess\.Popen\s*\(\s*\[',  # List arguments (safe)
+            r'shell\s*=\s*False',  # Explicit shell=False
+            r'shlex\.quote',  # Shell quoting
+            r'shlex\.split',  # Shell argument splitting
+            r'execFile\s*\(',  # Node execFile (safe)
+            r'exec\.Command\s*\([^)]+,\s*[^+]+\)',  # Go exec.Command with separate args
+            r'ProcessBuilder\s*\(\s*Arrays\.asList',  # Java ProcessBuilder with list
         ],
         "path_traversal": [
-            r'os\.path\.basename\s*\(',
-            r'secure_filename\s*\(',
-            r'os\.path\.realpath.*?startswith',
+            r'os\.path\.basename\s*\(',  # Basename strips path
+            r'secure_filename\s*\(',  # Werkzeug secure_filename
+            r'os\.path\.realpath.*?startswith',  # Path validation
+            r'\.resolve\(\).*?is_relative_to',  # Pathlib validation
+            r'path\.normalize',  # Node path normalize
+            r'filepath\.Base\s*\(',  # Go filepath.Base
+            r'filepath\.Clean\s*\(',  # Go filepath.Clean
+            r'strings\.HasPrefix.*?baseDir',  # Go path validation
+            r'Path\.GetFileName\s*\(',  # C# GetFileName
         ],
         "deserialization": [
-            r'yaml\.safe_load',
-            r'json\.loads?',
-            r'Loader=yaml\.SafeLoader',
+            r'yaml\.safe_load',  # Safe YAML loading
+            r'json\.loads?',  # JSON is safe
+            r'Loader=yaml\.SafeLoader',  # Explicit safe loader
+            r'json\.Unmarshal',  # Go JSON is safe
+            r'JSON\.parse',  # JavaScript JSON is safe
+            r'json_decode',  # PHP json_decode is safe
         ],
         "crypto": [
-            r'bcrypt\.',
-            r'argon2',
-            r'sha256|sha384|sha512|sha3',
-            r'pbkdf2',
-            r'scrypt',
+            r'bcrypt\.',  # bcrypt is safe
+            r'argon2',  # Argon2 is safe
+            r'sha256|sha384|sha512|sha3',  # Strong hashes
+            r'AES|ChaCha|Salsa',  # Strong ciphers
+            r'pbkdf2',  # Key derivation
+            r'scrypt',  # Memory-hard KDF
+            r'crypto\.createHash\s*\(["\']sha',  # Node.js SHA
+            r'sha256\.Sum256',  # Go SHA256
+        ],
+        "ssrf": [
+            r'allowlist|whitelist',  # URL allowlist validation
+            r'isPrivate|is_private',  # Private IP check
+            r'isLoopback|is_loopback',  # Loopback check
+            r'validateURL|validate_url',  # URL validation function
+        ],
+    }
+
+    # Patterns indicating the code is likely in a safe context (not user input)
+    SAFE_CONTEXT_PATTERNS = [
+        r'^\s*#',  # Comment
+        r'^\s*//',  # Comment
+        r'^\s*/\*',  # Block comment start
+        r'^\s*\*',  # Block comment continuation
+        r'""".*?"""',  # Docstring
+        r"'''.*?'''",  # Docstring
+        r'^\s*(const|let|var)\s+\w+\s*=\s*["\'][^"\']*["\']$',  # Literal string assignment
+        r'logger\.',  # Logging statement
+        r'console\.log',  # Console logging
+        r'print\s*\(',  # Print statement
+        r'\.debug\s*\(',  # Debug logging
+        r'\.info\s*\(',  # Info logging
+        r'raise\s+\w+Error',  # Exception raising
+        r'throw\s+new\s+\w+',  # Exception throwing
+    ]
+
+    # User input indicators - if these are NOT present, likely not vulnerable
+    USER_INPUT_INDICATORS = {
+        'python': [
+            r'request\.',  # Flask/Django request
+            r'args\[',  # Flask args
+            r'form\[',  # Form data
+            r'params\[',  # Parameters
+            r'input\s*\(',  # User input
+            r'sys\.argv',  # Command line args
+            r'os\.environ',  # Environment (can be user-controlled)
+        ],
+        'javascript': [
+            r'req\.(query|body|params|headers)',  # Express request
+            r'request\.(query|body|params)',  # Generic request
+            r'window\.location',  # URL parameters
+            r'document\.(URL|cookie|referrer)',  # Document properties
+            r'localStorage',  # Local storage
+            r'sessionStorage',  # Session storage
+        ],
+        'go': [
+            r'r\.URL\.Query',  # URL query params
+            r'r\.FormValue',  # Form values
+            r'r\.Body',  # Request body
+            r'r\.Header\.Get',  # Request headers
+            r'c\.Query',  # Gin query
+            r'c\.Param',  # Gin param
+            r'c\.PostForm',  # Gin form
+        ],
+        'java': [
+            r'getParameter',  # Servlet parameter
+            r'getHeader',  # Request header
+            r'getInputStream',  # Request input stream
+            r'@RequestParam',  # Spring annotation
+            r'@PathVariable',  # Spring path variable
+        ],
+        'php': [
+            r'\$_GET',  # GET parameters
+            r'\$_POST',  # POST data
+            r'\$_REQUEST',  # Request data
+            r'\$_COOKIE',  # Cookies
+            r'\$_SERVER',  # Server variables
         ],
     }
 
@@ -2411,20 +2517,37 @@ data = file.read(MAX_FILE_SIZE)"""
                                 pass
 
                             # Check if finding should be skipped entirely (very likely false positive)
-                            if self._should_skip_finding(vuln_name, line, file_path):
+                            if self._should_skip_finding(vuln_name, line, file_path, language):
                                 continue
 
                             # Add category prefix for better organization
                             category = self._get_vulnerability_category(vuln_name)
                             formatted_title = f"{category}: {vuln_name}" if category != vuln_name else vuln_name
 
+                            # Get surrounding context for better analysis (5 lines before and after)
+                            context_start = max(0, line_num - 6)
+                            context_end = min(len(lines), line_num + 3)
+                            code_context = '\n'.join(lines[context_start:context_end])
+
+                            # Check for safe patterns in the line AND surrounding context
+                            has_safe = self._has_safe_pattern(line, vuln_name) or self._has_safe_pattern(code_context, vuln_name)
+                            if has_safe:
+                                # If safe pattern found, significantly reduce chance of reporting
+                                continue
+
                             # Calculate confidence based on multiple factors
                             confidence = self._calculate_confidence(
                                 vuln_name=vuln_name,
                                 line=line,
                                 file_path=file_path,
-                                base_severity=vuln_info['severity']
+                                base_severity=vuln_info['severity'],
+                                language=language,
+                                code_context=code_context
                             )
+
+                            # Skip findings with info confidence (very likely false positive)
+                            if confidence == "info":
+                                continue
 
                             # Generate AI-powered impact statement
                             impact_data = self._generate_impact(
@@ -2534,7 +2657,7 @@ data = file.read(MAX_FILE_SIZE)"""
                             seen_findings.add(finding_key)
 
                             # Check if finding should be skipped
-                            if self._should_skip_finding(vuln_name, line, file_path):
+                            if self._should_skip_finding(vuln_name, line, file_path, language):
                                 continue
 
                             # Check for safe patterns (reduces confidence significantly)
@@ -2542,21 +2665,38 @@ data = file.read(MAX_FILE_SIZE)"""
                             if safe_category:
                                 has_safe_pattern = self._has_safe_pattern(line, vuln_name)
 
+                            # Get surrounding context for better analysis
+                            context_start = max(0, line_num - 4)
+                            code_context = '\n'.join(lines[context_start:line_num])
+
+                            # Check for user input indicators
+                            has_user_input = self._has_user_input_indicator(code_context, language)
+
+                            # Check if in safe context
+                            in_safe_context = self._is_safe_context(line)
+
                             # Calculate adjusted confidence
-                            confidence_levels = ['low', 'medium', 'high', 'critical']
-                            conf_idx = confidence_levels.index(base_confidence) if base_confidence in confidence_levels else 1
+                            confidence_levels = ['info', 'low', 'medium', 'high', 'critical']
+                            conf_idx = confidence_levels.index(base_confidence) if base_confidence in confidence_levels else 2
 
                             if has_safe_pattern:
                                 conf_idx = max(0, conf_idx - 2)
                             if is_test:
-                                conf_idx = max(0, conf_idx - 1)
+                                conf_idx = max(0, conf_idx - 2)
                             if self._is_in_string_literal(line, match.start()):
+                                conf_idx = max(0, conf_idx - 2)
+                            if in_safe_context:
                                 conf_idx = max(0, conf_idx - 1)
+                            if not has_user_input:
+                                # For injection vulnerabilities, no user input = lower risk
+                                injection_keywords = ['injection', 'xss', 'ssrf', 'traversal']
+                                if any(kw in vuln_name.lower() for kw in injection_keywords):
+                                    conf_idx = max(0, conf_idx - 1)
 
                             final_confidence = confidence_levels[conf_idx]
 
-                            # Skip very low confidence findings in V2 mode
-                            if final_confidence == 'low' and has_safe_pattern:
+                            # Skip very low confidence or info findings in V2 mode
+                            if final_confidence in ['info', 'low'] and (has_safe_pattern or in_safe_context):
                                 continue
 
                             category = self._get_vulnerability_category(vuln_name)
@@ -2693,7 +2833,7 @@ data = file.read(MAX_FILE_SIZE)"""
         return "unknown"
 
     def _is_comment(self, line: str, language: str) -> bool:
-        """Check if line is a comment (basic detection)"""
+        """Check if line is a comment (enhanced detection)"""
         stripped = line.strip()
         if not stripped:
             return False
@@ -2706,17 +2846,79 @@ data = file.read(MAX_FILE_SIZE)"""
             'php': ['//', '#', '/*', '*'],
             'ruby': ['#'],
             'go': ['//', '/*', '*'],
-            'csharp': ['//', '/*', '*'],
+            'csharp': ['//', '/*', '*', '///'],
             'c_cpp': ['//', '/*', '*'],
             'kotlin': ['//', '/*', '*'],
             'swift': ['//', '/*', '*'],
-            'rust': ['//', '/*', '*'],
+            'rust': ['//', '/*', '*', '//!', '///'],
             'scala': ['//', '/*', '*'],
             'shell': ['#'],
         }
 
         markers = comment_markers.get(language, [])
-        return any(stripped.startswith(marker) for marker in markers)
+        if any(stripped.startswith(marker) for marker in markers):
+            return True
+
+        # Check for inline comments after code - pattern is in comment portion
+        inline_comment_patterns = {
+            'python': r'.*?\s+#\s+',
+            'javascript': r'.*?\s+//\s+',
+            'java': r'.*?\s+//\s+',
+            'go': r'.*?\s+//\s+',
+        }
+        pattern = inline_comment_patterns.get(language)
+        if pattern and re.search(pattern, line):
+            # Check if the vulnerability pattern appears AFTER the comment marker
+            return True
+
+        return False
+
+    def _is_in_docstring(self, code: str, line_number: int, language: str) -> bool:
+        """Check if a line is inside a docstring or multiline comment."""
+        if language not in ['python', 'javascript', 'java', 'go']:
+            return False
+
+        lines = code.split('\n')
+        if line_number < 1 or line_number > len(lines):
+            return False
+
+        # Track docstring/multiline comment state
+        in_docstring = False
+        docstring_char = None
+
+        for i, line in enumerate(lines[:line_number], 1):
+            stripped = line.strip()
+
+            if language == 'python':
+                # Check for triple quotes
+                triple_double = stripped.count('"""')
+                triple_single = stripped.count("'''")
+
+                if not in_docstring:
+                    if '"""' in stripped:
+                        # Check if it opens and closes on same line
+                        if triple_double == 1:
+                            in_docstring = True
+                            docstring_char = '"""'
+                        elif triple_double >= 2 and stripped.startswith('"""'):
+                            # Opens and closes on same line - check if we're past it
+                            pass
+                    elif "'''" in stripped:
+                        if triple_single == 1:
+                            in_docstring = True
+                            docstring_char = "'''"
+                else:
+                    if docstring_char in stripped:
+                        in_docstring = False
+                        docstring_char = None
+
+            elif language in ['javascript', 'java', 'go']:
+                if not in_docstring and '/*' in stripped and '*/' not in stripped:
+                    in_docstring = True
+                elif in_docstring and '*/' in stripped:
+                    in_docstring = False
+
+        return in_docstring
 
     def _is_in_string_literal(self, line: str, match_pos: int) -> bool:
         """Check if a match position is inside a string literal (potential false positive)."""
@@ -2736,12 +2938,20 @@ data = file.read(MAX_FILE_SIZE)"""
         # Map vulnerability names to safe pattern categories
         vuln_to_category = {
             "SQL Injection": "sql_injection",
+            "Go SQL Injection": "sql_injection",
+            "NoSQL Injection": "sql_injection",
             "XSS (Cross-Site Scripting)": "xss",
+            "Go XSS via Templates": "xss",
             "Command Injection": "command_injection",
+            "Go Command Injection": "command_injection",
             "Path Traversal": "path_traversal",
+            "Go Path Traversal": "path_traversal",
             "Insecure Deserialization": "deserialization",
             "Weak Cryptography": "crypto",
+            "Go Weak Cryptography": "crypto",
             "Weak Password Storage": "crypto",
+            "Server-Side Request Forgery (SSRF)": "ssrf",
+            "Go SSRF": "ssrf",
         }
 
         category = vuln_to_category.get(vuln_type)
@@ -2750,6 +2960,37 @@ data = file.read(MAX_FILE_SIZE)"""
 
         safe_patterns = self.SAFE_PATTERNS.get(category, [])
         for pattern in safe_patterns:
+            try:
+                if re.search(pattern, line, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+        return False
+
+    def _has_user_input_indicator(self, code_context: str, language: str) -> bool:
+        """Check if there's evidence of user input in the code context."""
+        indicators = self.USER_INPUT_INDICATORS.get(language, [])
+        if not indicators:
+            # Default indicators for unknown languages
+            indicators = [
+                r'request\.',
+                r'req\.',
+                r'params\[',
+                r'input\s*\(',
+                r'argv',
+            ]
+
+        for pattern in indicators:
+            try:
+                if re.search(pattern, code_context, re.IGNORECASE):
+                    return True
+            except re.error:
+                continue
+        return False
+
+    def _is_safe_context(self, line: str) -> bool:
+        """Check if the line is in a safe context (logging, comments, etc.)."""
+        for pattern in self.SAFE_CONTEXT_PATTERNS:
             try:
                 if re.search(pattern, line, re.IGNORECASE):
                     return True
@@ -2768,57 +3009,91 @@ data = file.read(MAX_FILE_SIZE)"""
         lower_path = file_path.lower()
         return any(ind in lower_path for ind in test_indicators)
 
-    def _calculate_confidence(self, vuln_name: str, line: str, file_path: str, base_severity: str) -> str:
+    def _calculate_confidence(self, vuln_name: str, line: str, file_path: str, base_severity: str, language: str = None, code_context: str = None) -> str:
         """
         Calculate finding confidence based on multiple factors.
-        Returns: 'high', 'medium', or 'low'
+        Returns: 'high', 'medium', 'low', or 'info'
         """
         # Start with base confidence from severity
         if base_severity == 'critical':
-            confidence_score = 3  # high
+            confidence_score = 4  # high
         elif base_severity == 'high':
+            confidence_score = 3  # medium-high
+        elif base_severity == 'medium':
             confidence_score = 2  # medium
         else:
             confidence_score = 1  # low
 
-        # Reduce confidence if safe patterns detected
+        # Significantly reduce confidence if safe patterns detected
         if self._has_safe_pattern(line, vuln_name):
+            confidence_score -= 3
+
+        # Check if in safe context (logging, comments, etc.)
+        if self._is_safe_context(line):
             confidence_score -= 2
 
-        # Reduce confidence for test files
+        # Reduce confidence significantly for test files
         if self._is_test_file(file_path):
-            confidence_score -= 1
+            confidence_score -= 2
+
+        # Check for user input indicators - if no evidence of user input, reduce confidence
+        context = code_context or line
+        if language and not self._has_user_input_indicator(context, language):
+            # For injection vulns, lack of user input evidence significantly reduces risk
+            injection_vulns = [
+                "SQL Injection", "Go SQL Injection", "NoSQL Injection",
+                "Command Injection", "Go Command Injection",
+                "XSS (Cross-Site Scripting)", "Go XSS via Templates",
+                "Path Traversal", "Go Path Traversal",
+                "Server-Side Request Forgery (SSRF)", "Go SSRF",
+            ]
+            if vuln_name in injection_vulns:
+                confidence_score -= 1
 
         # Check for hardcoded credential false positives
-        if vuln_name == "Hardcoded Credentials":
+        if vuln_name in ["Hardcoded Credentials", "Go Hardcoded Credentials"]:
             for exclusion in self.CREDENTIAL_EXCLUSIONS:
                 if re.search(exclusion, line, re.IGNORECASE):
-                    confidence_score -= 2
+                    confidence_score -= 3
                     break
 
         # Map score to confidence level
-        if confidence_score >= 3:
+        if confidence_score >= 4:
             return "high"
-        elif confidence_score >= 1:
+        elif confidence_score >= 2:
             return "medium"
-        else:
+        elif confidence_score >= 1:
             return "low"
+        else:
+            return "info"
 
-    def _should_skip_finding(self, vuln_name: str, line: str, file_path: str) -> bool:
+    def _should_skip_finding(self, vuln_name: str, line: str, file_path: str, language: str = None) -> bool:
         """
         Determine if a finding should be skipped entirely (very likely false positive).
         Returns True to skip the finding.
         """
+        stripped = line.strip()
+
+        # Skip empty lines
+        if not stripped:
+            return True
+
+        # Skip if line is a comment
+        if language and self._is_comment(line, language):
+            return True
+
         # Skip if line is likely documentation/example
         doc_indicators = [
-            r'^["\'].*?(example|documentation|usage|sample).*?["\']$',
-            r'^#.*?(example|todo|note|fixme)',
-            r'^//.*?(example|todo|note)',
+            r'^["\'].*?(example|documentation|usage|sample|demo|test).*?["\']$',
+            r'^#.*?(example|todo|note|fixme|hack|xxx)',
+            r'^//.*?(example|todo|note|fixme)',
+            r'^\s*\*\s+@',  # JSDoc/JavaDoc
             r'""".*?"""',
             r"'''.*?'''",
+            r'^\s*"""',  # Docstring start
+            r"^\s*'''",  # Docstring start
         ]
 
-        stripped = line.strip().lower()
         for pattern in doc_indicators:
             try:
                 if re.search(pattern, stripped, re.IGNORECASE):
@@ -2826,16 +3101,59 @@ data = file.read(MAX_FILE_SIZE)"""
             except re.error:
                 continue
 
+        # Skip if line contains "example", "sample", "demo" etc (likely documentation)
+        if re.search(r'\b(example|sample|demo|test_data|mock|fake|dummy)\b', stripped, re.IGNORECASE):
+            # But don't skip if it's an actual test file with real vulnerability patterns
+            if not re.search(r'(execute|query|innerHTML|eval|system)', stripped, re.IGNORECASE):
+                return True
+
         # Skip hardcoded credentials if they look like placeholders
-        if vuln_name == "Hardcoded Credentials":
+        if vuln_name in ["Hardcoded Credentials", "Go Hardcoded Credentials"]:
             placeholder_patterns = [
                 r'["\']<.*?>["\']',  # <your_password>
                 r'["\']xxx+["\']',  # "xxx" or "xxxxxxxx"
                 r'["\']your[_-]?\w+["\']',  # "your_password"
                 r'["\']changeme["\']',
                 r'["\']placeholder["\']',
+                r'["\']TODO["\']',
+                r'["\']CHANGE_ME["\']',
+                r'["\']secret["\']$',  # Just the word "secret"
+                r'["\']password["\']$',  # Just the word "password"
+                r'["\']api[_-]?key["\']$',  # Just "api_key"
+                r'=\s*["\']["\']',  # Empty string assignment
             ]
             for pattern in placeholder_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    return True
+
+        # Skip if the "vulnerability" is in a string literal being defined (regex pattern definition)
+        if re.search(r'r["\'].*?(SELECT|INSERT|execute|innerHTML)', line):
+            # Check if this is a pattern definition (variable name suggests pattern/regex)
+            if re.search(r'(pattern|regex|rule|check)\s*[=:]', line, re.IGNORECASE):
+                return True
+
+        # Skip SQL injection if it's clearly an ORM method call
+        if vuln_name in ["SQL Injection", "Go SQL Injection"]:
+            orm_safe_patterns = [
+                r'\.objects\.(get|filter|exclude|create|update)',  # Django
+                r'session\.query\(\w+\)\.(filter|filter_by|get)',  # SQLAlchemy
+                r'\.where\(\w+\.\w+\s*(==|!=|>|<)',  # SQLAlchemy/GORM
+                r'\.find\(\s*\{\s*\w+\s*:\s*\w+\s*\}\s*\)',  # Safe MongoDB
+            ]
+            for pattern in orm_safe_patterns:
+                if re.search(pattern, line, re.IGNORECASE):
+                    return True
+
+        # Skip XSS if it's using safe methods
+        if vuln_name in ["XSS (Cross-Site Scripting)", "Go XSS via Templates"]:
+            xss_safe_patterns = [
+                r'textContent\s*=',  # Safe assignment
+                r'innerText\s*=',  # Safe assignment
+                r'\.text\s*\(',  # jQuery .text() is safe
+                r'createTextNode',  # Safe DOM method
+                r'DOMPurify\.sanitize',  # Sanitization library
+            ]
+            for pattern in xss_safe_patterns:
                 if re.search(pattern, line, re.IGNORECASE):
                     return True
 
