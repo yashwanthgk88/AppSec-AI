@@ -4,11 +4,12 @@ import {
   Network, Shield, AlertTriangle, ArrowLeft, Download,
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
-  RefreshCw
+  RefreshCw, Layers, FileText
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
 import { toPng, toSvg } from 'html-to-image'
+import ArchitectureBuilder from '../components/ArchitectureBuilder'
 
 // Initialize mermaid with enhanced config
 mermaid.initialize({
@@ -113,10 +114,10 @@ export default function ThreatModelPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre'>('threats')
   const [regenerating, setRegenerating] = useState(false)
-  const [showSampleOption, setShowSampleOption] = useState(false)
   const [generationProgress, setGenerationProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
   const [generationComplete, setGenerationComplete] = useState(false)
+  const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample'>('select')
 
   useEffect(() => {
     fetchThreatModel()
@@ -249,7 +250,7 @@ export default function ThreatModelPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
 
-      setShowSampleOption(false)
+      setInputMode('select')
 
       // Start polling for status
       pollGenerationStatus()
@@ -261,6 +262,144 @@ export default function ThreatModelPage() {
       setGenerationProgress(0)
       setCurrentStep(0)
     }
+  }
+
+  const handleArchitectureSubmit = async (architecture: any) => {
+    setRegenerating(true)
+    setGenerationComplete(false)
+    setCurrentStep(1)
+    setGenerationProgress(5)
+
+    try {
+      const token = localStorage.getItem('token')
+
+      // Convert structured architecture to detailed text description for threat modeling
+      const architectureDoc = convertArchitectureToDoc(architecture)
+
+      // Update the project with the structured architecture
+      await axios.put(`/api/projects/${id}`, {
+        architecture_doc: architectureDoc
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      // Start threat model generation
+      await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      setInputMode('select')
+
+      // Start polling for status
+      pollGenerationStatus()
+    } catch (error: any) {
+      console.error('Failed to generate threat model:', error)
+      const errorMessage = error.response?.data?.detail || 'Failed to generate threat model. Please try again.'
+      alert(errorMessage)
+      setRegenerating(false)
+      setGenerationProgress(0)
+      setCurrentStep(0)
+    }
+  }
+
+  // Convert structured architecture to detailed documentation
+  const convertArchitectureToDoc = (arch: any): string => {
+    const lines: string[] = []
+
+    lines.push(`# Application Architecture`)
+    lines.push('')
+
+    // Components
+    if (arch.components && arch.components.length > 0) {
+      lines.push('## Components')
+      lines.push('')
+
+      // Group by trust zone
+      const byZone: { [key: string]: any[] } = {}
+      arch.components.forEach((c: any) => {
+        const zone = c.trust_zone || 'unclassified'
+        if (!byZone[zone]) byZone[zone] = []
+        byZone[zone].push(c)
+      })
+
+      Object.entries(byZone).forEach(([zone, components]) => {
+        lines.push(`### Trust Zone: ${zone.replace(/_/g, ' ').toUpperCase()}`)
+        lines.push('')
+
+        components.forEach((c: any) => {
+          lines.push(`#### ${c.name} (${c.type})`)
+          lines.push(`- Technology: ${c.technology}`)
+          if (c.description) lines.push(`- Description: ${c.description}`)
+          if (c.data_handled && c.data_handled.length > 0) {
+            lines.push(`- Data Handled: ${c.data_handled.join(', ')}`)
+          }
+          if (c.security_controls && c.security_controls.length > 0) {
+            lines.push(`- Security Controls: ${c.security_controls.join(', ')}`)
+          }
+          if (c.ports && c.ports.length > 0) {
+            lines.push(`- Exposed Ports: ${c.ports.join(', ')}`)
+          }
+          if (c.authentication_method) {
+            lines.push(`- Authentication: ${c.authentication_method}`)
+          }
+          lines.push('')
+        })
+      })
+    }
+
+    // Data Flows
+    if (arch.data_flows && arch.data_flows.length > 0) {
+      lines.push('## Data Flows')
+      lines.push('')
+
+      arch.data_flows.forEach((flow: any, idx: number) => {
+        const sourceComp = arch.components?.find((c: any) => c.id === flow.source_id)
+        const targetComp = arch.components?.find((c: any) => c.id === flow.target_id)
+        const sourceName = sourceComp?.name || flow.source_id
+        const targetName = targetComp?.name || flow.target_id
+
+        lines.push(`### Flow ${idx + 1}: ${sourceName} → ${targetName}`)
+        lines.push(`- Protocol: ${flow.protocol}`)
+        lines.push(`- Encrypted: ${flow.is_encrypted ? 'Yes' : 'No'}`)
+        if (flow.authentication) lines.push(`- Authentication: ${flow.authentication}`)
+        if (flow.data_types && flow.data_types.length > 0) {
+          lines.push(`- Data Types: ${flow.data_types.join(', ')}`)
+        }
+        if (flow.description) lines.push(`- Description: ${flow.description}`)
+        lines.push('')
+      })
+    }
+
+    // External Integrations
+    const externalComponents = arch.components?.filter((c: any) =>
+      c.type?.includes('external') || c.trust_zone === 'internet'
+    ) || []
+
+    if (externalComponents.length > 0) {
+      lines.push('## External Integrations')
+      lines.push('')
+      externalComponents.forEach((c: any) => {
+        lines.push(`- ${c.name}: ${c.description || c.technology}`)
+      })
+      lines.push('')
+    }
+
+    // Security Summary
+    const allControls = new Set<string>()
+    arch.components?.forEach((c: any) => {
+      c.security_controls?.forEach((ctrl: string) => allControls.add(ctrl))
+    })
+
+    if (allControls.size > 0) {
+      lines.push('## Security Controls Summary')
+      lines.push('')
+      Array.from(allControls).sort().forEach((ctrl: string) => {
+        lines.push(`- ${ctrl.replace(/_/g, ' ')}`)
+      })
+      lines.push('')
+    }
+
+    return lines.join('\n')
   }
 
   const addControl = () => {
@@ -296,60 +435,11 @@ export default function ThreatModelPage() {
   }
 
   if (!threatModel) {
-    return (
-      <div className="card p-8">
-        <div className="text-center mb-6">
-          <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Threat Model</h3>
-          <p className="text-gray-600">
-            Generate a threat model using AI-powered STRIDE analysis.
-          </p>
-        </div>
-
-        <div className="flex justify-center space-x-4 mb-6">
-          <button
-            onClick={regenerateThreatModel}
-            disabled={regenerating}
-            className="btn btn-primary inline-flex items-center space-x-2"
-          >
-            <Zap className={`w-4 h-4 ${regenerating ? 'animate-pulse' : ''}`} />
-            <span>{regenerating ? 'Generating...' : 'Generate from Project Architecture'}</span>
-          </button>
-          <button
-            onClick={() => setShowSampleOption(!showSampleOption)}
-            disabled={regenerating}
-            className="btn btn-secondary inline-flex items-center space-x-2"
-          >
-            <Activity className="w-4 h-4" />
-            <span>Use Sample Architecture</span>
-          </button>
-          <Link to={`/projects/${id}`} className="btn btn-ghost">
-            Back to Project
-          </Link>
-        </div>
-
-        {showSampleOption && (
-          <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-            <h4 className="font-medium text-gray-900 mb-2">Sample E-Commerce Architecture</h4>
-            <p className="text-sm text-gray-600 mb-3">
-              This sample describes a typical e-commerce application with authentication, payment processing, and multiple backend services.
-            </p>
-            <pre className="bg-white border border-gray-200 rounded p-3 text-xs text-gray-700 max-h-48 overflow-y-auto mb-4 whitespace-pre-wrap">
-              {SAMPLE_ARCHITECTURE}
-            </pre>
-            <button
-              onClick={generateWithSample}
-              disabled={regenerating}
-              className="btn btn-primary w-full inline-flex items-center justify-center space-x-2"
-            >
-              <Zap className={`w-4 h-4 ${regenerating ? 'animate-pulse' : ''}`} />
-              <span>{regenerating ? 'Generating Threat Model...' : 'Generate with Sample Architecture'}</span>
-            </button>
-          </div>
-        )}
-
-        {regenerating && (
-          <div className="mt-6 border border-gray-200 rounded-lg p-4 bg-white">
+    // Show generation progress if generating
+    if (regenerating) {
+      return (
+        <div className="card p-8">
+          <div className="border border-gray-200 rounded-lg p-4 bg-white">
             {generationComplete ? (
               <div className="text-center py-4">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -414,7 +504,198 @@ export default function ThreatModelPage() {
               </>
             )}
           </div>
-        )}
+        </div>
+      )
+    }
+
+    // Show Architecture Builder
+    if (inputMode === 'builder') {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <button
+                onClick={() => setInputMode('select')}
+                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
+              >
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back to Options
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Build Your Architecture</h1>
+              <p className="text-gray-600 mt-1">
+                Define components, data flows, and security controls for comprehensive threat modeling
+              </p>
+            </div>
+          </div>
+
+          <ArchitectureBuilder
+            projectId={id || ''}
+            onSave={handleArchitectureSubmit}
+          />
+        </div>
+      )
+    }
+
+    // Show Sample Architecture option
+    if (inputMode === 'sample') {
+      return (
+        <div className="card p-8">
+          <div className="flex items-center mb-6">
+            <button
+              onClick={() => setInputMode('select')}
+              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Options
+            </button>
+          </div>
+
+          <div className="text-center mb-6">
+            <Activity className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Sample E-Commerce Architecture</h3>
+            <p className="text-sm text-gray-600">
+              This sample describes a typical e-commerce application with authentication, payment processing, and multiple backend services.
+            </p>
+          </div>
+
+          <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-700 max-h-64 overflow-y-auto mb-6 whitespace-pre-wrap">
+            {SAMPLE_ARCHITECTURE}
+          </pre>
+
+          <button
+            onClick={generateWithSample}
+            disabled={regenerating}
+            className="btn btn-primary w-full inline-flex items-center justify-center space-x-2"
+          >
+            <Zap className="w-4 h-4" />
+            <span>Generate Threat Model with Sample</span>
+          </button>
+        </div>
+      )
+    }
+
+    // Default: Show input method selection
+    return (
+      <div className="card p-8">
+        <div className="text-center mb-8">
+          <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Generate Threat Model</h3>
+          <p className="text-gray-600">
+            Choose how you want to describe your application architecture for AI-powered STRIDE analysis.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Option 1: Build Architecture */}
+          <div
+            onClick={() => setInputMode('builder')}
+            className="border-2 border-gray-200 rounded-xl p-6 hover:border-primary-500 hover:shadow-lg transition cursor-pointer group"
+          >
+            <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary-200 transition">
+              <Layers className="w-7 h-7 text-primary-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">Build Architecture</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Use the interactive builder to define components, data flows, and security controls.
+              Upload diagrams for AI extraction.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>30+ component types</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>40+ security controls</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Diagram AI extraction</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Validation warnings</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <span className="text-xs font-medium text-primary-600 group-hover:text-primary-700">
+                Recommended for comprehensive analysis →
+              </span>
+            </div>
+          </div>
+
+          {/* Option 2: From Project */}
+          <div
+            onClick={regenerateThreatModel}
+            className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition cursor-pointer group"
+          >
+            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition">
+              <FileText className="w-7 h-7 text-blue-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">From Project Docs</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              Generate threat model from existing architecture documentation in your project.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Uses existing docs</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Quick generation</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>AI-powered analysis</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <span className="text-xs font-medium text-blue-600 group-hover:text-blue-700">
+                Best if you have architecture docs →
+              </span>
+            </div>
+          </div>
+
+          {/* Option 3: Sample Architecture */}
+          <div
+            onClick={() => setInputMode('sample')}
+            className="border-2 border-gray-200 rounded-xl p-6 hover:border-green-500 hover:shadow-lg transition cursor-pointer group"
+          >
+            <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition">
+              <Activity className="w-7 h-7 text-green-600" />
+            </div>
+            <h4 className="font-semibold text-gray-900 mb-2">Try Sample</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              See threat modeling in action with a sample e-commerce architecture.
+            </p>
+            <div className="space-y-2">
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Pre-built example</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Instant demo</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Learn the workflow</span>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <span className="text-xs font-medium text-green-600 group-hover:text-green-700">
+                Great for first-time users →
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <Link to={`/projects/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
+            ← Back to Project
+          </Link>
+        </div>
       </div>
     )
   }

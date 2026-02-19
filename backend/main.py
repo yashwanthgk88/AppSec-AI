@@ -48,6 +48,7 @@ from services.threat_intel import threat_intel
 from services.ast_security_analyzer import ASTSecurityAnalyzer, ast_analyzer
 from services.ai_impact_service import AIImpactService, get_ai_impact_service
 from services.interprocedural_analyzer import analyze_code_interprocedural
+from services.architecture_input_service import ArchitectureInputService
 
 # Import routers
 from routers import settings
@@ -1282,6 +1283,239 @@ async def get_threat_model_status(
         "step": "",
         "progress": 0
     }
+
+
+# =============================================================================
+# ARCHITECTURE INPUT ENDPOINTS
+# =============================================================================
+
+# Initialize architecture input service
+architecture_input_service = ArchitectureInputService()
+
+
+@app.get("/api/architecture/component-library")
+async def get_component_library(
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get the component library with all options for building architecture"""
+    return architecture_input_service.get_component_library()
+
+
+@app.post("/api/projects/{project_id}/architecture/structured")
+async def save_structured_architecture(
+    project_id: int,
+    architecture_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Save structured architecture input from form"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        # Parse the structured input
+        architecture = architecture_input_service.parse_structured_input(architecture_data)
+
+        # Validate and get warnings
+        warnings = architecture_input_service.validate_architecture(architecture)
+
+        # Convert to description for threat modeling
+        description = architecture.to_description()
+
+        # Save to project
+        project.architecture_doc = description
+
+        # Also store the structured data as JSON in architecture_diagram column
+        # (repurposing for structured data storage)
+        import json
+        project.architecture_diagram = json.dumps(architecture.to_dict())
+        project.diagram_media_type = "application/json"
+
+        db.commit()
+
+        logger.info(f"Saved structured architecture for project {project_id}: "
+                   f"{len(architecture.components)} components, {len(architecture.data_flows)} flows")
+
+        return {
+            "success": True,
+            "message": "Architecture saved successfully",
+            "component_count": len(architecture.components),
+            "data_flow_count": len(architecture.data_flows),
+            "warnings": warnings,
+            "generated_description_length": len(description)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to save structured architecture: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/projects/{project_id}/architecture/extract-diagram")
+async def extract_architecture_from_diagram(
+    project_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Extract architecture from uploaded diagram using AI vision"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Validate file type
+    allowed_types = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
+        )
+
+    try:
+        # Read file content
+        image_data = await file.read()
+
+        # Initialize AI client for vision
+        from services.ai_client_factory import AIClientFactory
+        ai_factory = AIClientFactory()
+        ai_client = ai_factory.get_anthropic_client()
+
+        if not ai_client:
+            raise HTTPException(
+                status_code=400,
+                detail="AI service not configured. Please configure your AI provider in settings."
+            )
+
+        # Create service with AI client
+        vision_service = ArchitectureInputService(ai_client=ai_client)
+
+        # Extract architecture
+        architecture = await vision_service.extract_from_diagram(
+            image_data,
+            file.content_type
+        )
+
+        # Store the original image
+        import base64
+        project.architecture_diagram = base64.b64encode(image_data).decode('utf-8')
+        project.diagram_media_type = file.content_type
+
+        db.commit()
+
+        logger.info(f"Extracted architecture from diagram for project {project_id}: "
+                   f"{len(architecture.components)} components")
+
+        return {
+            "success": True,
+            "message": "Architecture extracted from diagram",
+            "architecture": architecture.to_dict(),
+            "component_count": len(architecture.components),
+            "data_flow_count": len(architecture.data_flows)
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to extract from diagram: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/projects/{project_id}/architecture/merge")
+async def merge_architecture_inputs(
+    project_id: int,
+    merge_request: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Merge manual input with diagram extraction"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    try:
+        manual_data = merge_request.get("manual")
+        extracted_data = merge_request.get("extracted")
+
+        manual_arch = None
+        extracted_arch = None
+
+        if manual_data:
+            manual_arch = architecture_input_service.parse_structured_input(manual_data)
+
+        if extracted_data:
+            extracted_arch = architecture_input_service.parse_structured_input(extracted_data)
+
+        # Merge architectures
+        merged = architecture_input_service.merge_architectures(manual_arch, extracted_arch)
+
+        # Validate merged architecture
+        warnings = architecture_input_service.validate_architecture(merged)
+
+        # Convert to description
+        description = merged.to_description()
+
+        # Save
+        project.architecture_doc = description
+        import json
+        project.architecture_diagram = json.dumps(merged.to_dict())
+        project.diagram_media_type = "application/json"
+
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "Architectures merged successfully",
+            "merged_architecture": merged.to_dict(),
+            "component_count": len(merged.components),
+            "data_flow_count": len(merged.data_flows),
+            "warnings": warnings
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to merge architectures: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/architecture")
+async def get_project_architecture(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get current architecture for a project"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    structured_data = None
+    if project.architecture_diagram and project.diagram_media_type == "application/json":
+        import json
+        try:
+            structured_data = json.loads(project.architecture_diagram)
+        except:
+            pass
+
+    return {
+        "description": project.architecture_doc,
+        "structured_data": structured_data,
+        "has_diagram": project.architecture_diagram is not None,
+        "diagram_type": project.diagram_media_type
+    }
+
 
 # Scanning endpoints
 @app.post("/api/projects/{project_id}/scan/demo")
