@@ -602,6 +602,82 @@ export default function ThreatModelPage() {
         )}
       </div>
 
+      {/* Eraser AI Professional Diagrams */}
+      {threatModel.eraser_diagrams?.enabled && (
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+              <Zap className="w-5 h-5 mr-2 text-purple-500" />
+              Eraser AI Professional Diagrams
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({threatModel.eraser_diagrams_count || 0} diagrams)
+              </span>
+            </h2>
+            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
+              Powered by Eraser AI
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(threatModel.eraser_diagrams?.diagrams || {}).map(([name, diagram]: [string, any]) => (
+              diagram.success && (
+                <div key={name} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
+                  <div className="bg-gray-50 px-4 py-2 border-b">
+                    <h3 className="font-medium text-gray-800 capitalize">
+                      {name.replace(/_/g, ' ')}
+                    </h3>
+                  </div>
+                  <div className="relative aspect-video bg-white">
+                    {diagram.image_url ? (
+                      <img
+                        src={diagram.image_url}
+                        alt={`${name} diagram`}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        <Network className="w-12 h-12" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3 bg-gray-50 flex justify-between items-center">
+                    {diagram.editor_url && (
+                      <a
+                        href={diagram.editor_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
+                      >
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Edit in Eraser
+                      </a>
+                    )}
+                    {diagram.image_url && (
+                      <a
+                        href={diagram.image_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-gray-600 hover:text-gray-800 flex items-center"
+                      >
+                        <Download className="w-4 h-4 mr-1" />
+                        Download
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+
+          {(!threatModel.eraser_diagrams?.diagrams || Object.keys(threatModel.eraser_diagrams.diagrams).length === 0) && (
+            <div className="text-center py-8 text-gray-500">
+              <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No Eraser diagrams available. Regenerate the threat model to create professional diagrams.</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Main Content Tabs */}
       <div className="card">
         <div className="border-b border-gray-200">
