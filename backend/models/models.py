@@ -154,6 +154,7 @@ class ThreatModel(Base):
     fair_risk_analysis = Column(JSON)  # FAIR risk quantification data
     attack_trees = Column(JSON)  # Attack tree structures
     kill_chain_analysis = Column(JSON)  # Cyber Kill Chain mapping
+    eraser_diagrams = Column(JSON)  # Eraser AI professional diagram URLs
 
     # Relationships
     project = relationship("Project", back_populates="threat_models")

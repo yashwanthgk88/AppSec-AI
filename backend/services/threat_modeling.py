@@ -6,12 +6,14 @@ Enhanced Threat Modeling Service
 - Professional DFD Generation
 - Attack Path Analysis
 - Multi-Provider Support (OpenAI, Anthropic, Azure, Google, Ollama)
+- Eraser AI Professional Diagram Generation
 """
 from typing import Dict, List, Any, Optional, Tuple
 import re
 import json
 import os
 import logging
+import asyncio
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -20,18 +22,25 @@ logger = logging.getLogger(__name__)
 class ThreatModelingService:
     """Professional threat modeling with AI-powered analysis"""
 
-    def __init__(self, ai_config=None):
+    def __init__(self, ai_config=None, enable_eraser_diagrams: bool = True):
         """
         Initialize threat modeling service.
 
         Args:
             ai_config: Optional AIConfig object. If None, uses global settings.
+            enable_eraser_diagrams: Enable Eraser AI professional diagram generation.
         """
         self._ai_client = None
         self.enabled = False
         self.provider = "none"
         self.model = "none"
         self._init_client(ai_config)
+
+        # Initialize Eraser diagram service
+        self._eraser_service = None
+        self.eraser_enabled = False
+        if enable_eraser_diagrams:
+            self._init_eraser_service()
 
     def _init_client(self, ai_config=None):
         """Initialize AI client from config or global settings"""
@@ -50,6 +59,20 @@ class ThreatModelingService:
                 logger.warning("[ThreatModelingService] No API key configured, using fallback templates")
         except Exception as e:
             logger.warning(f"[ThreatModelingService] Failed to initialize AI client: {e}")
+
+    def _init_eraser_service(self):
+        """Initialize Eraser AI diagram service"""
+        try:
+            from services.eraser_diagram_service import EraserDiagramService
+            self._eraser_service = EraserDiagramService()
+            self.eraser_enabled = self._eraser_service.enabled
+            if self.eraser_enabled:
+                logger.info("[ThreatModelingService] Eraser AI diagram service enabled")
+            else:
+                logger.info("[ThreatModelingService] Eraser API key not configured, using Mermaid diagrams")
+        except Exception as e:
+            logger.warning(f"[ThreatModelingService] Failed to initialize Eraser service: {e}")
+            self.eraser_enabled = False
 
     def update_config(self, ai_config) -> None:
         """Update AI configuration"""
@@ -1500,6 +1523,191 @@ For each component, determine the most appropriate category from: api, database,
         }
         return emojis.get(category, '⚙️')
 
+    # =========================================================================
+    # ERASER AI PROFESSIONAL DIAGRAM GENERATION
+    # =========================================================================
+
+    async def generate_eraser_diagrams(
+        self,
+        parsed_arch: Dict[str, Any],
+        stride_analysis: Dict[str, List[Dict]],
+        attack_trees: List[Dict],
+        kill_chain: Dict[str, Any],
+        theme: str = "light"
+    ) -> Dict[str, Any]:
+        """
+        Generate professional diagrams using Eraser AI.
+
+        Args:
+            parsed_arch: Parsed architecture data
+            stride_analysis: STRIDE threat analysis results
+            attack_trees: Generated attack trees
+            kill_chain: Kill chain analysis
+            theme: Diagram theme ("light" or "dark")
+
+        Returns:
+            Dict with diagram URLs and metadata for each diagram type
+        """
+        if not self.eraser_enabled or not self._eraser_service:
+            return {
+                "enabled": False,
+                "message": "Eraser AI not configured. Set ERASER_API_KEY environment variable.",
+                "diagrams": {}
+            }
+
+        diagrams = {}
+
+        # Collect all threats for architecture diagram
+        all_threats = []
+        for threats in stride_analysis.values():
+            all_threats.extend(threats[:5])  # Top 5 per category
+
+        # Generate diagrams concurrently
+        tasks = []
+
+        # 1. Architecture/DFD Diagram
+        arch_description = self._build_eraser_architecture_prompt(parsed_arch)
+        tasks.append(("architecture", self._eraser_service.generate_threat_model_diagram(
+            arch_description, all_threats, theme
+        )))
+
+        # 2. Attack Tree Diagrams (top 3)
+        for i, tree in enumerate(attack_trees[:3]):
+            tasks.append((f"attack_tree_{i+1}", self._eraser_service.generate_attack_tree_diagram(
+                tree, theme
+            )))
+
+        # 3. Kill Chain Diagram
+        tasks.append(("kill_chain", self._eraser_service.generate_kill_chain_diagram(
+            kill_chain, theme
+        )))
+
+        # 4. Data Flow Diagram
+        components = [
+            {"name": c.get("name"), "type": c.get("type", "process")}
+            for c in parsed_arch.get("components", [])
+        ]
+        data_flows = [
+            {
+                "source": df.get("source"),
+                "target": df.get("target"),
+                "data_type": df.get("data_type", "data")
+            }
+            for df in parsed_arch.get("data_flows", [])
+        ]
+        trust_boundaries = [
+            tb.get("name", "Boundary")
+            for tb in parsed_arch.get("trust_boundaries", [])
+        ]
+        tasks.append(("data_flow", self._eraser_service.generate_data_flow_diagram(
+            components, data_flows, trust_boundaries, theme
+        )))
+
+        # Execute all tasks concurrently
+        results = await asyncio.gather(*[task[1] for task in tasks], return_exceptions=True)
+
+        # Process results
+        for (name, _), result in zip(tasks, results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to generate {name} diagram: {result}")
+                diagrams[name] = {
+                    "success": False,
+                    "error": str(result)
+                }
+            else:
+                diagrams[name] = result
+
+        # Calculate success stats
+        successful = sum(1 for d in diagrams.values() if d.get("success"))
+        total = len(diagrams)
+
+        return {
+            "enabled": True,
+            "provider": "eraser_ai",
+            "theme": theme,
+            "diagrams": diagrams,
+            "stats": {
+                "total": total,
+                "successful": successful,
+                "failed": total - successful
+            }
+        }
+
+    def _build_eraser_architecture_prompt(self, parsed_arch: Dict[str, Any]) -> str:
+        """Build architecture description for Eraser diagram generation"""
+        components = parsed_arch.get("components", [])
+        data_flows = parsed_arch.get("data_flows", [])
+        trust_boundaries = parsed_arch.get("trust_boundaries", [])
+
+        # Build component list
+        component_text = []
+        for comp in components[:15]:
+            name = comp.get("name", "Unknown")
+            comp_type = comp.get("type", "process")
+            category = comp.get("category", "")
+            tech = comp.get("technology", "")
+            internet_facing = "⚠️ INTERNET FACING" if comp.get("internet_facing") else ""
+            sensitive = "🔐 HANDLES SENSITIVE DATA" if comp.get("handles_sensitive_data") else ""
+
+            component_text.append(
+                f"- {name} ({comp_type}/{category}): {tech} {internet_facing} {sensitive}".strip()
+            )
+
+        # Build data flow list
+        flow_text = []
+        for flow in data_flows[:20]:
+            source = flow.get("source", "?")
+            target = flow.get("target", "?")
+            data_type = flow.get("data_type", "data")
+            protocol = flow.get("protocol", "")
+            encrypted = "🔒" if flow.get("encrypted") else ""
+            flow_text.append(f"- {source} → {target}: {data_type} ({protocol}) {encrypted}".strip())
+
+        # Build trust boundary list
+        boundary_text = []
+        for tb in trust_boundaries:
+            name = tb.get("name", "Boundary")
+            level = tb.get("trust_level", "trusted")
+            boundary_text.append(f"- {name} (Trust Level: {level})")
+
+        return f"""System Overview: {parsed_arch.get('system_overview', 'Application System')}
+
+Components:
+{chr(10).join(component_text)}
+
+Data Flows:
+{chr(10).join(flow_text)}
+
+Trust Boundaries:
+{chr(10).join(boundary_text)}
+
+Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
+"""
+
+    def generate_eraser_diagrams_sync(
+        self,
+        parsed_arch: Dict[str, Any],
+        stride_analysis: Dict[str, List[Dict]],
+        attack_trees: List[Dict],
+        kill_chain: Dict[str, Any],
+        theme: str = "light"
+    ) -> Dict[str, Any]:
+        """
+        Synchronous wrapper for Eraser diagram generation.
+        Use this from synchronous code paths.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        return loop.run_until_complete(
+            self.generate_eraser_diagrams(
+                parsed_arch, stride_analysis, attack_trees, kill_chain, theme
+            )
+        )
+
     def generate_attack_paths(self, parsed_arch: Dict, stride_threats: Dict, system_context: str = "") -> List[Dict]:
         """Generate potential attack paths with AI-powered analysis"""
         attack_paths = []
@@ -1895,9 +2103,36 @@ For each component, determine the most appropriate category from: api, database,
         organization_size: str = "medium",
         industry: str = "technology",
         annual_revenue: float = 10000000,
-        customer_count: int = 10000
+        customer_count: int = 10000,
+        generate_eraser_diagrams: bool = False,  # Disabled by default - requires API key
+        diagram_theme: str = "light",
+        progress_callback: Optional[callable] = None
     ) -> Dict[str, Any]:
-        """Complete threat modeling workflow with AI-powered analysis"""
+        """
+        Complete threat modeling workflow with AI-powered analysis.
+
+        Args:
+            architecture_doc: Architecture documentation text
+            project_name: Name of the project
+            architecture_diagram: Optional base64-encoded architecture diagram
+            diagram_media_type: MIME type of the diagram image
+            organization_size: "small", "medium", or "large"
+            industry: Industry vertical for risk calculations
+            annual_revenue: Annual revenue for FAIR calculations
+            customer_count: Number of customers for impact calculations
+            generate_eraser_diagrams: Whether to generate Eraser AI professional diagrams
+            diagram_theme: "light" or "dark" theme for Eraser diagrams
+            progress_callback: Optional callback function(step: str, progress: int, message: str)
+        """
+
+        def update_progress(step: str, progress: int, message: str = ""):
+            if progress_callback:
+                try:
+                    progress_callback(step, progress, message)
+                except Exception as e:
+                    logger.warning(f"Progress callback failed: {e}")
+
+        update_progress("analyzing", 10, "Analyzing architecture...")
 
         # Analyze architecture with AI
         parsed_arch = self.analyze_architecture_with_ai(
@@ -1905,9 +2140,11 @@ For each component, determine the most appropriate category from: api, database,
             architecture_diagram,
             diagram_media_type
         )
+        update_progress("architecture", 20, "Architecture analyzed")
 
         # Build system context once for AI prompts
         system_context = self._build_system_context(parsed_arch)
+        update_progress("dfd", 25, "Generating data flow diagrams...")
 
         # Generate DFD structures
         dfd_level_0 = self.generate_dfd(parsed_arch, level=0)
@@ -1915,17 +2152,21 @@ For each component, determine the most appropriate category from: api, database,
 
         dfd_level_1 = self.generate_dfd(parsed_arch, level=1)
         dfd_level_1['mermaid'] = self.generate_mermaid_dfd(dfd_level_1, level=1)
+        update_progress("stride", 35, "Running STRIDE analysis...")
 
         # Generate STRIDE analysis with AI enrichment
         stride_analysis = self.generate_stride_analysis(parsed_arch, system_context)
+        update_progress("mitre", 50, "Mapping to MITRE ATT&CK...")
 
         # Map to MITRE ATT&CK
         mitre_mapping = self.map_mitre_attack(stride_analysis)
+        update_progress("attack_paths", 60, "Analyzing attack paths...")
 
         # Generate attack paths with AI analysis
         attack_paths = self.generate_attack_paths(parsed_arch, stride_analysis, system_context)
+        update_progress("fair", 70, "Calculating FAIR risk...")
 
-        # NEW: Generate FAIR Risk Quantification
+        # Generate FAIR Risk Quantification
         fair_risk = self.calculate_fair_risk(
             stride_analysis, parsed_arch,
             organization_size=organization_size,
@@ -1933,12 +2174,31 @@ For each component, determine the most appropriate category from: api, database,
             annual_revenue=annual_revenue,
             customer_count=customer_count
         )
+        update_progress("attack_trees", 80, "Building attack trees...")
 
-        # NEW: Generate Attack Trees
+        # Generate Attack Trees
         attack_trees = self.generate_attack_trees(stride_analysis, parsed_arch)
+        update_progress("kill_chain", 85, "Analyzing kill chain...")
 
-        # NEW: Generate Kill Chain Analysis
+        # Generate Kill Chain Analysis
         kill_chain = self.generate_kill_chain_analysis(stride_analysis, mitre_mapping, attack_paths)
+
+        # Generate Eraser AI Professional Diagrams (if enabled and configured)
+        eraser_diagrams = {"enabled": False, "diagrams": {}}
+        if generate_eraser_diagrams and self.eraser_enabled:
+            update_progress("eraser", 90, "Generating Eraser AI diagrams...")
+            try:
+                eraser_diagrams = self.generate_eraser_diagrams_sync(
+                    parsed_arch, stride_analysis, attack_trees, kill_chain, diagram_theme
+                )
+                logger.info(f"[ThreatModelingService] Generated {eraser_diagrams.get('stats', {}).get('successful', 0)} Eraser diagrams")
+            except Exception as e:
+                logger.error(f"[ThreatModelingService] Eraser diagram generation failed: {e}")
+                eraser_diagrams = {
+                    "enabled": False,
+                    "error": str(e),
+                    "diagrams": {}
+                }
 
         # Calculate statistics
         total_threats = sum(len(threats) for threats in stride_analysis.values())
@@ -1980,6 +2240,9 @@ For each component, determine the most appropriate category from: api, database,
             "attack_trees": attack_trees,
             "kill_chain_analysis": kill_chain,
 
+            # Professional Eraser AI Diagrams
+            "eraser_diagrams": eraser_diagrams,
+
             # Risk metrics
             "threat_count": total_threats,
             "risk_score": round(avg_risk, 1),
@@ -2001,6 +2264,9 @@ For each component, determine the most appropriate category from: api, database,
                 "attack_trees_generated": len(attack_trees),
                 "kill_chain_coverage": kill_chain.get("coverage_analysis", {}).get("coverage_percentage", 0),
                 "estimated_annual_risk": fair_risk.get("aggregate_risk", {}).get("total_annual_loss_expectancy", {}).get("likely", 0),
+                # Eraser diagram stats
+                "eraser_diagrams_enabled": eraser_diagrams.get("enabled", False),
+                "eraser_diagrams_generated": eraser_diagrams.get("stats", {}).get("successful", 0),
             }
         }
 

@@ -987,6 +987,7 @@ async def get_threat_model(
     fair_risk = threat_model.fair_risk_analysis or {}
     attack_trees = threat_model.attack_trees or []
     kill_chain = threat_model.kill_chain_analysis or {}
+    eraser_diagrams = threat_model.eraser_diagrams or {"enabled": False, "diagrams": {}}
 
     return {
         "id": threat_model.id,
@@ -1007,10 +1008,14 @@ async def get_threat_model(
         "fair_risk_analysis": fair_risk,
         "attack_trees": attack_trees,
         "kill_chain_analysis": kill_chain,
+        # Eraser AI Professional Diagrams
+        "eraser_diagrams": eraser_diagrams,
         # Summary metrics
         "annual_loss_expectancy": fair_risk.get("aggregate_risk", {}).get("total_annual_loss_expectancy", {}),
         "kill_chain_coverage": kill_chain.get("coverage_analysis", {}).get("coverage_percentage", 0),
-        "attack_trees_count": len(attack_trees)
+        "attack_trees_count": len(attack_trees),
+        "eraser_diagrams_enabled": eraser_diagrams.get("enabled", False),
+        "eraser_diagrams_count": eraser_diagrams.get("stats", {}).get("successful", 0)
     }
 
 def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str):
@@ -1018,7 +1023,17 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
     from models.database import SessionLocal
 
     logger.info(f"[Threat Model BG] Starting background generation for project {project_id}")
-    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "analyzing", "progress": 10}
+    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5}
+
+    # Progress callback to update status in real-time
+    def progress_callback(step: str, progress: int, message: str = ""):
+        threat_model_generation_status[project_id] = {
+            "status": "in_progress",
+            "step": step,
+            "progress": progress,
+            "message": message
+        }
+        logger.debug(f"[Threat Model BG] Progress: {step} - {progress}% - {message}")
 
     db = SessionLocal()
     try:
@@ -1029,12 +1044,12 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             db.commit()
             logger.info(f"[Threat Model BG] Deleted existing threat model")
 
-        threat_model_generation_status[project_id] = {"status": "in_progress", "step": "generating", "progress": 30}
-
         logger.info(f"[Threat Model BG] Calling generate_threat_model...")
         threat_model_data = threat_service.generate_threat_model(
             architecture_doc,
-            project_name
+            project_name,
+            progress_callback=progress_callback,
+            generate_eraser_diagrams=threat_service.eraser_enabled  # Enable if API key configured
         )
         logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
 
@@ -1053,7 +1068,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             # Enhanced threat modeling fields
             fair_risk_analysis=threat_model_data.get('fair_risk_analysis'),
             attack_trees=threat_model_data.get('attack_trees'),
-            kill_chain_analysis=threat_model_data.get('kill_chain_analysis')
+            kill_chain_analysis=threat_model_data.get('kill_chain_analysis'),
+            eraser_diagrams=threat_model_data.get('eraser_diagrams')
         )
         db.add(threat_model)
         db.commit()
@@ -1062,6 +1078,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
         fair_risk = threat_model_data.get('fair_risk_analysis', {})
         annual_loss = fair_risk.get('aggregate_risk', {}).get('total_annual_loss_expectancy', {}).get('likely', 0)
 
+        eraser_diagrams = threat_model_data.get('eraser_diagrams', {})
         threat_model_generation_status[project_id] = {
             "status": "completed",
             "step": "done",
@@ -1070,7 +1087,9 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             "attack_paths_count": len(threat_model_data.get('attack_paths', [])),
             "attack_trees_count": len(threat_model_data.get('attack_trees', [])),
             "annual_loss_expectancy": annual_loss,
-            "kill_chain_coverage": threat_model_data.get('kill_chain_analysis', {}).get('coverage_analysis', {}).get('coverage_percentage', 0)
+            "kill_chain_coverage": threat_model_data.get('kill_chain_analysis', {}).get('coverage_analysis', {}).get('coverage_percentage', 0),
+            "eraser_diagrams_enabled": eraser_diagrams.get('enabled', False),
+            "eraser_diagrams_count": eraser_diagrams.get('stats', {}).get('successful', 0)
         }
         logger.info(f"[Threat Model BG] Completed successfully for project {project_id}")
 

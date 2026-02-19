@@ -63,6 +63,27 @@ def migrate():
             print("Adding diagram_media_type column to projects table...")
             cursor.execute("ALTER TABLE projects ADD COLUMN diagram_media_type VARCHAR(50)")
 
+        # Check threat_models table
+        cursor.execute("PRAGMA table_info(threat_models)")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        # Add new JSON columns to threat_models table if they don't exist
+        if 'fair_risk_analysis' not in columns:
+            print("Adding fair_risk_analysis column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN fair_risk_analysis JSON")
+
+        if 'attack_trees' not in columns:
+            print("Adding attack_trees column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN attack_trees JSON")
+
+        if 'kill_chain_analysis' not in columns:
+            print("Adding kill_chain_analysis column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN kill_chain_analysis JSON")
+
+        if 'eraser_diagrams' not in columns:
+            print("Adding eraser_diagrams column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN eraser_diagrams JSON")
+
         conn.commit()
         print("✓ Migration completed successfully!")
 
