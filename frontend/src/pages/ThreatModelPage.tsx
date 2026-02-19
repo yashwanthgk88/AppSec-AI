@@ -749,7 +749,7 @@ export default function ThreatModelPage() {
           )}
 
           {activeTab === 'attack-paths' && (
-            <AttackPathsTab attackPaths={attackPaths} />
+            <AttackPathsTab attackPaths={attackPaths} projectId={id || ''} />
           )}
 
           {activeTab === 'mitre' && (
@@ -929,8 +929,45 @@ function ThreatsTab({
 }
 
 // Attack Paths Tab Component
-function AttackPathsTab({ attackPaths }: { attackPaths: any[] }) {
+function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projectId: string }) {
   const [expandedPaths, setExpandedPaths] = useState<Set<number>>(new Set())
+  const [generatedDiagrams, setGeneratedDiagrams] = useState<Record<number, any>>({})
+  const [generatingDiagram, setGeneratingDiagram] = useState<number | null>(null)
+  const [diagramError, setDiagramError] = useState<string | null>(null)
+
+  const generateDiagram = async (idx: number, path: any) => {
+    setGeneratingDiagram(idx)
+    setDiagramError(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post(
+        `/api/projects/${projectId}/threat-model/generate-attack-diagram`,
+        {
+          attack_path_index: idx,
+          theme: 'dark'
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      if (response.data.success) {
+        setGeneratedDiagrams(prev => ({
+          ...prev,
+          [idx]: {
+            imageUrl: response.data.image_url,
+            editUrl: response.data.editor_url,
+            name: response.data.attack_path_name
+          }
+        }))
+      } else {
+        setDiagramError(response.data.error || 'Failed to generate diagram')
+      }
+    } catch (error: any) {
+      setDiagramError(error.response?.data?.detail || 'Failed to generate diagram')
+    } finally {
+      setGeneratingDiagram(null)
+    }
+  }
 
   const togglePath = (idx: number) => {
     const newExpanded = new Set(expandedPaths)
@@ -991,6 +1028,37 @@ function AttackPathsTab({ attackPaths }: { attackPaths: any[] }) {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      generateDiagram(idx, path)
+                    }}
+                    disabled={generatingDiagram === idx || generatedDiagrams[idx]}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium flex items-center space-x-1 transition ${
+                      generatedDiagrams[idx]
+                        ? 'bg-green-100 text-green-700 cursor-default'
+                        : generatingDiagram === idx
+                        ? 'bg-purple-100 text-purple-700 cursor-wait'
+                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                    }`}
+                  >
+                    {generatingDiagram === idx ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Generating...</span>
+                      </>
+                    ) : generatedDiagrams[idx] ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        <span>Diagram Ready</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        <span>Generate Diagram</span>
+                      </>
+                    )}
+                  </button>
                   <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                     path.risk_score >= 80 ? 'bg-red-100 text-red-700' :
                     path.risk_score >= 60 ? 'bg-orange-100 text-orange-700' :
@@ -1193,6 +1261,56 @@ function AttackPathsTab({ attackPaths }: { attackPaths: any[] }) {
                           <p className="text-sm text-green-800">{control.implementation}</p>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Generated Eraser Diagram */}
+                {generatedDiagrams[idx] && (
+                  <div className="bg-white border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <Zap className="w-4 h-4 text-purple-600" />
+                        <h4 className="font-semibold text-purple-900">Attack Path Diagram</h4>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <a
+                          href={generatedDiagrams[idx].editUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 flex items-center space-x-1"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Edit in Eraser</span>
+                        </a>
+                        <a
+                          href={generatedDiagrams[idx].imageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center space-x-1"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Download</span>
+                        </a>
+                      </div>
+                    </div>
+                    <div className="bg-gray-900 rounded-lg p-4 flex items-center justify-center">
+                      <img
+                        src={generatedDiagrams[idx].imageUrl}
+                        alt={`Attack Path #${idx + 1} Diagram`}
+                        className="max-w-full h-auto rounded"
+                        style={{ maxHeight: '400px' }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Diagram Error */}
+                {diagramError && generatingDiagram === null && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center space-x-2">
+                      <XCircle className="w-4 h-4 text-red-600" />
+                      <p className="text-sm text-red-700">{diagramError}</p>
                     </div>
                   </div>
                 )}

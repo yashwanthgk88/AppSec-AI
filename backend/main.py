@@ -1164,6 +1164,82 @@ async def regenerate_threat_model(
         "progress": 5
     }
 
+@app.post("/api/projects/{project_id}/threat-model/generate-attack-diagram")
+async def generate_attack_diagram(
+    project_id: int,
+    request: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Generate an Eraser diagram for a specific attack path on-demand"""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+    if not threat_model:
+        raise HTTPException(status_code=404, detail="Threat model not found")
+
+    attack_path_index = request.get("attack_path_index", 0)
+    attack_paths = threat_model.attack_paths or []
+
+    if attack_path_index >= len(attack_paths):
+        raise HTTPException(status_code=400, detail="Invalid attack path index")
+
+    attack_path = attack_paths[attack_path_index]
+    theme = request.get("theme", "light")
+
+    # Generate diagram for this specific attack path
+    from services.threat_modeling import ThreatModelingService
+    threat_service = ThreatModelingService()
+
+    if not threat_service.eraser_enabled:
+        raise HTTPException(status_code=400, detail="Eraser API not configured")
+
+    try:
+        # Build attack tree structure from attack path
+        attack_tree = {
+            "root_goal": attack_path.get("target", "Unknown Target"),
+            "attack_vectors": [{
+                "name": attack_path.get("name", "Attack Path"),
+                "probability": attack_path.get("probability", 0.5),
+                "steps": [{"action": step} for step in attack_path.get("path", [])]
+            }]
+        }
+
+        # Generate the diagram
+        result = await threat_service._eraser_service.generate_attack_tree_diagram(attack_tree, theme)
+
+        if result.get("success"):
+            # Store in the threat model's eraser_diagrams
+            eraser_diagrams = threat_model.eraser_diagrams or {"enabled": True, "diagrams": {}}
+            diagram_key = f"attack_path_{attack_path_index}"
+            eraser_diagrams["diagrams"][diagram_key] = result
+            threat_model.eraser_diagrams = eraser_diagrams
+            db.commit()
+
+            return {
+                "success": True,
+                "diagram_key": diagram_key,
+                "image_url": result.get("image_url"),
+                "editor_url": result.get("editor_url"),
+                "attack_path_name": attack_path.get("name", f"Attack Path {attack_path_index + 1}")
+            }
+        else:
+            return {
+                "success": False,
+                "error": result.get("error", "Failed to generate diagram")
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to generate attack diagram: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/projects/{project_id}/threat-model/status")
 async def get_threat_model_status(
     project_id: int,

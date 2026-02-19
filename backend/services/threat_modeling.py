@@ -1563,21 +1563,16 @@ For each component, determine the most appropriate category from: api, database,
             all_threats.extend(threats[:5])  # Top 5 per category
 
         # Generate diagrams concurrently
+        # Note: Attack path diagrams are generated on-demand via /generate-attack-diagram endpoint
         tasks = []
 
-        # 1. Architecture/DFD Diagram
+        # 1. Architecture/Threat Model Diagram
         arch_description = self._build_eraser_architecture_prompt(parsed_arch)
         tasks.append(("architecture", self._eraser_service.generate_threat_model_diagram(
             arch_description, all_threats, theme
         )))
 
-        # 2. Attack Tree Diagrams (top 3)
-        for i, tree in enumerate(attack_trees[:3]):
-            tasks.append((f"attack_tree_{i+1}", self._eraser_service.generate_attack_tree_diagram(
-                tree, theme
-            )))
-
-        # 3. Kill Chain Diagram
+        # 2. Kill Chain Diagram
         tasks.append(("kill_chain", self._eraser_service.generate_kill_chain_diagram(
             kill_chain, theme
         )))
