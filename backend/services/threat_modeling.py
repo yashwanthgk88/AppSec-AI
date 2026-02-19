@@ -1891,7 +1891,11 @@ For each component, determine the most appropriate category from: api, database,
         architecture_doc: str,
         project_name: str,
         architecture_diagram: Optional[str] = None,
-        diagram_media_type: str = "image/png"
+        diagram_media_type: str = "image/png",
+        organization_size: str = "medium",
+        industry: str = "technology",
+        annual_revenue: float = 10000000,
+        customer_count: int = 10000
     ) -> Dict[str, Any]:
         """Complete threat modeling workflow with AI-powered analysis"""
 
@@ -1920,6 +1924,21 @@ For each component, determine the most appropriate category from: api, database,
 
         # Generate attack paths with AI analysis
         attack_paths = self.generate_attack_paths(parsed_arch, stride_analysis, system_context)
+
+        # NEW: Generate FAIR Risk Quantification
+        fair_risk = self.calculate_fair_risk(
+            stride_analysis, parsed_arch,
+            organization_size=organization_size,
+            industry=industry,
+            annual_revenue=annual_revenue,
+            customer_count=customer_count
+        )
+
+        # NEW: Generate Attack Trees
+        attack_trees = self.generate_attack_trees(stride_analysis, parsed_arch)
+
+        # NEW: Generate Kill Chain Analysis
+        kill_chain = self.generate_kill_chain_analysis(stride_analysis, mitre_mapping, attack_paths)
 
         # Calculate statistics
         total_threats = sum(len(threats) for threats in stride_analysis.values())
@@ -1956,10 +1975,16 @@ For each component, determine the most appropriate category from: api, database,
             "mitre_mapping": mitre_mapping,
             "attack_paths": attack_paths,
 
+            # NEW: Enhanced analysis features
+            "fair_risk_analysis": fair_risk,
+            "attack_trees": attack_trees,
+            "kill_chain_analysis": kill_chain,
+
             # Risk metrics
             "threat_count": total_threats,
             "risk_score": round(avg_risk, 1),
             "risk_level": "Critical" if avg_risk >= 8 else "High" if avg_risk >= 6 else "Medium" if avg_risk >= 4 else "Low",
+            "annual_loss_expectancy": fair_risk.get("aggregate_risk", {}).get("total_annual_loss_expectancy", {}),
 
             "summary": {
                 "total_components": len(parsed_arch.get('components', [])),
@@ -1972,8 +1997,880 @@ For each component, determine the most appropriate category from: api, database,
                 "mitre_techniques_count": mitre_mapping.get('total_techniques', 0),
                 "tactics_covered": mitre_mapping.get('tactics_covered', 0),
                 "attack_paths_identified": len(attack_paths),
+                # NEW: Enhanced summary
+                "attack_trees_generated": len(attack_trees),
+                "kill_chain_coverage": kill_chain.get("coverage_analysis", {}).get("coverage_percentage", 0),
+                "estimated_annual_risk": fair_risk.get("aggregate_risk", {}).get("total_annual_loss_expectancy", {}).get("likely", 0),
             }
         }
+
+
+# =============================================================================
+    # FAIR RISK QUANTIFICATION MODEL
+    # =============================================================================
+
+    # FAIR Loss Magnitude Categories (in USD)
+    FAIR_LOSS_MAGNITUDE = {
+        "productivity": {
+            "description": "Lost productivity due to incident response",
+            "per_hour_cost": 150,  # Average hourly rate for IT/Dev staff
+        },
+        "response": {
+            "description": "Incident response costs",
+            "base_cost": 50000,  # Base incident response
+            "per_severity": {"critical": 500000, "high": 200000, "medium": 75000, "low": 25000}
+        },
+        "replacement": {
+            "description": "System replacement/recovery costs",
+            "per_severity": {"critical": 250000, "high": 100000, "medium": 40000, "low": 10000}
+        },
+        "fines": {
+            "description": "Regulatory fines and penalties",
+            "pci_dss": 500000,
+            "hipaa": 1500000,
+            "gdpr": 4000000,  # Up to 4% of global revenue
+            "general": 100000
+        },
+        "reputation": {
+            "description": "Reputational damage and customer loss",
+            "customer_churn_rate": 0.05,  # 5% customer churn
+            "avg_customer_value": 10000
+        },
+        "legal": {
+            "description": "Legal fees and settlements",
+            "base_cost": 100000,
+            "per_affected_user": 150  # Class action settlement per user
+        }
+    }
+
+    # FAIR Threat Event Frequency (Annual)
+    FAIR_TEF_ESTIMATES = {
+        "critical": {"min": 1, "likely": 3, "max": 12},    # 1-12 attempts per year
+        "high": {"min": 2, "likely": 6, "max": 24},        # 2-24 attempts per year
+        "medium": {"min": 4, "likely": 12, "max": 52},     # Monthly to weekly
+        "low": {"min": 12, "likely": 52, "max": 365}       # Weekly to daily
+    }
+
+    # FAIR Vulnerability (Success Rate)
+    FAIR_VULNERABILITY_RATES = {
+        "critical": {"min": 0.6, "likely": 0.8, "max": 0.95},   # High success rate
+        "high": {"min": 0.3, "likely": 0.5, "max": 0.7},        # Medium-high success
+        "medium": {"min": 0.1, "likely": 0.25, "max": 0.4},     # Medium success
+        "low": {"min": 0.01, "likely": 0.05, "max": 0.15}       # Low success rate
+    }
+
+    def calculate_fair_risk(self, stride_threats: Dict[str, List[Dict]],
+                           parsed_arch: Dict[str, Any],
+                           organization_size: str = "medium",
+                           industry: str = "technology",
+                           annual_revenue: float = 10000000,
+                           customer_count: int = 10000) -> Dict[str, Any]:
+        """
+        Calculate quantitative risk using FAIR (Factor Analysis of Information Risk) model.
+
+        Returns dollar-based loss estimates with confidence intervals.
+        """
+        fair_results = {
+            "methodology": "FAIR (Factor Analysis of Information Risk)",
+            "parameters": {
+                "organization_size": organization_size,
+                "industry": industry,
+                "annual_revenue": annual_revenue,
+                "customer_count": customer_count
+            },
+            "threat_analysis": [],
+            "aggregate_risk": {},
+            "loss_categories": {},
+            "recommendations": []
+        }
+
+        # Size multipliers
+        size_multipliers = {"small": 0.3, "medium": 1.0, "large": 2.5, "enterprise": 5.0}
+        size_mult = size_multipliers.get(organization_size, 1.0)
+
+        # Industry risk multipliers
+        industry_multipliers = {
+            "healthcare": 1.5, "finance": 1.8, "government": 1.3,
+            "retail": 1.2, "technology": 1.0, "manufacturing": 0.9
+        }
+        industry_mult = industry_multipliers.get(industry, 1.0)
+
+        total_ale_min = 0
+        total_ale_likely = 0
+        total_ale_max = 0
+        loss_by_category = {
+            "productivity": 0,
+            "response": 0,
+            "replacement": 0,
+            "fines": 0,
+            "reputation": 0,
+            "legal": 0
+        }
+
+        # Analyze each threat
+        for stride_cat, threats in stride_threats.items():
+            for threat in threats:
+                severity = threat.get('severity', 'medium')
+                component = threat.get('component', 'Unknown')
+                handles_sensitive = any(
+                    c.get('handles_sensitive_data', False)
+                    for c in parsed_arch.get('components', [])
+                    if c.get('name') == component
+                )
+
+                # Calculate Loss Event Frequency (LEF) = TEF × Vulnerability
+                tef = self.FAIR_TEF_ESTIMATES.get(severity, self.FAIR_TEF_ESTIMATES['medium'])
+                vuln = self.FAIR_VULNERABILITY_RATES.get(severity, self.FAIR_VULNERABILITY_RATES['medium'])
+
+                lef_min = tef['min'] * vuln['min']
+                lef_likely = tef['likely'] * vuln['likely']
+                lef_max = tef['max'] * vuln['max']
+
+                # Calculate Loss Magnitude (LM)
+                response_cost = self.FAIR_LOSS_MAGNITUDE['response']['per_severity'].get(severity, 50000)
+                replacement_cost = self.FAIR_LOSS_MAGNITUDE['replacement']['per_severity'].get(severity, 25000)
+
+                # Productivity loss (assume 40 hours for critical, scaled down)
+                hours_lost = {"critical": 160, "high": 80, "medium": 40, "low": 16}.get(severity, 40)
+                productivity_cost = hours_lost * self.FAIR_LOSS_MAGNITUDE['productivity']['per_hour_cost']
+
+                # Fines (if handles sensitive data)
+                fines_cost = 0
+                if handles_sensitive:
+                    if industry == "healthcare":
+                        fines_cost = self.FAIR_LOSS_MAGNITUDE['fines']['hipaa'] * 0.1
+                    elif industry == "finance":
+                        fines_cost = self.FAIR_LOSS_MAGNITUDE['fines']['pci_dss'] * 0.1
+                    else:
+                        fines_cost = self.FAIR_LOSS_MAGNITUDE['fines']['general'] * 0.1
+
+                # Reputation cost
+                if severity in ['critical', 'high'] and handles_sensitive:
+                    reputation_cost = (
+                        self.FAIR_LOSS_MAGNITUDE['reputation']['customer_churn_rate'] *
+                        customer_count *
+                        self.FAIR_LOSS_MAGNITUDE['reputation']['avg_customer_value'] * 0.1
+                    )
+                else:
+                    reputation_cost = 0
+
+                # Legal costs
+                legal_cost = 0
+                if severity == 'critical' and handles_sensitive:
+                    affected_users = customer_count * 0.1  # Assume 10% affected
+                    legal_cost = (
+                        self.FAIR_LOSS_MAGNITUDE['legal']['base_cost'] +
+                        affected_users * self.FAIR_LOSS_MAGNITUDE['legal']['per_affected_user']
+                    )
+
+                # Total Loss Magnitude per event
+                lm_min = (response_cost + productivity_cost) * 0.5 * size_mult * industry_mult
+                lm_likely = (response_cost + replacement_cost + productivity_cost +
+                            fines_cost + reputation_cost) * size_mult * industry_mult
+                lm_max = (response_cost + replacement_cost + productivity_cost +
+                         fines_cost + reputation_cost + legal_cost) * 1.5 * size_mult * industry_mult
+
+                # Annual Loss Expectancy (ALE) = LEF × LM
+                ale_min = lef_min * lm_min
+                ale_likely = lef_likely * lm_likely
+                ale_max = lef_max * lm_max
+
+                total_ale_min += ale_min
+                total_ale_likely += ale_likely
+                total_ale_max += ale_max
+
+                # Track by category
+                loss_by_category["productivity"] += productivity_cost * lef_likely
+                loss_by_category["response"] += response_cost * lef_likely
+                loss_by_category["replacement"] += replacement_cost * lef_likely * 0.3
+                loss_by_category["fines"] += fines_cost * lef_likely
+                loss_by_category["reputation"] += reputation_cost * lef_likely
+                loss_by_category["legal"] += legal_cost * lef_likely * 0.1
+
+                fair_results["threat_analysis"].append({
+                    "threat_id": threat.get('id'),
+                    "threat_name": threat.get('threat'),
+                    "component": component,
+                    "severity": severity,
+                    "stride_category": stride_cat,
+                    "loss_event_frequency": {
+                        "min": round(lef_min, 2),
+                        "likely": round(lef_likely, 2),
+                        "max": round(lef_max, 2),
+                        "unit": "events/year"
+                    },
+                    "loss_magnitude": {
+                        "min": round(lm_min, 0),
+                        "likely": round(lm_likely, 0),
+                        "max": round(lm_max, 0),
+                        "currency": "USD"
+                    },
+                    "annual_loss_expectancy": {
+                        "min": round(ale_min, 0),
+                        "likely": round(ale_likely, 0),
+                        "max": round(ale_max, 0),
+                        "currency": "USD"
+                    }
+                })
+
+        # Aggregate results
+        fair_results["aggregate_risk"] = {
+            "total_annual_loss_expectancy": {
+                "min": round(total_ale_min, 0),
+                "likely": round(total_ale_likely, 0),
+                "max": round(total_ale_max, 0),
+                "currency": "USD"
+            },
+            "risk_as_percentage_of_revenue": {
+                "min": round((total_ale_min / annual_revenue) * 100, 2),
+                "likely": round((total_ale_likely / annual_revenue) * 100, 2),
+                "max": round((total_ale_max / annual_revenue) * 100, 2)
+            },
+            "confidence_interval": "90%",
+            "risk_level": self._determine_fair_risk_level(total_ale_likely, annual_revenue)
+        }
+
+        # Loss by category
+        fair_results["loss_categories"] = {
+            cat: {"annual_expected_loss": round(val, 0), "currency": "USD"}
+            for cat, val in loss_by_category.items()
+        }
+
+        # Generate recommendations based on risk
+        fair_results["recommendations"] = self._generate_fair_recommendations(
+            total_ale_likely, loss_by_category, fair_results["threat_analysis"]
+        )
+
+        return fair_results
+
+    def _determine_fair_risk_level(self, ale: float, revenue: float) -> str:
+        """Determine risk level based on ALE as percentage of revenue"""
+        risk_pct = (ale / revenue) * 100 if revenue > 0 else 0
+        if risk_pct >= 5:
+            return "Critical"
+        elif risk_pct >= 2:
+            return "High"
+        elif risk_pct >= 0.5:
+            return "Medium"
+        else:
+            return "Low"
+
+    def _generate_fair_recommendations(self, total_ale: float, loss_categories: Dict,
+                                       threat_analysis: List[Dict]) -> List[Dict]:
+        """Generate prioritized recommendations based on FAIR analysis"""
+        recommendations = []
+
+        # Sort threats by ALE
+        sorted_threats = sorted(
+            threat_analysis,
+            key=lambda t: t['annual_loss_expectancy']['likely'],
+            reverse=True
+        )
+
+        # Top 3 risk reduction opportunities
+        for i, threat in enumerate(sorted_threats[:3], 1):
+            ale = threat['annual_loss_expectancy']['likely']
+            potential_reduction = ale * 0.7  # Assume 70% reduction with mitigation
+            recommendations.append({
+                "priority": i,
+                "threat": threat['threat_name'],
+                "component": threat['component'],
+                "current_annual_risk": f"${ale:,.0f}",
+                "potential_savings": f"${potential_reduction:,.0f}",
+                "action": f"Implement mitigation for {threat['threat_name']} to reduce annual expected loss by ${potential_reduction:,.0f}",
+                "roi": f"{(potential_reduction / (ale * 0.1)) * 100:.0f}%" if ale > 0 else "N/A"  # Assume 10% of ALE as mitigation cost
+            })
+
+        # Category-based recommendations
+        top_category = max(loss_categories.items(), key=lambda x: x[1])
+        if top_category[1] > 0:
+            category_actions = {
+                "productivity": "Implement automation and incident response playbooks to reduce recovery time",
+                "response": "Establish dedicated incident response team and pre-negotiated retainer agreements",
+                "fines": "Conduct compliance audit and implement regulatory controls",
+                "reputation": "Develop crisis communication plan and customer notification procedures",
+                "legal": "Review cyber insurance coverage and establish legal response procedures"
+            }
+            recommendations.append({
+                "priority": 4,
+                "category": top_category[0],
+                "annual_exposure": f"${top_category[1]:,.0f}",
+                "action": category_actions.get(top_category[0], "Review and enhance security controls"),
+                "type": "category_mitigation"
+            })
+
+        return recommendations
+
+    # =============================================================================
+    # ATTACK TREE GENERATION
+    # =============================================================================
+
+    def generate_attack_trees(self, stride_threats: Dict[str, List[Dict]],
+                             parsed_arch: Dict[str, Any]) -> List[Dict]:
+        """
+        Generate attack trees for each high-value target showing all possible attack paths.
+        Attack trees visualize how an attacker could achieve a goal.
+        """
+        attack_trees = []
+
+        # Identify high-value targets
+        targets = [
+            c for c in parsed_arch.get('components', [])
+            if c.get('handles_sensitive_data') or c.get('type') == 'datastore'
+        ]
+
+        for target in targets[:5]:  # Limit to top 5 targets
+            tree = self._build_attack_tree(target, stride_threats, parsed_arch)
+            if tree['children']:  # Only include if there are attack vectors
+                attack_trees.append(tree)
+
+        return attack_trees
+
+    def _build_attack_tree(self, target: Dict, stride_threats: Dict[str, List[Dict]],
+                          parsed_arch: Dict[str, Any]) -> Dict:
+        """Build an attack tree for a specific target"""
+        target_name = target.get('name', 'Unknown Target')
+        target_id = target.get('id')
+
+        # Root node: The attacker's goal
+        tree = {
+            "id": f"tree_{target_id}",
+            "name": f"Compromise {target_name}",
+            "type": "goal",
+            "description": f"Attacker goal: Gain unauthorized access to {target_name}",
+            "target": target_name,
+            "target_type": target.get('category', 'unknown'),
+            "children": [],
+            "metadata": {
+                "handles_sensitive_data": target.get('handles_sensitive_data', False),
+                "total_attack_vectors": 0,
+                "critical_paths": 0,
+                "mermaid": ""
+            }
+        }
+
+        # Group threats by STRIDE category as primary branches
+        stride_branches = {}
+        for stride_cat, threats in stride_threats.items():
+            relevant_threats = [
+                t for t in threats
+                if t.get('component_id') == target_id or t.get('component') == target_name
+            ]
+            if relevant_threats:
+                stride_branches[stride_cat] = relevant_threats
+
+        # Find indirect attacks (attacks on components that connect to target)
+        data_flows = parsed_arch.get('data_flows', [])
+        connecting_components = set()
+        for flow in data_flows:
+            if flow.get('to') == target_id:
+                connecting_components.add(flow.get('from'))
+
+        for comp_id in connecting_components:
+            comp = next((c for c in parsed_arch.get('components', []) if c.get('id') == comp_id), None)
+            if comp:
+                for stride_cat, threats in stride_threats.items():
+                    for threat in threats:
+                        if threat.get('component_id') == comp_id:
+                            if stride_cat not in stride_branches:
+                                stride_branches[stride_cat] = []
+                            # Mark as indirect attack
+                            threat_copy = threat.copy()
+                            threat_copy['indirect'] = True
+                            threat_copy['via_component'] = comp.get('name')
+                            stride_branches[stride_cat].append(threat_copy)
+
+        # Build tree branches
+        for stride_cat, threats in stride_branches.items():
+            if not threats:
+                continue
+
+            branch = {
+                "id": f"branch_{stride_cat.lower().replace(' ', '_')}",
+                "name": stride_cat,
+                "type": "or",  # OR gate - any of these attack vectors
+                "description": self.STRIDE_CATEGORIES.get(stride_cat, {}).get('description', ''),
+                "icon": self.STRIDE_CATEGORIES.get(stride_cat, {}).get('icon', '⚠️'),
+                "children": []
+            }
+
+            for threat in threats[:5]:  # Limit to top 5 per category
+                attack_node = {
+                    "id": f"attack_{threat.get('id')}",
+                    "name": threat.get('threat'),
+                    "type": "attack",
+                    "severity": threat.get('severity'),
+                    "cwe": threat.get('cwe'),
+                    "mitre": threat.get('mitre_techniques', []),
+                    "risk_score": threat.get('risk_score', 5.0),
+                    "indirect": threat.get('indirect', False),
+                    "via_component": threat.get('via_component'),
+                    "children": []
+                }
+
+                # Add prerequisites as AND children (all must be true)
+                prerequisites = self._get_attack_prerequisites(threat, target)
+                if prerequisites.get('conditions'):
+                    prereq_node = {
+                        "id": f"prereq_{threat.get('id')}",
+                        "name": "Prerequisites",
+                        "type": "and",  # AND gate - all conditions must be met
+                        "children": [
+                            {"id": f"cond_{i}", "name": cond, "type": "condition"}
+                            for i, cond in enumerate(prerequisites.get('conditions', []))
+                        ]
+                    }
+                    attack_node['children'].append(prereq_node)
+
+                branch['children'].append(attack_node)
+                tree['metadata']['total_attack_vectors'] += 1
+                if threat.get('severity') == 'critical':
+                    tree['metadata']['critical_paths'] += 1
+
+            tree['children'].append(branch)
+
+        # Generate Mermaid diagram for the tree
+        tree['metadata']['mermaid'] = self._generate_attack_tree_mermaid(tree)
+
+        return tree
+
+    def _generate_attack_tree_mermaid(self, tree: Dict) -> str:
+        """Generate Mermaid flowchart for attack tree visualization"""
+        lines = ["graph TD"]
+        lines.append("    %% Attack Tree: " + tree['name'])
+        lines.append("    classDef goal fill:#dc2626,stroke:#991b1b,color:#fff,stroke-width:3px")
+        lines.append("    classDef or fill:#f97316,stroke:#c2410c,color:#fff")
+        lines.append("    classDef and fill:#eab308,stroke:#a16207,color:#000")
+        lines.append("    classDef attack fill:#3b82f6,stroke:#1d4ed8,color:#fff")
+        lines.append("    classDef critical fill:#dc2626,stroke:#991b1b,color:#fff")
+        lines.append("    classDef high fill:#f97316,stroke:#c2410c,color:#fff")
+        lines.append("    classDef condition fill:#d1d5db,stroke:#6b7280,color:#000")
+        lines.append("")
+
+        # Root node
+        root_id = self._sanitize_id(tree['id'])
+        lines.append(f"    {root_id}{{\"🎯 {tree['name']}\"}}")
+        lines.append(f"    class {root_id} goal")
+
+        # Process children recursively
+        self._add_tree_nodes_to_mermaid(lines, tree, root_id)
+
+        return '\n'.join(lines)
+
+    def _add_tree_nodes_to_mermaid(self, lines: List[str], parent: Dict, parent_id: str, depth: int = 0):
+        """Recursively add tree nodes to Mermaid diagram"""
+        if depth > 4:  # Limit depth
+            return
+
+        for child in parent.get('children', []):
+            child_id = self._sanitize_id(child['id'])
+            child_name = child.get('name', 'Node')[:40]  # Truncate long names
+            node_type = child.get('type', 'node')
+
+            # Determine shape based on type
+            if node_type == 'or':
+                icon = self.STRIDE_CATEGORIES.get(child_name, {}).get('icon', '⚡')
+                lines.append(f"    {child_id}((\"{icon} {child_name}\"))")
+                lines.append(f"    class {child_id} or")
+            elif node_type == 'and':
+                lines.append(f"    {child_id}[[\"{child_name}\"]]]")
+                lines.append(f"    class {child_id} and")
+            elif node_type == 'attack':
+                severity = child.get('severity', 'medium')
+                sev_icon = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}.get(severity, '⚪')
+                lines.append(f"    {child_id}[\"{sev_icon} {child_name}\"]")
+                if severity == 'critical':
+                    lines.append(f"    class {child_id} critical")
+                elif severity == 'high':
+                    lines.append(f"    class {child_id} high")
+                else:
+                    lines.append(f"    class {child_id} attack")
+            elif node_type == 'condition':
+                lines.append(f"    {child_id}>{child_name}]")
+                lines.append(f"    class {child_id} condition")
+            else:
+                lines.append(f"    {child_id}[\"{child_name}\"]")
+
+            # Add edge
+            edge_label = ""
+            if child.get('indirect'):
+                edge_label = f"|via {child.get('via_component', 'component')}|"
+            lines.append(f"    {parent_id} --> {edge_label}{child_id}")
+
+            # Recurse
+            self._add_tree_nodes_to_mermaid(lines, child, child_id, depth + 1)
+
+    # =============================================================================
+    # ENHANCED KILL CHAIN ANALYSIS
+    # =============================================================================
+
+    # Cyber Kill Chain phases with ATT&CK mapping
+    KILL_CHAIN_PHASES = {
+        "reconnaissance": {
+            "name": "Reconnaissance",
+            "description": "Adversary gathers information about the target",
+            "icon": "🔍",
+            "color": "#6366f1",
+            "attack_tactics": ["Reconnaissance"],
+            "typical_techniques": ["T1595", "T1592", "T1589", "T1590", "T1591"]
+        },
+        "weaponization": {
+            "name": "Weaponization",
+            "description": "Adversary creates or acquires exploit tools",
+            "icon": "🔧",
+            "color": "#8b5cf6",
+            "attack_tactics": ["Resource Development"],
+            "typical_techniques": ["T1587", "T1588", "T1583", "T1584"]
+        },
+        "delivery": {
+            "name": "Delivery",
+            "description": "Adversary transmits weapon to target",
+            "icon": "📨",
+            "color": "#ec4899",
+            "attack_tactics": ["Initial Access"],
+            "typical_techniques": ["T1566", "T1190", "T1133", "T1195", "T1199"]
+        },
+        "exploitation": {
+            "name": "Exploitation",
+            "description": "Adversary exploits vulnerability to gain access",
+            "icon": "💥",
+            "color": "#ef4444",
+            "attack_tactics": ["Execution", "Initial Access"],
+            "typical_techniques": ["T1203", "T1059", "T1047", "T1190"]
+        },
+        "installation": {
+            "name": "Installation",
+            "description": "Adversary installs malware or backdoor",
+            "icon": "📥",
+            "color": "#f97316",
+            "attack_tactics": ["Persistence", "Defense Evasion"],
+            "typical_techniques": ["T1505", "T1136", "T1078", "T1070"]
+        },
+        "command_control": {
+            "name": "Command & Control",
+            "description": "Adversary establishes communication channel",
+            "icon": "📡",
+            "color": "#eab308",
+            "attack_tactics": ["Command and Control"],
+            "typical_techniques": ["T1071", "T1095", "T1573", "T1105"]
+        },
+        "actions_on_objectives": {
+            "name": "Actions on Objectives",
+            "description": "Adversary achieves their goals",
+            "icon": "🎯",
+            "color": "#22c55e",
+            "attack_tactics": ["Collection", "Exfiltration", "Impact"],
+            "typical_techniques": ["T1530", "T1567", "T1041", "T1486", "T1565"]
+        }
+    }
+
+    # Map ATT&CK tactics to Kill Chain phases
+    TACTIC_TO_KILLCHAIN = {
+        "Reconnaissance": "reconnaissance",
+        "Resource Development": "weaponization",
+        "Initial Access": "delivery",
+        "Execution": "exploitation",
+        "Persistence": "installation",
+        "Privilege Escalation": "exploitation",
+        "Defense Evasion": "installation",
+        "Credential Access": "exploitation",
+        "Discovery": "reconnaissance",
+        "Lateral Movement": "exploitation",
+        "Collection": "actions_on_objectives",
+        "Command and Control": "command_control",
+        "Exfiltration": "actions_on_objectives",
+        "Impact": "actions_on_objectives"
+    }
+
+    def generate_kill_chain_analysis(self, stride_threats: Dict[str, List[Dict]],
+                                     mitre_mapping: Dict[str, Any],
+                                     attack_paths: List[Dict]) -> Dict[str, Any]:
+        """
+        Generate comprehensive Kill Chain analysis with ATT&CK tactics visualization.
+        Maps all identified threats to Kill Chain phases.
+        """
+        kill_chain = {
+            "phases": {},
+            "attack_sequences": [],
+            "coverage_analysis": {},
+            "mermaid_diagram": "",
+            "timeline": [],
+            "detection_matrix": {}
+        }
+
+        # Initialize all phases
+        for phase_id, phase_info in self.KILL_CHAIN_PHASES.items():
+            kill_chain["phases"][phase_id] = {
+                **phase_info,
+                "threats": [],
+                "techniques": [],
+                "severity_breakdown": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+                "affected_components": set(),
+                "detection_opportunities": []
+            }
+
+        # Map threats to Kill Chain phases
+        for stride_cat, threats in stride_threats.items():
+            for threat in threats:
+                mitre_techs = threat.get('mitre_techniques', [])
+                for tech_id in mitre_techs:
+                    if tech_id in mitre_mapping.get('techniques', {}):
+                        tech_info = mitre_mapping['techniques'][tech_id]
+                        tactic = tech_info.get('tactic', '')
+                        phase_id = self.TACTIC_TO_KILLCHAIN.get(tactic)
+
+                        if phase_id and phase_id in kill_chain["phases"]:
+                            phase = kill_chain["phases"][phase_id]
+                            phase["threats"].append({
+                                "threat_id": threat.get('id'),
+                                "threat_name": threat.get('threat'),
+                                "component": threat.get('component'),
+                                "severity": threat.get('severity'),
+                                "stride_category": stride_cat,
+                                "technique_id": tech_id,
+                                "technique_name": tech_info.get('name')
+                            })
+
+                            if tech_id not in phase["techniques"]:
+                                phase["techniques"].append(tech_id)
+
+                            severity = threat.get('severity', 'medium')
+                            phase["severity_breakdown"][severity] += 1
+                            phase["affected_components"].add(threat.get('component', 'Unknown'))
+
+        # Convert sets to lists for JSON serialization
+        for phase_id in kill_chain["phases"]:
+            kill_chain["phases"][phase_id]["affected_components"] = list(
+                kill_chain["phases"][phase_id]["affected_components"]
+            )
+            # Add detection opportunities
+            kill_chain["phases"][phase_id]["detection_opportunities"] = \
+                self._get_phase_detection_opportunities(phase_id)
+
+        # Generate attack sequences from attack paths
+        for path in attack_paths[:5]:  # Top 5 paths
+            sequence = self._map_path_to_killchain(path, kill_chain["phases"])
+            if sequence:
+                kill_chain["attack_sequences"].append(sequence)
+
+        # Coverage analysis
+        phases_with_threats = sum(
+            1 for p in kill_chain["phases"].values() if p["threats"]
+        )
+        kill_chain["coverage_analysis"] = {
+            "phases_covered": phases_with_threats,
+            "total_phases": len(self.KILL_CHAIN_PHASES),
+            "coverage_percentage": round((phases_with_threats / len(self.KILL_CHAIN_PHASES)) * 100, 1),
+            "most_vulnerable_phase": self._get_most_vulnerable_phase(kill_chain["phases"]),
+            "gaps": [
+                p_info["name"] for p_id, p_info in kill_chain["phases"].items()
+                if not p_info["threats"]
+            ]
+        }
+
+        # Generate timeline visualization
+        kill_chain["timeline"] = self._generate_killchain_timeline(kill_chain["phases"])
+
+        # Generate Mermaid diagram
+        kill_chain["mermaid_diagram"] = self._generate_killchain_mermaid(kill_chain)
+
+        # Detection matrix
+        kill_chain["detection_matrix"] = self._generate_detection_matrix(kill_chain["phases"])
+
+        return kill_chain
+
+    def _get_phase_detection_opportunities(self, phase_id: str) -> List[Dict]:
+        """Get detection opportunities for a Kill Chain phase"""
+        detection_map = {
+            "reconnaissance": [
+                {"method": "Network traffic analysis", "effectiveness": "Medium", "tools": ["IDS/IPS", "SIEM"]},
+                {"method": "Honeypots and decoys", "effectiveness": "High", "tools": ["Honeypot systems"]},
+                {"method": "DNS query monitoring", "effectiveness": "Medium", "tools": ["DNS logs", "SIEM"]}
+            ],
+            "weaponization": [
+                {"method": "Threat intelligence feeds", "effectiveness": "Medium", "tools": ["TIP", "SIEM"]},
+                {"method": "Dark web monitoring", "effectiveness": "Low", "tools": ["Dark web scrapers"]}
+            ],
+            "delivery": [
+                {"method": "Email gateway scanning", "effectiveness": "High", "tools": ["Email security gateway"]},
+                {"method": "Web application firewall", "effectiveness": "High", "tools": ["WAF"]},
+                {"method": "Endpoint protection", "effectiveness": "High", "tools": ["EDR", "Antivirus"]}
+            ],
+            "exploitation": [
+                {"method": "Intrusion detection", "effectiveness": "High", "tools": ["IDS/IPS", "WAF"]},
+                {"method": "Vulnerability scanning", "effectiveness": "Medium", "tools": ["Vulnerability scanner"]},
+                {"method": "Application monitoring", "effectiveness": "High", "tools": ["APM", "SIEM"]}
+            ],
+            "installation": [
+                {"method": "File integrity monitoring", "effectiveness": "High", "tools": ["FIM", "EDR"]},
+                {"method": "Registry monitoring", "effectiveness": "High", "tools": ["EDR", "SIEM"]},
+                {"method": "Process monitoring", "effectiveness": "High", "tools": ["EDR"]}
+            ],
+            "command_control": [
+                {"method": "Network traffic analysis", "effectiveness": "High", "tools": ["NDR", "SIEM"]},
+                {"method": "DNS monitoring", "effectiveness": "High", "tools": ["DNS security"]},
+                {"method": "Proxy logs analysis", "effectiveness": "High", "tools": ["Proxy", "SIEM"]}
+            ],
+            "actions_on_objectives": [
+                {"method": "Data loss prevention", "effectiveness": "High", "tools": ["DLP"]},
+                {"method": "Database activity monitoring", "effectiveness": "High", "tools": ["DAM"]},
+                {"method": "User behavior analytics", "effectiveness": "High", "tools": ["UEBA"]}
+            ]
+        }
+        return detection_map.get(phase_id, [])
+
+    def _map_path_to_killchain(self, attack_path: Dict, phases: Dict) -> Dict:
+        """Map an attack path to Kill Chain phases"""
+        sequence = {
+            "path_id": attack_path.get('id'),
+            "entry_point": attack_path.get('entry_point'),
+            "target": attack_path.get('target'),
+            "risk_score": attack_path.get('risk_score'),
+            "phases_involved": []
+        }
+
+        # Map MITRE techniques to phases
+        mitre_techs = attack_path.get('mitre_techniques', [])
+        phases_seen = set()
+
+        for tech in mitre_techs:
+            if tech in self.MITRE_TECHNIQUES:
+                tactic = self.MITRE_TECHNIQUES[tech].get('tactic', '')
+                phase_id = self.TACTIC_TO_KILLCHAIN.get(tactic)
+                if phase_id and phase_id not in phases_seen:
+                    phases_seen.add(phase_id)
+                    sequence["phases_involved"].append({
+                        "phase": phase_id,
+                        "phase_name": self.KILL_CHAIN_PHASES.get(phase_id, {}).get('name', phase_id),
+                        "technique": tech,
+                        "technique_name": self.MITRE_TECHNIQUES[tech].get('name', tech)
+                    })
+
+        # Sort by Kill Chain order
+        phase_order = list(self.KILL_CHAIN_PHASES.keys())
+        sequence["phases_involved"].sort(
+            key=lambda x: phase_order.index(x["phase"]) if x["phase"] in phase_order else 99
+        )
+
+        return sequence if sequence["phases_involved"] else None
+
+    def _get_most_vulnerable_phase(self, phases: Dict) -> Dict:
+        """Identify the most vulnerable Kill Chain phase"""
+        max_score = 0
+        most_vulnerable = None
+
+        for phase_id, phase_info in phases.items():
+            # Calculate vulnerability score
+            score = (
+                phase_info["severity_breakdown"]["critical"] * 4 +
+                phase_info["severity_breakdown"]["high"] * 3 +
+                phase_info["severity_breakdown"]["medium"] * 2 +
+                phase_info["severity_breakdown"]["low"] * 1
+            )
+            if score > max_score:
+                max_score = score
+                most_vulnerable = {
+                    "phase_id": phase_id,
+                    "phase_name": phase_info["name"],
+                    "vulnerability_score": score,
+                    "threat_count": len(phase_info["threats"])
+                }
+
+        return most_vulnerable or {"phase_id": "none", "phase_name": "None identified"}
+
+    def _generate_killchain_timeline(self, phases: Dict) -> List[Dict]:
+        """Generate a timeline representation of the Kill Chain"""
+        timeline = []
+        phase_order = list(self.KILL_CHAIN_PHASES.keys())
+
+        for phase_id in phase_order:
+            phase_info = phases.get(phase_id, {})
+            timeline.append({
+                "phase": phase_id,
+                "name": phase_info.get('name', phase_id),
+                "icon": phase_info.get('icon', '⚪'),
+                "color": phase_info.get('color', '#gray'),
+                "threat_count": len(phase_info.get('threats', [])),
+                "severity_breakdown": phase_info.get('severity_breakdown', {}),
+                "active": bool(phase_info.get('threats')),
+                "techniques": phase_info.get('techniques', [])[:5]  # Top 5 techniques
+            })
+
+        return timeline
+
+    def _generate_killchain_mermaid(self, kill_chain: Dict) -> str:
+        """Generate Mermaid diagram for Kill Chain visualization"""
+        lines = ["graph LR"]
+        lines.append("    %% Cyber Kill Chain Visualization")
+        lines.append("    classDef active fill:#22c55e,stroke:#16a34a,color:#fff")
+        lines.append("    classDef inactive fill:#d1d5db,stroke:#9ca3af,color:#374151")
+        lines.append("    classDef critical fill:#dc2626,stroke:#991b1b,color:#fff")
+        lines.append("    classDef high fill:#f97316,stroke:#c2410c,color:#fff")
+        lines.append("")
+
+        phase_order = list(self.KILL_CHAIN_PHASES.keys())
+        phases = kill_chain.get("phases", {})
+
+        prev_node = None
+        for phase_id in phase_order:
+            phase_info = phases.get(phase_id, {})
+            node_id = self._sanitize_id(phase_id)
+            name = phase_info.get('name', phase_id)
+            icon = phase_info.get('icon', '⚪')
+            threat_count = len(phase_info.get('threats', []))
+
+            # Node with threat count
+            if threat_count > 0:
+                lines.append(f"    {node_id}[\"{icon} {name}<br/>({threat_count} threats)\"]")
+                critical = phase_info.get('severity_breakdown', {}).get('critical', 0)
+                high = phase_info.get('severity_breakdown', {}).get('high', 0)
+                if critical > 0:
+                    lines.append(f"    class {node_id} critical")
+                elif high > 0:
+                    lines.append(f"    class {node_id} high")
+                else:
+                    lines.append(f"    class {node_id} active")
+            else:
+                lines.append(f"    {node_id}[\"{icon} {name}\"]")
+                lines.append(f"    class {node_id} inactive")
+
+            # Connect to previous phase
+            if prev_node:
+                lines.append(f"    {prev_node} --> {node_id}")
+            prev_node = node_id
+
+        return '\n'.join(lines)
+
+    def _generate_detection_matrix(self, phases: Dict) -> Dict:
+        """Generate a detection capability matrix"""
+        matrix = {
+            "headers": ["Phase", "Threats", "Detection Tools", "Effectiveness"],
+            "rows": []
+        }
+
+        for phase_id, phase_info in phases.items():
+            detection = phase_info.get('detection_opportunities', [])
+            tools = list(set(
+                tool for d in detection for tool in d.get('tools', [])
+            ))[:3]  # Top 3 tools
+
+            avg_effectiveness = "Medium"
+            if detection:
+                eff_scores = {"High": 3, "Medium": 2, "Low": 1}
+                avg_score = sum(
+                    eff_scores.get(d.get('effectiveness', 'Medium'), 2)
+                    for d in detection
+                ) / len(detection)
+                avg_effectiveness = "High" if avg_score >= 2.5 else "Medium" if avg_score >= 1.5 else "Low"
+
+            matrix["rows"].append({
+                "phase": phase_info.get('name', phase_id),
+                "threat_count": len(phase_info.get('threats', [])),
+                "detection_tools": tools,
+                "effectiveness": avg_effectiveness
+            })
+
+        return matrix
 
 
 # Singleton instance

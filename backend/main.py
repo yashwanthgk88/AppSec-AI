@@ -447,7 +447,11 @@ async def create_project(
                 mitre_mapping=threat_model_data['mitre_mapping'],
                 trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
                 attack_paths=threat_model_data.get('attack_paths', []),
-                threat_count=threat_model_data['threat_count']
+                threat_count=threat_model_data['threat_count'],
+                # Enhanced threat modeling fields
+                fair_risk_analysis=threat_model_data.get('fair_risk_analysis'),
+                attack_trees=threat_model_data.get('attack_trees'),
+                kill_chain_analysis=threat_model_data.get('kill_chain_analysis')
             )
             db.add(threat_model)
             db.commit()
@@ -979,6 +983,11 @@ async def get_threat_model(
         except Exception as e:
             print(f"Error generating Mermaid diagrams: {e}")
 
+    # Get enhanced analysis data
+    fair_risk = threat_model.fair_risk_analysis or {}
+    attack_trees = threat_model.attack_trees or []
+    kill_chain = threat_model.kill_chain_analysis or {}
+
     return {
         "id": threat_model.id,
         "name": threat_model.name,
@@ -993,7 +1002,15 @@ async def get_threat_model(
         "mitre_mapping": threat_model.mitre_mapping,
         "trust_boundaries": threat_model.trust_boundaries,
         "attack_paths": threat_model.attack_paths or [],
-        "threat_count": threat_model.threat_count
+        "threat_count": threat_model.threat_count,
+        # Enhanced threat modeling features
+        "fair_risk_analysis": fair_risk,
+        "attack_trees": attack_trees,
+        "kill_chain_analysis": kill_chain,
+        # Summary metrics
+        "annual_loss_expectancy": fair_risk.get("aggregate_risk", {}).get("total_annual_loss_expectancy", {}),
+        "kill_chain_coverage": kill_chain.get("coverage_analysis", {}).get("coverage_percentage", 0),
+        "attack_trees_count": len(attack_trees)
     }
 
 def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str):
@@ -1032,17 +1049,28 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             mitre_mapping=threat_model_data['mitre_mapping'],
             trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
             attack_paths=threat_model_data.get('attack_paths', []),
-            threat_count=threat_model_data['threat_count']
+            threat_count=threat_model_data['threat_count'],
+            # Enhanced threat modeling fields
+            fair_risk_analysis=threat_model_data.get('fair_risk_analysis'),
+            attack_trees=threat_model_data.get('attack_trees'),
+            kill_chain_analysis=threat_model_data.get('kill_chain_analysis')
         )
         db.add(threat_model)
         db.commit()
+
+        # Get summary data for status update
+        fair_risk = threat_model_data.get('fair_risk_analysis', {})
+        annual_loss = fair_risk.get('aggregate_risk', {}).get('total_annual_loss_expectancy', {}).get('likely', 0)
 
         threat_model_generation_status[project_id] = {
             "status": "completed",
             "step": "done",
             "progress": 100,
             "threat_count": threat_model_data['threat_count'],
-            "attack_paths_count": len(threat_model_data.get('attack_paths', []))
+            "attack_paths_count": len(threat_model_data.get('attack_paths', [])),
+            "attack_trees_count": len(threat_model_data.get('attack_trees', [])),
+            "annual_loss_expectancy": annual_loss,
+            "kill_chain_coverage": threat_model_data.get('kill_chain_analysis', {}).get('coverage_analysis', {}).get('coverage_percentage', 0)
         }
         logger.info(f"[Threat Model BG] Completed successfully for project {project_id}")
 

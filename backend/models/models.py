@@ -150,6 +150,11 @@ class ThreatModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Enhanced threat modeling fields
+    fair_risk_analysis = Column(JSON)  # FAIR risk quantification data
+    attack_trees = Column(JSON)  # Attack tree structures
+    kill_chain_analysis = Column(JSON)  # Cyber Kill Chain mapping
+
     # Relationships
     project = relationship("Project", back_populates="threat_models")
 
