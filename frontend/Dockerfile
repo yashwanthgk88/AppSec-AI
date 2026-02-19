@@ -1,7 +1,7 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Cache bust: 2026-02-03-v5-download-from-github
+# Cache bust: 2026-02-19-architecture-builder
 ARG CACHEBUST=1
 
 WORKDIR /app
