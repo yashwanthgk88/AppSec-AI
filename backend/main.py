@@ -1052,6 +1052,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             generate_eraser_diagrams=threat_service.eraser_enabled  # Enable if API key configured
         )
         logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
+        logger.info(f"[Threat Model BG] Data keys: {list(threat_model_data.keys())}")
+        logger.info(f"[Threat Model BG] eraser_diagrams: {bool(threat_model_data.get('eraser_diagrams'))}, fair_risk: {bool(threat_model_data.get('fair_risk_analysis'))}")
 
         threat_model_generation_status[project_id] = {"status": "in_progress", "step": "saving", "progress": 90}
 
@@ -1073,6 +1075,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
         )
         db.add(threat_model)
         db.commit()
+        db.refresh(threat_model)
+        logger.info(f"[Threat Model BG] Saved - eraser_diagrams column: {bool(threat_model.eraser_diagrams)}, fair_risk: {bool(threat_model.fair_risk_analysis)}")
 
         # Get summary data for status update
         fair_risk = threat_model_data.get('fair_risk_analysis', {})
