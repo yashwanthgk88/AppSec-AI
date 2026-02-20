@@ -1,7 +1,7 @@
 """
 FastAPI Main Application
 """
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
@@ -1145,10 +1145,15 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
 async def regenerate_threat_model(
     project_id: int,
     background_tasks: BackgroundTasks,
+    request_body: Optional[dict] = Body(default=None),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    """Start async threat model generation for a project"""
+    """Start async threat model generation for a project.
+
+    Can accept optional architecture_data from document analysis or architecture builder.
+    If architecture_data is provided, it will be converted to a description and saved to the project.
+    """
     logger.info(f"[Threat Model Regenerate] Starting for project {project_id}")
 
     project = db.query(Project).filter(
@@ -1160,11 +1165,29 @@ async def regenerate_threat_model(
         logger.warning(f"[Threat Model Regenerate] Project {project_id} not found")
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if not project.architecture_doc:
+    # Check if architecture_data was provided in request body
+    architecture_doc = project.architecture_doc
+    if request_body and request_body.get("architecture_data"):
+        architecture_data = request_body["architecture_data"]
+        logger.info(f"[Threat Model Regenerate] Received architecture_data from request body")
+
+        # Convert structured architecture to description format
+        architecture_doc = _convert_architecture_to_description(architecture_data)
+
+        # Save to project for future use
+        project.architecture_doc = architecture_doc
+        import json
+        project.architecture_diagram = json.dumps(architecture_data)
+        project.diagram_media_type = "application/json"
+        db.commit()
+
+        logger.info(f"[Threat Model Regenerate] Saved extracted architecture to project")
+
+    if not architecture_doc:
         logger.warning(f"[Threat Model Regenerate] Project {project_id} has no architecture doc")
         raise HTTPException(status_code=400, detail="Project has no architecture document. Please add architecture description first.")
 
-    logger.info(f"[Threat Model Regenerate] Architecture doc length: {len(project.architecture_doc)} chars")
+    logger.info(f"[Threat Model Regenerate] Architecture doc length: {len(architecture_doc)} chars")
 
     # Check if generation is already in progress
     if project_id in threat_model_generation_status:
@@ -1183,7 +1206,7 @@ async def regenerate_threat_model(
         _generate_threat_model_background,
         project_id,
         project.name,
-        project.architecture_doc
+        architecture_doc
     )
 
     logger.info(f"[Threat Model Regenerate] Background task started for project {project_id}")
@@ -1194,6 +1217,112 @@ async def regenerate_threat_model(
         "status": "in_progress",
         "progress": 5
     }
+
+
+def _convert_architecture_to_description(architecture_data: dict) -> str:
+    """Convert structured architecture data to a text description for threat modeling."""
+    lines = []
+
+    # Project name/description
+    if architecture_data.get("project_name"):
+        lines.append(f"# {architecture_data['project_name']}")
+        lines.append("")
+
+    if architecture_data.get("description"):
+        lines.append(architecture_data["description"])
+        lines.append("")
+
+    # Components
+    components = architecture_data.get("components", [])
+    if components:
+        lines.append("## System Components")
+        lines.append("")
+        for comp in components:
+            name = comp.get("name", "Unknown Component")
+            comp_type = comp.get("type", "component")
+            technology = comp.get("technology", "")
+            description = comp.get("description", "")
+            trust_zone = comp.get("trust_zone", "")
+            internet_facing = comp.get("internet_facing", False)
+            handles_sensitive = comp.get("handles_sensitive_data", False)
+
+            line = f"- **{name}** ({comp_type})"
+            if technology:
+                line += f" - {technology}"
+            lines.append(line)
+
+            if description:
+                lines.append(f"  - {description}")
+            if trust_zone:
+                lines.append(f"  - Trust Zone: {trust_zone}")
+            if internet_facing:
+                lines.append("  - Internet-facing: Yes")
+            if handles_sensitive:
+                lines.append("  - Handles sensitive data: Yes")
+        lines.append("")
+
+    # Data Flows
+    data_flows = architecture_data.get("data_flows", [])
+    if data_flows:
+        lines.append("## Data Flows")
+        lines.append("")
+        # Create a component lookup for source/target names
+        comp_lookup = {c.get("id", ""): c.get("name", c.get("id", "Unknown")) for c in components}
+
+        for flow in data_flows:
+            source = flow.get("source_id", "")
+            target = flow.get("target_id", "")
+            source_name = comp_lookup.get(source, flow.get("source", source))
+            target_name = comp_lookup.get(target, flow.get("target", target))
+            protocol = flow.get("protocol", "")
+            data_type = flow.get("data_type", "")
+            encrypted = flow.get("encrypted", False)
+
+            line = f"- {source_name} → {target_name}"
+            if protocol:
+                line += f" ({protocol})"
+            lines.append(line)
+
+            if data_type:
+                lines.append(f"  - Data: {data_type}")
+            if encrypted:
+                lines.append("  - Encrypted: Yes")
+        lines.append("")
+
+    # Trust Boundaries
+    trust_boundaries = architecture_data.get("trust_boundaries", [])
+    if trust_boundaries:
+        lines.append("## Trust Boundaries")
+        lines.append("")
+        for boundary in trust_boundaries:
+            name = boundary.get("name", "Unknown Boundary")
+            boundary_type = boundary.get("type", "")
+            components_in = boundary.get("components", [])
+
+            line = f"- **{name}**"
+            if boundary_type:
+                line += f" ({boundary_type})"
+            lines.append(line)
+
+            if components_in:
+                lines.append(f"  - Components: {', '.join(components_in)}")
+        lines.append("")
+
+    # Technology Stack
+    tech_stack = architecture_data.get("technology_stack", [])
+    if tech_stack:
+        lines.append("## Technology Stack")
+        lines.append("")
+        for tech in tech_stack:
+            lines.append(f"- {tech}")
+        lines.append("")
+
+    # Source documents
+    source_docs = architecture_data.get("source_documents", [])
+    if source_docs:
+        lines.append(f"*Extracted from: {', '.join(source_docs)}*")
+
+    return "\n".join(lines)
 
 @app.post("/api/projects/{project_id}/threat-model/generate-attack-diagram")
 async def generate_attack_diagram(
