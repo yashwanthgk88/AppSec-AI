@@ -1806,8 +1806,26 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
 // History Tab Component
 function HistoryTab({ projectId }: { projectId: number }) {
-  const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
+  const [selectedVersionId, setSelectedVersionId] = useState<number | null>(null)
+  const [versionData, setVersionData] = useState<any>(null)
+  const [loadingVersion, setLoadingVersion] = useState(false)
   const token = localStorage.getItem('token') || ''
+
+  const loadVersionData = async (versionId: number) => {
+    setLoadingVersion(true)
+    try {
+      const response = await axios.get(
+        `/api/projects/${projectId}/threat-model/version/${versionId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setVersionData(response.data)
+      setSelectedVersionId(versionId)
+    } catch (error) {
+      console.error('Failed to load version:', error)
+    } finally {
+      setLoadingVersion(false)
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1815,26 +1833,79 @@ function HistoryTab({ projectId }: { projectId: number }) {
         <ThreatHistoryPanel
           projectId={projectId}
           token={token}
-          onVersionSelect={(versionId) => {
-            console.log('Selected version:', versionId)
-            // Could navigate to version-specific view
-          }}
+          onVersionSelect={loadVersionData}
+          currentVersionId={selectedVersionId || undefined}
         />
       </div>
       <div>
-        {selectedThreatId ? (
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Threat Timeline</h3>
-            <ThreatTimeline
-              projectId={projectId}
-              threatId={selectedThreatId}
-              token={token}
-            />
+        {loadingVersion ? (
+          <div className="text-center py-12 text-gray-500">
+            <Activity className="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin" />
+            <p>Loading version...</p>
+          </div>
+        ) : versionData ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Version {versionData.version?.version_number} Threats
+              </h3>
+              <button
+                onClick={() => {
+                  setVersionData(null)
+                  setSelectedVersionId(null)
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Clear selection
+              </button>
+            </div>
+
+            {versionData.version?.change_description && (
+              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                {versionData.version.change_description}
+              </p>
+            )}
+
+            <div className="space-y-2 max-h-[500px] overflow-y-auto">
+              {versionData.threats && versionData.threats.length > 0 ? (
+                versionData.threats.map((threat: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="border rounded-lg p-3 bg-white hover:bg-gray-50"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {threat.threat_data?.name || threat.threat_id}
+                      </span>
+                      <ThreatStatusBadge status={threat.status as ThreatStatus} size="sm" />
+                    </div>
+                    {threat.threat_data?.description && (
+                      <p className="text-xs text-gray-600 mb-2">
+                        {threat.threat_data.description}
+                      </p>
+                    )}
+                    {threat.change_reason && (
+                      <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                        {threat.change_reason}
+                      </p>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <Shield className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">No threats recorded for this version</p>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
             <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Select a threat from the Threats tab to view its timeline</p>
+            <p>Select a version from the left to view its threats</p>
+            <p className="text-xs mt-2 text-gray-400">
+              Each version shows the threats identified at that point in time
+            </p>
           </div>
         )}
       </div>
