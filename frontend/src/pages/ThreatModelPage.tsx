@@ -5,7 +5,7 @@ import {
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
   RefreshCw, Layers, FileText, GitBranch, Clock, Upload,
-  FileImage, File, X, Eye
+  FileImage, File, X, Eye, Info
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
@@ -13,6 +13,7 @@ import { toPng, toSvg } from 'html-to-image'
 import ArchitectureBuilder from '../components/ArchitectureBuilder'
 import { ThreatStatusBadge, ThreatLifecycleSummary, ThreatChangeReason, ThreatStatus } from '../components/ThreatStatusBadge'
 import { ThreatHistoryPanel, ThreatTimeline } from '../components/ThreatHistory'
+import { Toast, useToast } from '../components/Toast'
 
 // Initialize mermaid with enhanced config
 mermaid.initialize({
@@ -126,6 +127,9 @@ export default function ThreatModelPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [generationComplete, setGenerationComplete] = useState(false)
   const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample' | 'docs'>('select')
+
+  // Toast notifications
+  const { toasts, addToast, removeToast, warning, error: showError, info } = useToast()
 
   useEffect(() => {
     fetchThreatModel()
@@ -273,6 +277,21 @@ export default function ThreatModelPage() {
   }
 
   const handleArchitectureSubmit = async (architecture: any) => {
+    // Validate that sufficient data is provided
+    if (!architecture || !architecture.components || architecture.components.length === 0) {
+      warning('Please add at least one component to your architecture before generating the threat model.')
+      return
+    }
+
+    // Check if components have meaningful data
+    const hasValidComponent = architecture.components.some((c: any) =>
+      c.name && c.name.trim() && c.type
+    )
+    if (!hasValidComponent) {
+      warning('Please provide component names and types for accurate threat analysis.')
+      return
+    }
+
     setRegenerating(true)
     setGenerationComplete(false)
     setCurrentStep(1)
@@ -596,7 +615,14 @@ export default function ThreatModelPage() {
           setDocAnalysisProgress={setDocAnalysisProgress}
           extractedFromDocs={extractedFromDocs}
           setExtractedFromDocs={setExtractedFromDocs}
+          onShowNotification={warning}
           onGenerateThreatModel={async (architecture: any) => {
+            // Validate extracted architecture has sufficient data
+            if (!architecture || !architecture.components || architecture.components.length === 0) {
+              warning('No architecture components could be extracted from the documents. Please upload clearer diagrams or documents with more architectural details.')
+              return
+            }
+
             // Use the extracted architecture to generate threat model
             setRegenerating(true)
             setInputMode('select')
@@ -610,6 +636,7 @@ export default function ThreatModelPage() {
               pollGenerationStatus()
             } catch (error: any) {
               console.error('Failed to generate threat model:', error)
+              showError('Failed to generate threat model. Please try again.')
               setRegenerating(false)
             }
           }}
@@ -1180,6 +1207,16 @@ export default function ThreatModelPage() {
           </div>
         )}
       </div>
+
+      {/* Toast Notifications */}
+      {toasts.map((toast) => (
+        <Toast
+          key={toast.id}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => removeToast(toast.id)}
+        />
+      ))}
     </div>
   )
 }
@@ -2299,6 +2336,7 @@ function DocumentUploadSection({
   setDocAnalysisProgress,
   extractedFromDocs,
   setExtractedFromDocs,
+  onShowNotification,
   onGenerateThreatModel
 }: {
   projectId: string
@@ -2311,6 +2349,7 @@ function DocumentUploadSection({
   setDocAnalysisProgress: (progress: number) => void
   extractedFromDocs: any
   setExtractedFromDocs: (data: any) => void
+  onShowNotification: (message: string) => void
   onGenerateThreatModel: (architecture: any) => void
 }) {
   const [dragActive, setDragActive] = useState(false)
@@ -2374,7 +2413,10 @@ function DocumentUploadSection({
   }
 
   const analyzeDocuments = async () => {
-    if (uploadedDocs.length === 0) return
+    if (uploadedDocs.length === 0) {
+      onShowNotification('Please upload at least one document (PDF, image, or DOCX) before analyzing.')
+      return
+    }
 
     setAnalyzingDocs(true)
     setDocAnalysisProgress(0)
@@ -2410,13 +2452,17 @@ function DocumentUploadSection({
       setDocAnalysisProgress(100)
 
       if (response.data.success) {
-        setExtractedFromDocs(response.data.architecture)
+        const arch = response.data.architecture
+        if (!arch.components || arch.components.length === 0) {
+          onShowNotification('No architecture components could be extracted from the uploaded documents. Please upload documents with clearer architecture diagrams or more detailed descriptions.')
+        }
+        setExtractedFromDocs(arch)
       } else {
-        alert(response.data.error || 'Failed to analyze documents')
+        onShowNotification(response.data.error || 'Failed to analyze documents. Please try again.')
       }
     } catch (error: any) {
       console.error('Document analysis failed:', error)
-      alert(error.response?.data?.detail || 'Failed to analyze documents')
+      onShowNotification(error.response?.data?.detail || 'Failed to analyze documents. Please try again.')
     } finally {
       setAnalyzingDocs(false)
     }
