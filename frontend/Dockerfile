@@ -1,16 +1,17 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Cache bust: 2026-02-19-architecture-builder
-ARG CACHEBUST=1
+# Cache bust: 2026-02-20-force-rebuild-v2
+ARG CACHEBUST=2
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files AND source to bust cache
 COPY package*.json ./
+COPY src ./src
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+# Install dependencies (fresh)
+RUN rm -rf node_modules && npm ci --legacy-peer-deps
 
 # Copy application code
 COPY . .
