@@ -1286,6 +1286,256 @@ async def get_threat_model_status(
 
 
 # =============================================================================
+# INCREMENTAL THREAT MODELING ENDPOINTS
+# =============================================================================
+
+@app.get("/api/projects/{project_id}/threat-model/history")
+async def get_threat_model_history(
+    project_id: int,
+    limit: int = 10,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get architecture version history with change summaries."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from services.threat_modeling import threat_service
+    history = threat_service.get_architecture_version_history(db, project_id, limit)
+    return {"versions": history, "project_id": project_id}
+
+
+@app.get("/api/projects/{project_id}/threat-model/version/{version_id}")
+async def get_threat_model_at_version(
+    project_id: int,
+    version_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get threat model at a specific architecture version."""
+    from models.models import ArchitectureVersion, ThreatHistory
+
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    version = db.query(ArchitectureVersion).filter(
+        ArchitectureVersion.id == version_id,
+        ArchitectureVersion.project_id == project_id
+    ).first()
+
+    if not version:
+        raise HTTPException(status_code=404, detail="Version not found")
+
+    # Get threats at this version
+    threats = db.query(ThreatHistory).filter(
+        ThreatHistory.architecture_version_id == version_id
+    ).all()
+
+    return {
+        "version": {
+            "id": version.id,
+            "version_number": version.version_number,
+            "architecture_hash": version.architecture_hash,
+            "change_summary": version.change_summary,
+            "change_description": version.change_description,
+            "impact_score": version.impact_score,
+            "created_at": version.created_at.isoformat() if version.created_at else None,
+            "architecture_snapshot": version.architecture_snapshot
+        },
+        "threats": [
+            {
+                "threat_id": t.threat_id,
+                "status": t.status.value if t.status else "unknown",
+                "threat_data": t.threat_data,
+                "change_reason": t.change_reason,
+                "affected_components": t.affected_components
+            }
+            for t in threats
+        ]
+    }
+
+
+@app.get("/api/projects/{project_id}/threat-model/diff/{v1}/{v2}")
+async def compare_threat_model_versions(
+    project_id: int,
+    v1: int,
+    v2: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Compare two architecture versions."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from services.threat_modeling import threat_service
+    diff_result = threat_service.compare_architecture_versions(db, project_id, v1, v2)
+
+    if "error" in diff_result:
+        raise HTTPException(status_code=404, detail=diff_result["error"])
+
+    return diff_result
+
+
+@app.get("/api/projects/{project_id}/threats/{threat_id}/timeline")
+async def get_threat_timeline(
+    project_id: int,
+    threat_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get full history of a specific threat across versions."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    from services.threat_modeling import threat_service
+    timeline = threat_service.get_threat_timeline(db, project_id, threat_id)
+
+    return {
+        "threat_id": threat_id,
+        "project_id": project_id,
+        "timeline": timeline
+    }
+
+
+@app.post("/api/projects/{project_id}/threat-model/incremental")
+async def generate_incremental_threat_model(
+    project_id: int,
+    architecture_data: dict,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Generate threat model incrementally, analyzing only changed components."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Parse the architecture input
+    from services.architecture_input_service import ArchitectureInputService
+    arch_service = ArchitectureInputService()
+
+    if 'components' in architecture_data:
+        # Already structured format
+        architecture = architecture_data
+    else:
+        # Needs parsing
+        parsed = arch_service.parse_structured_input(architecture_data)
+        architecture = parsed.to_dict()
+
+    def run_incremental_generation():
+        """Background task for incremental threat model generation."""
+        from services.threat_modeling import ThreatModelingService
+
+        # Initialize progress tracking
+        threat_model_generation_status[project_id] = {
+            "status": "running",
+            "step": "initializing",
+            "progress": 0,
+            "is_incremental": True
+        }
+
+        def progress_callback(step: str, progress: int, message: str):
+            threat_model_generation_status[project_id].update({
+                "step": step,
+                "progress": progress,
+                "message": message
+            })
+
+        try:
+            # Get user's AI config
+            ai_config = get_user_ai_config(current_user)
+            service = ThreatModelingService(ai_config=ai_config)
+
+            # Generate incrementally
+            with SessionLocal() as session:
+                result = service.generate_threat_model_incremental(
+                    db_session=session,
+                    project_id=project_id,
+                    new_architecture=architecture,
+                    user_id=current_user.id,
+                    project_name=project.name,
+                    progress_callback=progress_callback
+                )
+
+                # Update or create threat model record
+                existing = session.query(ThreatModel).filter(
+                    ThreatModel.project_id == project_id
+                ).first()
+
+                if existing:
+                    existing.stride_analysis = result.get('stride_analysis')
+                    existing.dfd_data = result.get('dfd_level_0')
+                    existing.data_flows = result.get('dfd_level_1')
+                    existing.threat_count = result.get('threat_count', 0)
+                    existing.is_incremental = True
+                    existing.architecture_version_id = result.get('architecture_version', {}).get('id')
+                else:
+                    new_model = ThreatModel(
+                        project_id=project_id,
+                        name=f"{project.name} - Threat Model",
+                        stride_analysis=result.get('stride_analysis'),
+                        dfd_data=result.get('dfd_level_0'),
+                        data_flows=result.get('dfd_level_1'),
+                        threat_count=result.get('threat_count', 0),
+                        is_incremental=True,
+                        architecture_version_id=result.get('architecture_version', {}).get('id')
+                    )
+                    session.add(new_model)
+
+                session.commit()
+
+                threat_model_generation_status[project_id] = {
+                    "status": "completed",
+                    "step": "done",
+                    "progress": 100,
+                    "is_incremental": True,
+                    "lifecycle_summary": result.get('lifecycle_summary', {}),
+                    "threat_count": result.get('threat_count', 0)
+                }
+
+        except Exception as e:
+            logger.error(f"Incremental threat model generation failed: {e}")
+            threat_model_generation_status[project_id] = {
+                "status": "failed",
+                "step": "error",
+                "progress": 0,
+                "error": str(e)
+            }
+
+    background_tasks.add_task(run_incremental_generation)
+
+    return {
+        "message": "Incremental threat model generation started",
+        "project_id": project_id,
+        "is_incremental": True
+    }
+
+
+# =============================================================================
 # ARCHITECTURE INPUT ENDPOINTS
 # =============================================================================
 
@@ -1423,6 +1673,89 @@ async def extract_architecture_from_diagram(
 
     except Exception as e:
         logger.error(f"Failed to extract from diagram: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/projects/{project_id}/architecture/analyze-documents")
+async def analyze_documents_for_architecture(
+    project_id: int,
+    files: List[UploadFile] = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyze uploaded documents (PDFs, images, DOCX) to extract architecture.
+    Supports multiple file upload for comprehensive analysis.
+    """
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Validate file types
+    allowed_types = [
+        "image/png", "image/jpeg", "image/jpg", "image/webp",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    ]
+
+    # Process files
+    file_contents = []
+    for file in files:
+        if file.content_type not in allowed_types:
+            logger.warning(f"Skipping unsupported file type: {file.content_type}")
+            continue
+
+        # Check file size (max 20MB)
+        content = await file.read()
+        if len(content) > 20 * 1024 * 1024:
+            logger.warning(f"Skipping large file: {file.filename}")
+            continue
+
+        file_contents.append((file.filename, content, file.content_type))
+
+    if not file_contents:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid files provided. Supported formats: PDF, PNG, JPG, WEBP, DOCX"
+        )
+
+    try:
+        # Initialize document analysis service with user's AI config
+        from services.document_analysis_service import DocumentAnalysisService
+
+        ai_config = get_user_ai_config(current_user)
+        analysis_service = DocumentAnalysisService(ai_config=ai_config)
+
+        if not analysis_service.enabled:
+            raise HTTPException(
+                status_code=400,
+                detail="AI service not configured. Please configure your AI provider in settings."
+            )
+
+        # Analyze all documents
+        result = await analysis_service.analyze_documents(file_contents)
+
+        if not result.get("success"):
+            raise HTTPException(
+                status_code=400,
+                detail=result.get("error", "Failed to analyze documents")
+            )
+
+        logger.info(
+            f"Analyzed {result.get('documents_analyzed', 0)} documents for project {project_id}: "
+            f"{result.get('components_found', 0)} components found"
+        )
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to analyze documents: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

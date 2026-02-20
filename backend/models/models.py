@@ -156,8 +156,74 @@ class ThreatModel(Base):
     kill_chain_analysis = Column(JSON)  # Cyber Kill Chain mapping
     eraser_diagrams = Column(JSON)  # Eraser AI professional diagram URLs
 
+    # Incremental threat modeling fields
+    architecture_version_id = Column(Integer, ForeignKey("architecture_versions.id"), nullable=True)
+    is_incremental = Column(Boolean, default=False)  # Whether this was generated incrementally
+
     # Relationships
     project = relationship("Project", back_populates="threat_models")
+    architecture_version = relationship("ArchitectureVersion", back_populates="threat_models")
+
+
+class ThreatStatus(str, enum.Enum):
+    NEW = "new"
+    EXISTING = "existing"
+    MODIFIED = "modified"
+    RESOLVED = "resolved"
+
+
+class ArchitectureVersion(Base):
+    """Stores versioned snapshots of project architecture for change tracking"""
+    __tablename__ = "architecture_versions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    version_number = Column(Integer, nullable=False)  # Auto-increment per project
+    architecture_hash = Column(String(64), nullable=False)  # SHA256 of architecture JSON
+    architecture_snapshot = Column(JSON, nullable=False)  # Full architecture at this version
+    change_summary = Column(JSON)  # {added_components: [], removed_components: [], modified_flows: [], etc.}
+    change_description = Column(Text)  # Human-readable summary of changes
+    impact_score = Column(Float, default=0.0)  # 0-1 indicating magnitude of change
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    # Relationships
+    project = relationship("Project", backref="architecture_versions")
+    creator = relationship("User")
+    threat_models = relationship("ThreatModel", back_populates="architecture_version")
+    threat_history = relationship("ThreatHistory", back_populates="architecture_version")
+
+    __table_args__ = (
+        # Unique constraint: one version number per project
+        {"sqlite_autoincrement": True},
+    )
+
+
+class ThreatHistory(Base):
+    """Tracks the lifecycle of individual threats across architecture versions"""
+    __tablename__ = "threat_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    threat_id = Column(String(100), nullable=False, index=True)  # Stable ID: "{stride_category}_{component_hash}"
+    architecture_version_id = Column(Integer, ForeignKey("architecture_versions.id"), nullable=False)
+    status = Column(Enum(ThreatStatus), nullable=False)  # new, existing, modified, resolved
+    threat_data = Column(JSON, nullable=False)  # Full threat details at this version
+    previous_history_id = Column(Integer, ForeignKey("threat_history.id"), nullable=True)  # Link to previous version
+    change_reason = Column(String(500))  # Why status changed (e.g., "Component 'API Gateway' modified")
+    affected_components = Column(JSON)  # List of component IDs related to this threat
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="threat_history")
+    architecture_version = relationship("ArchitectureVersion", back_populates="threat_history")
+    previous_version = relationship("ThreatHistory", remote_side=[id], backref="next_versions")
+
+    __table_args__ = (
+        # Index for efficient queries on threat timeline
+        {"sqlite_autoincrement": True},
+    )
+
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"

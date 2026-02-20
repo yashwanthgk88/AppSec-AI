@@ -3133,6 +3133,440 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         return matrix
 
+    # =============================================================================
+    # INCREMENTAL THREAT MODELING
+    # =============================================================================
+
+    def generate_threat_model_incremental(
+        self,
+        db_session,
+        project_id: int,
+        new_architecture: Dict[str, Any],
+        user_id: Optional[int] = None,
+        project_name: str = "Project",
+        progress_callback: Optional[callable] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate threats incrementally by analyzing only changed components.
+
+        Args:
+            db_session: SQLAlchemy database session
+            project_id: Project ID
+            new_architecture: New architecture to compare against
+            user_id: ID of user making the change
+            project_name: Project name for display
+            progress_callback: Optional callback function(step: str, progress: int, message: str)
+
+        Returns:
+            Threat model with lifecycle status annotations on each threat
+        """
+        from services.architecture_diff_service import ArchitectureDiffService
+        from services.threat_lifecycle_service import ThreatLifecycleService
+        from models.models import ArchitectureVersion, ThreatHistory, ThreatModel, ThreatStatus
+
+        diff_service = ArchitectureDiffService()
+        lifecycle_service = ThreatLifecycleService()
+
+        def update_progress(step: str, progress: int, message: str = ""):
+            if progress_callback:
+                try:
+                    progress_callback(step, progress, message)
+                except Exception as e:
+                    logger.warning(f"Progress callback failed: {e}")
+
+        update_progress("loading", 5, "Loading previous architecture...")
+
+        # 1. Get the latest architecture version
+        prev_version = self._get_latest_architecture_version(db_session, project_id)
+        old_architecture = prev_version.architecture_snapshot if prev_version else None
+
+        update_progress("diffing", 10, "Computing architecture changes...")
+
+        # 2. Compute diff
+        arch_hash = diff_service.compute_hash(new_architecture)
+        diff = diff_service.compute_diff(old_architecture, new_architecture)
+
+        # 3. Check if there are any changes
+        if diff.is_empty() and prev_version:
+            update_progress("complete", 100, "No changes detected")
+            # Return existing threat model with existing threats marked
+            existing_model = self._get_current_threat_model(db_session, project_id)
+            if existing_model:
+                return self._annotate_existing_model(existing_model, lifecycle_service)
+
+        update_progress("versioning", 15, "Creating architecture version...")
+
+        # 4. Create new architecture version
+        new_version_number = (prev_version.version_number + 1) if prev_version else 1
+        new_version = ArchitectureVersion(
+            project_id=project_id,
+            version_number=new_version_number,
+            architecture_hash=arch_hash,
+            architecture_snapshot=new_architecture,
+            change_summary=diff.to_summary_dict(),
+            change_description=diff.generate_description(),
+            impact_score=diff.impact_score,
+            created_by=user_id
+        )
+        db_session.add(new_version)
+        db_session.flush()  # Get the ID
+
+        update_progress("analyzing", 20, "Loading existing threats...")
+
+        # 5. Get existing threats from the last threat model
+        existing_threats = self._get_existing_threats(db_session, project_id)
+
+        update_progress("incremental", 30, "Analyzing changed components...")
+
+        # 6. Analyze only changed components (or all if first version)
+        if diff.is_empty() and not prev_version:
+            # First version - analyze everything
+            new_threats = self._analyze_all_components(new_architecture, project_name)
+        else:
+            # Incremental - only analyze affected components
+            new_threats = self._analyze_changed_components(
+                diff, new_architecture, project_name, update_progress
+            )
+
+        update_progress("classifying", 70, "Classifying threat lifecycle...")
+
+        # 7. Classify threats
+        classification = lifecycle_service.classify_threats(existing_threats, new_threats, diff)
+
+        update_progress("saving", 80, "Saving threat history...")
+
+        # 8. Save to threat_history
+        self._save_threat_history(
+            db_session, project_id, new_version.id, classification, lifecycle_service
+        )
+
+        update_progress("merging", 90, "Building final threat model...")
+
+        # 9. Merge and return annotated threat model
+        merged_threats = lifecycle_service.merge_threat_results(classification)
+
+        # Build the final threat model structure
+        system_context = self._build_system_context(new_architecture)
+
+        result = {
+            "project_name": project_name,
+            "generated_at": datetime.now().isoformat(),
+            "is_incremental": True,
+            "architecture_version": {
+                "id": new_version.id,
+                "version_number": new_version_number,
+                "change_summary": diff.to_summary_dict(),
+                "change_description": diff.generate_description(),
+                "impact_score": diff.impact_score
+            },
+
+            # Architecture data
+            "system_overview": new_architecture.get('system_overview', ''),
+            "technology_stack": new_architecture.get('technology_stack', []),
+
+            # DFD data
+            "dfd_level_0": self.generate_dfd(new_architecture, level=0),
+            "dfd_level_1": self.generate_dfd(new_architecture, level=1),
+
+            # Threats with lifecycle status
+            "stride_analysis": self._group_threats_by_stride(merged_threats),
+            "threats_with_status": merged_threats,
+
+            # Lifecycle summary
+            "lifecycle_summary": classification.summary(),
+
+            # Statistics
+            "threat_count": len(merged_threats),
+            "summary": {
+                "total_components": len(new_architecture.get('components', [])),
+                "total_data_flows": len(new_architecture.get('data_flows', [])),
+                "trust_boundaries": len(new_architecture.get('trust_boundaries', [])),
+                "total_threats": len(merged_threats),
+                "new_threats": classification.summary()['new'],
+                "modified_threats": classification.summary()['modified'],
+                "resolved_threats": classification.summary()['resolved'],
+                "changes_detected": diff.total_change_count()
+            }
+        }
+
+        update_progress("complete", 100, "Incremental analysis complete")
+
+        return result
+
+    def _get_latest_architecture_version(self, db_session, project_id: int):
+        """Get the most recent architecture version for a project."""
+        from models.models import ArchitectureVersion
+        return db_session.query(ArchitectureVersion).filter(
+            ArchitectureVersion.project_id == project_id
+        ).order_by(ArchitectureVersion.version_number.desc()).first()
+
+    def _get_current_threat_model(self, db_session, project_id: int):
+        """Get the current threat model for a project."""
+        from models.models import ThreatModel
+        return db_session.query(ThreatModel).filter(
+            ThreatModel.project_id == project_id
+        ).order_by(ThreatModel.created_at.desc()).first()
+
+    def _get_existing_threats(self, db_session, project_id: int) -> List[Dict]:
+        """Get existing threats from the last threat model."""
+        from models.models import ThreatHistory
+        # Get the latest threats for each threat_id
+        latest_threats = {}
+        history_records = db_session.query(ThreatHistory).filter(
+            ThreatHistory.project_id == project_id,
+            ThreatHistory.status != ThreatStatus.RESOLVED
+        ).order_by(ThreatHistory.created_at.desc()).all()
+
+        for record in history_records:
+            if record.threat_id not in latest_threats:
+                threat_data = record.threat_data.copy() if record.threat_data else {}
+                threat_data['threat_id'] = record.threat_id
+                threat_data['affected_components'] = record.affected_components or []
+                latest_threats[record.threat_id] = threat_data
+
+        return list(latest_threats.values())
+
+    def _analyze_all_components(
+        self,
+        architecture: Dict[str, Any],
+        project_name: str
+    ) -> List[Dict]:
+        """Analyze all components (used for first version)."""
+        system_context = self._build_system_context(architecture)
+        stride_analysis = self.generate_stride_analysis(architecture, system_context)
+
+        # Flatten STRIDE analysis into threat list with IDs
+        threats = []
+        from services.threat_lifecycle_service import ThreatLifecycleService
+        lifecycle_service = ThreatLifecycleService()
+
+        for category, category_threats in stride_analysis.items():
+            for threat in category_threats:
+                threat['stride_category'] = category
+                threat['threat_id'] = lifecycle_service.generate_stable_threat_id(threat)
+                threats.append(threat)
+
+        return threats
+
+    def _analyze_changed_components(
+        self,
+        diff,
+        architecture: Dict[str, Any],
+        project_name: str,
+        update_progress: callable
+    ) -> List[Dict]:
+        """Analyze only components that changed."""
+        from services.threat_lifecycle_service import ThreatLifecycleService
+        lifecycle_service = ThreatLifecycleService()
+
+        affected_ids = diff.get_affected_component_ids()
+        if not affected_ids:
+            return []
+
+        # Filter architecture to only affected components
+        affected_components = [
+            c for c in architecture.get('components', [])
+            if c.get('id') in affected_ids
+        ]
+
+        if not affected_components:
+            return []
+
+        update_progress("stride", 40, f"Analyzing {len(affected_components)} affected components...")
+
+        # Create a subset architecture for analysis
+        subset_arch = {
+            'components': affected_components,
+            'data_flows': [
+                f for f in architecture.get('data_flows', [])
+                if f.get('source') in affected_ids or f.get('target') in affected_ids
+            ],
+            'trust_boundaries': architecture.get('trust_boundaries', []),
+            'technology_stack': architecture.get('technology_stack', []),
+            'system_overview': architecture.get('system_overview', '')
+        }
+
+        system_context = self._build_system_context(subset_arch)
+        stride_analysis = self.generate_stride_analysis(subset_arch, system_context)
+
+        # Flatten and add IDs
+        threats = []
+        for category, category_threats in stride_analysis.items():
+            for threat in category_threats:
+                threat['stride_category'] = category
+                threat['threat_id'] = lifecycle_service.generate_stable_threat_id(threat)
+                threats.append(threat)
+
+        return threats
+
+    def _save_threat_history(
+        self,
+        db_session,
+        project_id: int,
+        version_id: int,
+        classification,
+        lifecycle_service
+    ):
+        """Save threat classification results to threat_history table."""
+        from models.models import ThreatHistory, ThreatStatus
+
+        status_map = {
+            'new': ThreatStatus.NEW,
+            'existing': ThreatStatus.EXISTING,
+            'modified': ThreatStatus.MODIFIED,
+            'resolved': ThreatStatus.RESOLVED
+        }
+
+        for threat_update in classification.all_threats():
+            history_record = ThreatHistory(
+                project_id=project_id,
+                threat_id=threat_update.threat_id,
+                architecture_version_id=version_id,
+                status=status_map[threat_update.status],
+                threat_data=threat_update.threat_data,
+                change_reason=threat_update.change_reason,
+                affected_components=threat_update.affected_components
+            )
+            db_session.add(history_record)
+
+        db_session.flush()
+
+    def _group_threats_by_stride(self, threats: List[Dict]) -> Dict[str, List[Dict]]:
+        """Group threats by STRIDE category."""
+        grouped = {
+            'Spoofing': [],
+            'Tampering': [],
+            'Repudiation': [],
+            'Information Disclosure': [],
+            'Denial of Service': [],
+            'Elevation of Privilege': []
+        }
+
+        for threat in threats:
+            category = threat.get('stride_category', threat.get('category', 'Tampering'))
+            if category in grouped:
+                grouped[category].append(threat)
+            else:
+                grouped['Tampering'].append(threat)
+
+        return grouped
+
+    def _annotate_existing_model(self, threat_model, lifecycle_service) -> Dict:
+        """Annotate an existing model's threats with 'existing' status."""
+        # This is used when no changes are detected
+        result = {
+            "project_name": threat_model.name,
+            "generated_at": datetime.now().isoformat(),
+            "is_incremental": True,
+            "no_changes_detected": True,
+            "stride_analysis": threat_model.stride_analysis or {},
+            "threat_count": threat_model.threat_count or 0,
+            "lifecycle_summary": {
+                'new': 0, 'existing': threat_model.threat_count or 0,
+                'modified': 0, 'resolved': 0
+            }
+        }
+        return result
+
+    def get_architecture_version_history(
+        self,
+        db_session,
+        project_id: int,
+        limit: int = 10
+    ) -> List[Dict]:
+        """Get architecture version history for a project."""
+        from models.models import ArchitectureVersion
+        versions = db_session.query(ArchitectureVersion).filter(
+            ArchitectureVersion.project_id == project_id
+        ).order_by(ArchitectureVersion.version_number.desc()).limit(limit).all()
+
+        return [
+            {
+                'id': v.id,
+                'version_number': v.version_number,
+                'architecture_hash': v.architecture_hash,
+                'change_summary': v.change_summary,
+                'change_description': v.change_description,
+                'impact_score': v.impact_score,
+                'created_at': v.created_at.isoformat() if v.created_at else None,
+                'created_by': v.created_by
+            }
+            for v in versions
+        ]
+
+    def get_threat_timeline(
+        self,
+        db_session,
+        project_id: int,
+        threat_id: str
+    ) -> List[Dict]:
+        """Get the complete timeline for a specific threat."""
+        from models.models import ThreatHistory
+        from services.threat_lifecycle_service import ThreatLifecycleService
+
+        records = db_session.query(ThreatHistory).filter(
+            ThreatHistory.project_id == project_id,
+            ThreatHistory.threat_id == threat_id
+        ).order_by(ThreatHistory.created_at.asc()).all()
+
+        lifecycle_service = ThreatLifecycleService()
+        return lifecycle_service.get_threat_timeline([
+            {
+                'id': r.id,
+                'threat_id': r.threat_id,
+                'architecture_version_id': r.architecture_version_id,
+                'status': r.status.value if r.status else 'unknown',
+                'threat_data': r.threat_data,
+                'change_reason': r.change_reason,
+                'created_at': r.created_at
+            }
+            for r in records
+        ])
+
+    def compare_architecture_versions(
+        self,
+        db_session,
+        project_id: int,
+        version1_id: int,
+        version2_id: int
+    ) -> Dict:
+        """Compare two architecture versions."""
+        from models.models import ArchitectureVersion
+        from services.architecture_diff_service import ArchitectureDiffService
+
+        v1 = db_session.query(ArchitectureVersion).filter(
+            ArchitectureVersion.id == version1_id,
+            ArchitectureVersion.project_id == project_id
+        ).first()
+
+        v2 = db_session.query(ArchitectureVersion).filter(
+            ArchitectureVersion.id == version2_id,
+            ArchitectureVersion.project_id == project_id
+        ).first()
+
+        if not v1 or not v2:
+            return {"error": "Version not found"}
+
+        diff_service = ArchitectureDiffService()
+        diff = diff_service.compute_diff(v1.architecture_snapshot, v2.architecture_snapshot)
+
+        return {
+            "version1": {
+                "id": v1.id,
+                "version_number": v1.version_number,
+                "created_at": v1.created_at.isoformat() if v1.created_at else None
+            },
+            "version2": {
+                "id": v2.id,
+                "version_number": v2.version_number,
+                "created_at": v2.created_at.isoformat() if v2.created_at else None
+            },
+            "diff": diff.to_summary_dict(),
+            "description": diff.generate_description(),
+            "impact_score": diff.impact_score,
+            "has_security_relevant_changes": diff.has_security_relevant_changes
+        }
+
 
 # Singleton instance
 threat_service = ThreatModelingService()

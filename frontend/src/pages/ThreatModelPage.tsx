@@ -4,12 +4,15 @@ import {
   Network, Shield, AlertTriangle, ArrowLeft, Download,
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
-  RefreshCw, Layers, FileText
+  RefreshCw, Layers, FileText, GitBranch, Clock, Upload,
+  FileImage, File, X, Eye
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
 import { toPng, toSvg } from 'html-to-image'
 import ArchitectureBuilder from '../components/ArchitectureBuilder'
+import { ThreatStatusBadge, ThreatLifecycleSummary, ThreatChangeReason, ThreatStatus } from '../components/ThreatStatusBadge'
+import { ThreatHistoryPanel, ThreatTimeline } from '../components/ThreatHistory'
 
 // Initialize mermaid with enhanced config
 mermaid.initialize({
@@ -112,12 +115,17 @@ export default function ThreatModelPage() {
   const [newControl, setNewControl] = useState('')
   const [expandedThreats, setExpandedThreats] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre'>('threats')
+  const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre' | 'history'>('threats')
   const [regenerating, setRegenerating] = useState(false)
+  const [showHistoryPanel, setShowHistoryPanel] = useState(false)
+  const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
+  const [analyzingDocs, setAnalyzingDocs] = useState(false)
+  const [docAnalysisProgress, setDocAnalysisProgress] = useState(0)
+  const [extractedFromDocs, setExtractedFromDocs] = useState<any>(null)
   const [generationProgress, setGenerationProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
   const [generationComplete, setGenerationComplete] = useState(false)
-  const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample'>('select')
+  const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample' | 'docs'>('select')
 
   useEffect(() => {
     fetchThreatModel()
@@ -574,6 +582,41 @@ export default function ThreatModelPage() {
       )
     }
 
+    // Show Document Upload mode
+    if (inputMode === 'docs') {
+      return (
+        <DocumentUploadSection
+          projectId={id || ''}
+          onBack={() => setInputMode('select')}
+          uploadedDocs={uploadedDocs}
+          setUploadedDocs={setUploadedDocs}
+          analyzingDocs={analyzingDocs}
+          setAnalyzingDocs={setAnalyzingDocs}
+          docAnalysisProgress={docAnalysisProgress}
+          setDocAnalysisProgress={setDocAnalysisProgress}
+          extractedFromDocs={extractedFromDocs}
+          setExtractedFromDocs={setExtractedFromDocs}
+          onGenerateThreatModel={async (architecture: any) => {
+            // Use the extracted architecture to generate threat model
+            setRegenerating(true)
+            setInputMode('select')
+            try {
+              const token = localStorage.getItem('token')
+              await axios.post(
+                `/api/projects/${id}/threat-model/regenerate`,
+                { architecture_data: architecture },
+                { headers: { Authorization: `Bearer ${token}` } }
+              )
+              pollGenerationStatus()
+            } catch (error: any) {
+              console.error('Failed to generate threat model:', error)
+              setRegenerating(false)
+            }
+          }}
+        />
+      )
+    }
+
     // Default: Show input method selection
     return (
       <div className="card p-8">
@@ -624,35 +667,39 @@ export default function ThreatModelPage() {
             </div>
           </div>
 
-          {/* Option 2: From Project */}
+          {/* Option 2: Upload Documents */}
           <div
-            onClick={regenerateThreatModel}
+            onClick={() => setInputMode('docs')}
             className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition cursor-pointer group"
           >
             <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition">
-              <FileText className="w-7 h-7 text-blue-600" />
+              <Upload className="w-7 h-7 text-blue-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">From Project Docs</h4>
+            <h4 className="font-semibold text-gray-900 mb-2">Upload Documents</h4>
             <p className="text-sm text-gray-600 mb-4">
-              Generate threat model from existing architecture documentation in your project.
+              Upload design documents, architecture diagrams, or use case documents for AI analysis.
             </p>
             <div className="space-y-2">
               <div className="flex items-center text-xs text-gray-500">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
-                <span>Uses existing docs</span>
+                <span>PDF, PNG, JPG, DOCX</span>
               </div>
               <div className="flex items-center text-xs text-gray-500">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
-                <span>Quick generation</span>
+                <span>Multiple file support</span>
               </div>
               <div className="flex items-center text-xs text-gray-500">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
-                <span>AI-powered analysis</span>
+                <span>Diagram analysis with AI vision</span>
+              </div>
+              <div className="flex items-center text-xs text-gray-500">
+                <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
+                <span>Text content extraction</span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
               <span className="text-xs font-medium text-blue-600 group-hover:text-blue-700">
-                Best if you have architecture docs →
+                Best for existing documentation →
               </span>
             </div>
           </div>
@@ -1011,6 +1058,19 @@ export default function ThreatModelPage() {
                 </span>
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'history'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <GitBranch className="w-4 h-4" />
+                <span>Version History</span>
+              </div>
+            </button>
           </nav>
         </div>
 
@@ -1036,8 +1096,36 @@ export default function ThreatModelPage() {
           {activeTab === 'mitre' && (
             <MitreTab mitreMapping={mitreMapping} />
           )}
+
+          {activeTab === 'history' && (
+            <HistoryTab projectId={Number(id)} />
+          )}
         </div>
       </div>
+
+      {/* Lifecycle Summary (shown when incremental model) */}
+      {threatModel.lifecycle_summary && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Threat Lifecycle Summary
+            </h3>
+            {threatModel.is_incremental && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                Incremental Analysis
+              </span>
+            )}
+          </div>
+          <ThreatLifecycleSummary summary={threatModel.lifecycle_summary} />
+          {threatModel.architecture_version?.change_description && (
+            <p className="mt-3 text-sm text-gray-600">
+              <span className="font-medium">Latest changes:</span>{' '}
+              {threatModel.architecture_version.change_description}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Security Controls Input */}
       <div className="card p-6">
@@ -1604,6 +1692,44 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
   )
 }
 
+// History Tab Component
+function HistoryTab({ projectId }: { projectId: number }) {
+  const [selectedThreatId, setSelectedThreatId] = useState<string | null>(null)
+  const token = localStorage.getItem('token') || ''
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div>
+        <ThreatHistoryPanel
+          projectId={projectId}
+          token={token}
+          onVersionSelect={(versionId) => {
+            console.log('Selected version:', versionId)
+            // Could navigate to version-specific view
+          }}
+        />
+      </div>
+      <div>
+        {selectedThreatId ? (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Threat Timeline</h3>
+            <ThreatTimeline
+              projectId={projectId}
+              threatId={selectedThreatId}
+              token={token}
+            />
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p>Select a threat from the Threats tab to view its timeline</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // MITRE Tab Component
 function MitreTab({ mitreMapping }: { mitreMapping: any }) {
   // Handle nested structure from backend: { techniques: {...}, attack_chain: {...} }
@@ -1878,6 +2004,9 @@ function ThreatCard({
             <span className={`text-xs px-2 py-1 rounded-full border ${severityColor}`}>
               {severity.charAt(0).toUpperCase() + severity.slice(1)}
             </span>
+            {threat.lifecycle_status && (
+              <ThreatStatusBadge status={threat.lifecycle_status as ThreatStatus} size="sm" />
+            )}
             {threat.cwe && (
               <a
                 href={`https://cwe.mitre.org/data/definitions/${threat.cwe.replace('CWE-', '')}.html`}
@@ -1914,6 +2043,11 @@ function ThreatCard({
       </div>
 
       <p className="text-sm text-gray-700 mb-3">{threat.description}</p>
+
+      {/* Change Reason (for incremental analysis) */}
+      {threat.change_reason && threat.lifecycle_status && (
+        <ThreatChangeReason reason={threat.change_reason} status={threat.lifecycle_status as ThreatStatus} />
+      )}
 
       {/* MITRE Techniques */}
       {threat.mitre && threat.mitre.length > 0 && (
@@ -2149,6 +2283,379 @@ function ThreatCard({
           <p className="text-sm text-green-900">{threat.mitigation}</p>
         </div>
       )}
+    </div>
+  )
+}
+
+// Document Upload Section Component
+function DocumentUploadSection({
+  projectId,
+  onBack,
+  uploadedDocs,
+  setUploadedDocs,
+  analyzingDocs,
+  setAnalyzingDocs,
+  docAnalysisProgress,
+  setDocAnalysisProgress,
+  extractedFromDocs,
+  setExtractedFromDocs,
+  onGenerateThreatModel
+}: {
+  projectId: string
+  onBack: () => void
+  uploadedDocs: File[]
+  setUploadedDocs: (files: File[]) => void
+  analyzingDocs: boolean
+  setAnalyzingDocs: (analyzing: boolean) => void
+  docAnalysisProgress: number
+  setDocAnalysisProgress: (progress: number) => void
+  extractedFromDocs: any
+  setExtractedFromDocs: (data: any) => void
+  onGenerateThreatModel: (architecture: any) => void
+}) {
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const ACCEPTED_TYPES = [
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/webp',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files).filter(file =>
+        ACCEPTED_TYPES.includes(file.type)
+      )
+      setUploadedDocs([...uploadedDocs, ...newFiles])
+    }
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files).filter(file =>
+        ACCEPTED_TYPES.includes(file.type)
+      )
+      setUploadedDocs([...uploadedDocs, ...newFiles])
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setUploadedDocs(uploadedDocs.filter((_, i) => i !== index))
+  }
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <FileImage className="w-5 h-5 text-blue-500" />
+    if (type === 'application/pdf') return <File className="w-5 h-5 text-red-500" />
+    return <FileText className="w-5 h-5 text-gray-500" />
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  }
+
+  const analyzeDocuments = async () => {
+    if (uploadedDocs.length === 0) return
+
+    setAnalyzingDocs(true)
+    setDocAnalysisProgress(0)
+
+    try {
+      const formData = new FormData()
+      uploadedDocs.forEach((file, index) => {
+        formData.append('files', file)
+      })
+
+      const token = localStorage.getItem('token')
+
+      // Start analysis
+      setDocAnalysisProgress(10)
+
+      const response = await axios.post(
+        `/api/projects/${projectId}/architecture/analyze-documents`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          },
+          onUploadProgress: (progressEvent) => {
+            const progress = progressEvent.total
+              ? Math.round((progressEvent.loaded * 30) / progressEvent.total) + 10
+              : 20
+            setDocAnalysisProgress(progress)
+          }
+        }
+      )
+
+      setDocAnalysisProgress(100)
+
+      if (response.data.success) {
+        setExtractedFromDocs(response.data.architecture)
+      } else {
+        alert(response.data.error || 'Failed to analyze documents')
+      }
+    } catch (error: any) {
+      console.error('Document analysis failed:', error)
+      alert(error.response?.data?.detail || 'Failed to analyze documents')
+    } finally {
+      setAnalyzingDocs(false)
+    }
+  }
+
+  return (
+    <div className="card p-8">
+      <div className="flex items-center mb-6">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="w-4 h-4 mr-1" />
+          Back to Options
+        </button>
+      </div>
+
+      <div className="text-center mb-6">
+        <Upload className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Project Documents</h3>
+        <p className="text-sm text-gray-600">
+          Upload architecture diagrams, design documents, or use case documents.
+          Our AI will analyze them to understand your system architecture.
+        </p>
+      </div>
+
+      {/* Drop Zone */}
+      <div
+        className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+          dragActive
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-gray-300 hover:border-gray-400'
+        }`}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.png,.jpg,.jpeg,.webp,.docx"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+        <div className="space-y-3">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+            <Upload className="w-8 h-8 text-gray-400" />
+          </div>
+          <div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Click to upload
+            </button>
+            <span className="text-gray-500"> or drag and drop</span>
+          </div>
+          <p className="text-xs text-gray-400">
+            PDF, PNG, JPG, WEBP, or DOCX (max 20MB each)
+          </p>
+        </div>
+      </div>
+
+      {/* Uploaded Files List */}
+      {uploadedDocs.length > 0 && (
+        <div className="mt-6 space-y-2">
+          <h4 className="text-sm font-medium text-gray-700">Uploaded Documents ({uploadedDocs.length})</h4>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {uploadedDocs.map((file, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2"
+              >
+                <div className="flex items-center space-x-3">
+                  {getFileIcon(file.type)}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Analysis Progress */}
+      {analyzingDocs && (
+        <div className="mt-6 bg-blue-50 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-blue-700">Analyzing documents...</span>
+            <span className="text-sm text-blue-600">{docAnalysisProgress}%</span>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${docAnalysisProgress}%` }}
+            />
+          </div>
+          <p className="text-xs text-blue-600 mt-2">
+            {docAnalysisProgress < 40
+              ? 'Uploading documents...'
+              : docAnalysisProgress < 70
+              ? 'Extracting content and analyzing diagrams...'
+              : 'Building architecture model...'}
+          </p>
+        </div>
+      )}
+
+      {/* Extracted Architecture Preview */}
+      {extractedFromDocs && (
+        <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+              <span className="font-medium text-green-800">Architecture Extracted</span>
+            </div>
+            <button
+              onClick={() => setExtractedFromDocs(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="bg-white rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900">
+                {extractedFromDocs.components?.length || 0}
+              </p>
+              <p className="text-xs text-gray-500">Components</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900">
+                {extractedFromDocs.data_flows?.length || 0}
+              </p>
+              <p className="text-xs text-gray-500">Data Flows</p>
+            </div>
+            <div className="bg-white rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-gray-900">
+                {extractedFromDocs.trust_boundaries?.length || 0}
+              </p>
+              <p className="text-xs text-gray-500">Trust Boundaries</p>
+            </div>
+          </div>
+
+          {extractedFromDocs.description && (
+            <div className="bg-white rounded-lg p-3 mb-4">
+              <p className="text-xs font-medium text-gray-500 mb-1">System Overview</p>
+              <p className="text-sm text-gray-700">{extractedFromDocs.description}</p>
+            </div>
+          )}
+
+          {extractedFromDocs.components && extractedFromDocs.components.length > 0 && (
+            <div className="bg-white rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-500 mb-2">Identified Components</p>
+              <div className="flex flex-wrap gap-2">
+                {extractedFromDocs.components.slice(0, 10).map((comp: any, idx: number) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+                  >
+                    {comp.name}
+                  </span>
+                ))}
+                {extractedFromDocs.components.length > 10 && (
+                  <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded">
+                    +{extractedFromDocs.components.length - 10} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="mt-6 flex space-x-3">
+        {!extractedFromDocs ? (
+          <button
+            onClick={analyzeDocuments}
+            disabled={uploadedDocs.length === 0 || analyzingDocs}
+            className="btn btn-primary flex-1 inline-flex items-center justify-center space-x-2"
+          >
+            {analyzingDocs ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <Eye className="w-4 h-4" />
+                <span>Analyze Documents</span>
+              </>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={() => onGenerateThreatModel(extractedFromDocs)}
+            className="btn btn-primary flex-1 inline-flex items-center justify-center space-x-2"
+          >
+            <Zap className="w-4 h-4" />
+            <span>Generate Threat Model</span>
+          </button>
+        )}
+      </div>
+
+      {/* Supported Formats Info */}
+      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">Supported Document Types</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <FileImage className="w-4 h-4 text-blue-500" />
+            <span>Architecture Diagrams</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <File className="w-4 h-4 text-red-500" />
+            <span>PDF Documents</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <FileImage className="w-4 h-4 text-green-500" />
+            <span>Use Case Diagrams</span>
+          </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <FileText className="w-4 h-4 text-purple-500" />
+            <span>Design Documents</span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

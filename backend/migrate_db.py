@@ -84,6 +84,74 @@ def migrate():
             print("Adding eraser_diagrams column to threat_models table...")
             cursor.execute("ALTER TABLE threat_models ADD COLUMN eraser_diagrams JSON")
 
+        # Add incremental threat modeling columns to threat_models table
+        if 'architecture_version_id' not in columns:
+            print("Adding architecture_version_id column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN architecture_version_id INTEGER")
+
+        if 'is_incremental' not in columns:
+            print("Adding is_incremental column to threat_models table...")
+            cursor.execute("ALTER TABLE threat_models ADD COLUMN is_incremental BOOLEAN DEFAULT 0")
+
+        # Create architecture_versions table for tracking architecture changes
+        print("Creating architecture_versions table if not exists...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS architecture_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                version_number INTEGER NOT NULL,
+                architecture_hash VARCHAR(64) NOT NULL,
+                architecture_snapshot JSON NOT NULL,
+                change_summary JSON,
+                change_description TEXT,
+                impact_score REAL DEFAULT 0.0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by INTEGER,
+                FOREIGN KEY (project_id) REFERENCES projects(id),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            )
+        """)
+
+        # Create index for efficient version lookups
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_arch_versions_project
+            ON architecture_versions(project_id, version_number DESC)
+        """)
+
+        # Create threat_history table for tracking threat lifecycle
+        print("Creating threat_history table if not exists...")
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS threat_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL,
+                threat_id VARCHAR(100) NOT NULL,
+                architecture_version_id INTEGER NOT NULL,
+                status VARCHAR(20) NOT NULL,
+                threat_data JSON NOT NULL,
+                previous_history_id INTEGER,
+                change_reason VARCHAR(500),
+                affected_components JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (project_id) REFERENCES projects(id),
+                FOREIGN KEY (architecture_version_id) REFERENCES architecture_versions(id),
+                FOREIGN KEY (previous_history_id) REFERENCES threat_history(id)
+            )
+        """)
+
+        # Create indexes for efficient threat history queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threat_history_project
+            ON threat_history(project_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threat_history_threat_id
+            ON threat_history(threat_id)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_threat_history_version
+            ON threat_history(architecture_version_id)
+        """)
+
         conn.commit()
         print("✓ Migration completed successfully!")
 
