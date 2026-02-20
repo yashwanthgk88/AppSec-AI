@@ -5,7 +5,7 @@ import {
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
   RefreshCw, Layers, FileText, GitBranch, Clock, Upload,
-  FileImage, File, X, Eye, Info
+  FileImage, File, X, Eye, Info, Trash2
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
@@ -239,6 +239,28 @@ export default function ThreatModelPage() {
       setRegenerating(false)
       setGenerationProgress(0)
       setCurrentStep(0)
+    }
+  }
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const deleteThreatModel = async () => {
+    setDeleting(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`/api/projects/${id}/threat-model`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setThreatModel(null)
+      setShowDeleteConfirm(false)
+      info('Threat model deleted successfully')
+    } catch (error: any) {
+      console.error('Failed to delete threat model:', error)
+      const errorMessage = error.response?.data?.detail || 'Failed to delete threat model. Please try again.'
+      showError(errorMessage)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -831,6 +853,15 @@ export default function ThreatModelPage() {
             <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
             <span>{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
           </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            disabled={regenerating || deleting}
+            className="btn btn-secondary inline-flex items-center space-x-2 text-red-600 hover:text-red-700 hover:border-red-300"
+            title="Delete threat model"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete</span>
+          </button>
           <RiskGauge score={riskScore} level={riskLevel} />
         </div>
       </div>
@@ -1207,6 +1238,50 @@ export default function ThreatModelPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Delete Threat Model</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this threat model? This action cannot be undone.
+              You can always regenerate a new threat model later.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+                className="btn btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteThreatModel}
+                disabled={deleting}
+                className="btn bg-red-600 text-white hover:bg-red-700 inline-flex items-center space-x-2"
+              >
+                {deleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notifications */}
       {toasts.map((toast) => (

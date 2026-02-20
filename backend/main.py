@@ -1019,6 +1019,36 @@ async def get_threat_model(
         "eraser_diagrams_count": eraser_diagrams.get("stats", {}).get("successful", 0)
     }
 
+
+@app.delete("/api/projects/{project_id}/threat-model")
+async def delete_threat_model(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete the threat model for a project."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+
+    if not threat_model:
+        raise HTTPException(status_code=404, detail="Threat model not found")
+
+    # Delete the threat model
+    db.delete(threat_model)
+    db.commit()
+
+    logger.info(f"Deleted threat model for project {project_id}")
+
+    return {"message": "Threat model deleted successfully", "project_id": project_id}
+
+
 def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str):
     """Background task to generate threat model"""
     from models.database import SessionLocal
