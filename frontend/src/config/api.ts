@@ -18,3 +18,4 @@ export const API_ENDPOINT = `${API_URL}/api`;
 export const apiUrl = (path: string) => `${API_URL}${path.startsWith('/') ? path : '/' + path}`;
 
 export default API_URL;
+// Build trigger: 1771709630
