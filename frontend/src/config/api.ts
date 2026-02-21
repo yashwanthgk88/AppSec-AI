@@ -7,8 +7,8 @@
  * For LOCAL: Uses localhost:8000 by default
  */
 
-// Get API URL from environment variable or use localhost as fallback
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Get API URL from environment variable or use production URL as fallback
+export const API_URL = import.meta.env.VITE_API_URL || 'https://backend-production-ee900.up.railway.app';
 
 // Export individual parts for flexibility
 export const API_BASE = API_URL;
