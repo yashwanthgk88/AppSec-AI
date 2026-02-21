@@ -1408,8 +1408,9 @@ For each component, determine the most appropriate category from: api, database,
             # Add external entities
             for node in external_nodes:
                 node_id = self._sanitize_id(node['id'])
-                label = node['label']
-                emoji = "👤" if 'user' in label.lower() else "🌐"
+                raw_label = node.get('label', node_id)
+                label = self._sanitize_label(raw_label)
+                emoji = "👤" if 'user' in raw_label.lower() else "🌐"
                 lines.append(f"    {node_id}[\"{emoji} {label}\"]")
                 lines.append(f"    class {node_id} external")
 
@@ -1443,8 +1444,9 @@ For each component, determine the most appropriate category from: api, database,
             # Add trust boundaries as subgraphs
             for boundary in dfd_data.get('trust_boundaries', []):
                 b_id = self._sanitize_id(boundary['id'])
-                b_name = boundary.get('name', 'Trust Boundary')
-                emoji = "🔒" if 'internet' in b_name.lower() else "🛡️"
+                raw_b_name = boundary.get('name', 'Trust Boundary')
+                b_name = self._sanitize_label(raw_b_name)
+                emoji = "🔒" if 'internet' in raw_b_name.lower() else "🛡️"
 
                 lines.append(f"    subgraph {b_id}[\"{emoji} {b_name}\"]")
                 lines.append("        direction TB")
@@ -1472,7 +1474,7 @@ For each component, determine the most appropriate category from: api, database,
                 target = self._sanitize_id(edge['target'])
 
                 # Build label with security indicators
-                label_parts = [edge.get('label', 'Data')]
+                label_parts = [self._sanitize_label(edge.get('label', 'Data'))]
                 if edge.get('encrypted'):
                     label_parts.append("🔐")
                 if edge.get('authenticated'):
@@ -1489,11 +1491,26 @@ For each component, determine the most appropriate category from: api, database,
         """Sanitize ID for Mermaid compatibility"""
         return re.sub(r'[^a-zA-Z0-9_]', '_', str(id_str))
 
+    def _sanitize_label(self, label: str) -> str:
+        """Sanitize label for Mermaid compatibility - escape special characters"""
+        if not label:
+            return ""
+        # Replace characters that break Mermaid syntax
+        label = str(label)
+        label = label.replace('\\', '\\\\')  # Escape backslashes first
+        label = label.replace('"', "'")  # Replace double quotes with single
+        label = label.replace('<', '&lt;')  # Escape HTML special chars
+        label = label.replace('>', '&gt;')
+        label = label.replace('\n', ' ')  # Replace newlines with spaces
+        label = label.replace('\r', '')
+        label = label.replace('|', '/')  # Pipe breaks edge labels
+        return label
+
     def _add_node_to_mermaid(self, lines: List[str], node: Dict, indent: int = 4):
         """Add a node to Mermaid diagram with proper styling"""
         spaces = ' ' * indent
         node_id = self._sanitize_id(node['id'])
-        label = node['label']
+        label = self._sanitize_label(node.get('label', node_id))
 
         # Choose shape and emoji based on type
         if node['type'] == 'external':
@@ -2710,7 +2727,8 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         # Root node
         root_id = self._sanitize_id(tree['id'])
-        lines.append(f"    {root_id}{{\"🎯 {tree['name']}\"}}")
+        root_name = self._sanitize_label(tree.get('name', 'Attack Goal'))
+        lines.append(f"    {root_id}{{\"🎯 {root_name}\"}}")
         lines.append(f"    class {root_id} goal")
 
         # Process children recursively
@@ -2725,16 +2743,17 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         for child in parent.get('children', []):
             child_id = self._sanitize_id(child['id'])
-            child_name = child.get('name', 'Node')[:40]  # Truncate long names
+            raw_name = child.get('name', 'Node')[:40]  # Truncate long names
+            child_name = self._sanitize_label(raw_name)
             node_type = child.get('type', 'node')
 
             # Determine shape based on type
             if node_type == 'or':
-                icon = self.STRIDE_CATEGORIES.get(child_name, {}).get('icon', '⚡')
+                icon = self.STRIDE_CATEGORIES.get(raw_name, {}).get('icon', '⚡')
                 lines.append(f"    {child_id}((\"{icon} {child_name}\"))")
                 lines.append(f"    class {child_id} or")
             elif node_type == 'and':
-                lines.append(f"    {child_id}[[\"{child_name}\"]]]")
+                lines.append(f"    {child_id}[[\"{child_name}\"]]")
                 lines.append(f"    class {child_id} and")
             elif node_type == 'attack':
                 severity = child.get('severity', 'medium')
@@ -3076,7 +3095,7 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         for phase_id in phase_order:
             phase_info = phases.get(phase_id, {})
             node_id = self._sanitize_id(phase_id)
-            name = phase_info.get('name', phase_id)
+            name = self._sanitize_label(phase_info.get('name', phase_id))
             icon = phase_info.get('icon', '⚪')
             threat_count = len(phase_info.get('threats', []))
 
