@@ -2048,6 +2048,7 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
 function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
   const mermaidRef = useRef<HTMLDivElement>(null)
   const [mermaidSvg, setMermaidSvg] = useState<string>('')
+  const [renderError, setRenderError] = useState<string | null>(null)
 
   useEffect(() => {
     if (dfdData?.mermaid) {
@@ -2057,10 +2058,18 @@ function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
 
   const renderMermaid = async () => {
     try {
+      setRenderError(null)
+      // Clean up any existing error elements from Mermaid
+      document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
+
       const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, dfdData.mermaid)
       setMermaidSvg(svg)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to render mermaid:', error)
+      setRenderError('Unable to render diagram. The diagram syntax may be invalid.')
+      setMermaidSvg('')
+      // Clean up error elements that Mermaid may have added to the DOM
+      document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
     }
   }
 
@@ -2104,19 +2113,32 @@ function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
     )
   }
 
+  if (renderError) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+        <p className="text-gray-700 font-medium mb-2">Diagram Rendering Issue</p>
+        <p className="text-gray-500 text-sm">{renderError}</p>
+        <p className="text-gray-400 text-xs mt-2">The threat analysis is still available in the tabs above.</p>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="flex justify-end space-x-2 mb-4">
         <button
           onClick={downloadPNG}
-          className="inline-flex items-center px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          disabled={!mermaidSvg}
+          className="inline-flex items-center px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
         >
           <Download className="w-4 h-4 mr-2" />
           Export PNG
         </button>
         <button
           onClick={downloadSVG}
-          className="inline-flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          disabled={!mermaidSvg}
+          className="inline-flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
         >
           <Download className="w-4 h-4 mr-2" />
           Export SVG
@@ -2125,7 +2147,7 @@ function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
 
       <div
         ref={mermaidRef}
-        className="bg-white rounded-lg p-8 border border-gray-200 overflow-auto"
+        className="bg-white rounded-lg p-8 border border-gray-200 overflow-auto min-h-[200px]"
         dangerouslySetInnerHTML={{ __html: mermaidSvg }}
       />
 
