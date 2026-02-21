@@ -1,30 +1,25 @@
 FROM python:3.11-slim
 
-# Cache bust: 2026-02-04-v1-threat-model-timeout
-ARG CACHEBUST=20260204
-
 WORKDIR /app
 
-# Install system dependencies including curl for healthcheck and git for repo cloning
+# Install system dependencies (cached layer)
 RUN apt-get update && apt-get install -y \
     curl \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements (local path since build context is backend/)
+# Copy requirements first (cached layer - only rebuilds if requirements change)
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with pip cache for faster rebuilds
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
-# Copy application code (local path since build context is backend/)
+# Copy application code LAST (changes frequently)
 COPY . .
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data
-
-# Force cache bust with build timestamp
-RUN echo "Build: 2026-02-04-v2-timeout-fix" > /app/build_version.txt
 
 # Default port (Railway will override with PORT env var)
 ENV PORT=8000

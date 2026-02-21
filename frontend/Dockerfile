@@ -1,19 +1,16 @@
 # Build stage
 FROM node:18-alpine AS builder
 
-# Cache bust: 2026-02-20-force-rebuild-v2
-ARG CACHEBUST=2
-
 WORKDIR /app
 
-# Copy package files AND source to bust cache
+# Copy ONLY package files first (cached layer - only rebuilds if deps change)
 COPY package*.json ./
-COPY src ./src
 
-# Install dependencies (fresh)
-RUN rm -rf node_modules && npm ci --legacy-peer-deps
+# Install dependencies with cache mount for faster rebuilds
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --legacy-peer-deps
 
-# Copy application code
+# Copy application code AFTER deps are installed
 COPY . .
 
 # Build argument for API URL - MUST be set in Railway
