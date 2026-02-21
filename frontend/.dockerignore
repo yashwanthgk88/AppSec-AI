@@ -1,7 +1,13 @@
-# Node modules
+# Dependencies (will be installed fresh)
 node_modules
-npm-debug.log
-yarn-error.log
+
+# Build output (will be built fresh)
+dist
+
+# Development files
+.env
+.env.local
+.env.*.local
 
 # IDE
 .vscode
@@ -9,10 +15,6 @@ yarn-error.log
 *.swp
 *.swo
 *~
-
-# Environment
-.env
-.env.local
 
 # OS
 .DS_Store
@@ -26,3 +28,11 @@ Thumbs.db
 # Docs
 *.md
 LICENSE
+
+# Test and coverage
+coverage
+.nyc_output
+
+# Misc
+*.log
+npm-debug.log*
