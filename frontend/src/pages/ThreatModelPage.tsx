@@ -2801,16 +2801,16 @@ function DocumentUploadSection({
           <button
             onClick={analyzeDocuments}
             disabled={uploadedDocs.length === 0 || analyzingDocs}
-            className="btn btn-primary flex-1 inline-flex items-center justify-center space-x-2"
+            className="btn btn-primary px-6 py-3 text-base font-medium w-full inline-flex items-center justify-center space-x-2"
           >
             {analyzingDocs ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                <span>Analyzing...</span>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Analyzing Documents...</span>
               </>
             ) : (
               <>
-                <Eye className="w-4 h-4" />
+                <Eye className="w-5 h-5" />
                 <span>Analyze Documents</span>
               </>
             )}
