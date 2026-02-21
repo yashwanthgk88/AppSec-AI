@@ -19,9 +19,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install only runtime dependencies (curl for health checks)
+# Install runtime dependencies (curl for health checks, git for repo cloning)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
