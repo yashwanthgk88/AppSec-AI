@@ -22,6 +22,10 @@ def get_database_path():
 
 DATABASE_URL = os.getenv("DATABASE_URL", get_database_path())
 
+# Fix for Fly.io/Heroku postgres:// URLs - SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # Create engine
 engine = create_engine(
     DATABASE_URL,
