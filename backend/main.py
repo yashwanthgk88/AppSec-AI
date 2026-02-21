@@ -473,11 +473,18 @@ async def create_project(
             )
             logger.info(f"[Project Create] Threat model data keys: {threat_model_data.keys() if threat_model_data else 'None'}")
 
+            # Cache mermaid diagrams in dfd_data for fast loading
+            dfd_data_with_cache = dict(threat_model_data['dfd_data'])
+            dfd_level_0 = threat_model_data.get('dfd_level_0', {})
+            dfd_level_1 = threat_model_data.get('dfd_level_1', {})
+            dfd_data_with_cache['mermaid_level_0'] = dfd_level_0.get('mermaid', '')
+            dfd_data_with_cache['mermaid_level_1'] = dfd_level_1.get('mermaid', '')
+
             threat_model = ThreatModel(
                 project_id=project.id,
                 name=f"{project_data.name} Threat Model",
                 dfd_level=0,
-                dfd_data=threat_model_data['dfd_data'],
+                dfd_data=dfd_data_with_cache,
                 stride_analysis=threat_model_data['stride_analysis'],
                 mitre_mapping=threat_model_data['mitre_mapping'],
                 trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
@@ -982,10 +989,6 @@ async def get_threat_model(
     if not threat_model:
         raise HTTPException(status_code=404, detail="Threat model not found")
 
-    # Generate Mermaid diagrams for both levels
-    from services.threat_modeling import ThreatModelingService
-    tm_service = ThreatModelingService()
-
     dfd_level_0 = None
     dfd_level_1 = None
     components_count = 0
@@ -1000,23 +1003,33 @@ async def get_threat_model(
             data_flows_count = len(dfd_data.get('edges', []))
             trust_boundaries_count = len(dfd_data.get('trust_boundaries', []))
 
-            # Generate Level 0 (Context) diagram
-            mermaid_l0 = tm_service.generate_mermaid_dfd(threat_model.dfd_data, level=0)
-            dfd_level_0 = {
-                "level": 0,
-                "name": "Context Diagram",
-                "mermaid": mermaid_l0
-            }
+            # Check if mermaid diagrams are already cached in dfd_data
+            cached_mermaid_l0 = dfd_data.get('mermaid_level_0')
+            cached_mermaid_l1 = dfd_data.get('mermaid_level_1') or dfd_data.get('mermaid')
 
-            # Generate Level 1 (Detailed) diagram
-            mermaid_l1 = tm_service.generate_mermaid_dfd(threat_model.dfd_data, level=1)
-            dfd_level_1 = {
-                "level": 1,
-                "name": "Detailed Diagram",
-                "mermaid": mermaid_l1
-            }
+            if cached_mermaid_l0 and cached_mermaid_l1:
+                # Use cached diagrams (fast path)
+                dfd_level_0 = {"level": 0, "name": "Context Diagram", "mermaid": cached_mermaid_l0}
+                dfd_level_1 = {"level": 1, "name": "Detailed Diagram", "mermaid": cached_mermaid_l1}
+            else:
+                # Generate and cache diagrams (slow path - only on first access)
+                from services.threat_modeling import ThreatModelingService
+                tm_service = ThreatModelingService()
+
+                mermaid_l0 = tm_service.generate_mermaid_dfd(threat_model.dfd_data, level=0)
+                mermaid_l1 = tm_service.generate_mermaid_dfd(threat_model.dfd_data, level=1)
+
+                dfd_level_0 = {"level": 0, "name": "Context Diagram", "mermaid": mermaid_l0}
+                dfd_level_1 = {"level": 1, "name": "Detailed Diagram", "mermaid": mermaid_l1}
+
+                # Cache the diagrams for future requests
+                updated_dfd_data = dict(dfd_data)
+                updated_dfd_data['mermaid_level_0'] = mermaid_l0
+                updated_dfd_data['mermaid_level_1'] = mermaid_l1
+                threat_model.dfd_data = updated_dfd_data
+                db.commit()
         except Exception as e:
-            print(f"Error generating Mermaid diagrams: {e}")
+            print(f"Error with Mermaid diagrams: {e}")
 
     # Get enhanced analysis data
     fair_risk = threat_model.fair_risk_analysis or {}
@@ -1122,11 +1135,18 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
 
         threat_model_generation_status[project_id] = {"status": "in_progress", "step": "saving", "progress": 90}
 
+        # Combine dfd_data with both mermaid diagrams for caching
+        dfd_data_with_cache = dict(threat_model_data['dfd_data'])
+        dfd_level_0 = threat_model_data.get('dfd_level_0', {})
+        dfd_level_1 = threat_model_data.get('dfd_level_1', {})
+        dfd_data_with_cache['mermaid_level_0'] = dfd_level_0.get('mermaid', '')
+        dfd_data_with_cache['mermaid_level_1'] = dfd_level_1.get('mermaid', '')
+
         threat_model = ThreatModel(
             project_id=project_id,
             name=f"{project_name} Threat Model",
             dfd_level=0,
-            dfd_data=threat_model_data['dfd_data'],
+            dfd_data=dfd_data_with_cache,
             stride_analysis=threat_model_data['stride_analysis'],
             mitre_mapping=threat_model_data['mitre_mapping'],
             trust_boundaries=threat_model_data['dfd_data']['trust_boundaries'],
