@@ -1004,15 +1004,19 @@ async def get_threat_model(
             trust_boundaries_count = len(dfd_data.get('trust_boundaries', []))
 
             # Check if mermaid diagrams are already cached in dfd_data
+            # Version 2: Added label sanitization for special characters
+            DIAGRAM_CACHE_VERSION = 2
             cached_mermaid_l0 = dfd_data.get('mermaid_level_0')
             cached_mermaid_l1 = dfd_data.get('mermaid_level_1') or dfd_data.get('mermaid')
+            cached_version = dfd_data.get('mermaid_cache_version', 1)
 
-            if cached_mermaid_l0 and cached_mermaid_l1:
+            # Regenerate if cache is missing or outdated (pre-sanitization fix)
+            if cached_mermaid_l0 and cached_mermaid_l1 and cached_version >= DIAGRAM_CACHE_VERSION:
                 # Use cached diagrams (fast path)
                 dfd_level_0 = {"level": 0, "name": "Context Diagram", "mermaid": cached_mermaid_l0}
                 dfd_level_1 = {"level": 1, "name": "Detailed Diagram", "mermaid": cached_mermaid_l1}
             else:
-                # Generate and cache diagrams (slow path - only on first access)
+                # Generate and cache diagrams (slow path - regenerate with sanitization fix)
                 from services.threat_modeling import ThreatModelingService
                 tm_service = ThreatModelingService()
 
@@ -1022,12 +1026,14 @@ async def get_threat_model(
                 dfd_level_0 = {"level": 0, "name": "Context Diagram", "mermaid": mermaid_l0}
                 dfd_level_1 = {"level": 1, "name": "Detailed Diagram", "mermaid": mermaid_l1}
 
-                # Cache the diagrams for future requests
+                # Cache the diagrams for future requests with version
                 updated_dfd_data = dict(dfd_data)
                 updated_dfd_data['mermaid_level_0'] = mermaid_l0
                 updated_dfd_data['mermaid_level_1'] = mermaid_l1
+                updated_dfd_data['mermaid_cache_version'] = DIAGRAM_CACHE_VERSION
                 threat_model.dfd_data = updated_dfd_data
                 db.commit()
+                logger.info(f"[ThreatModel] Regenerated and cached diagrams for project {project_id} (v{DIAGRAM_CACHE_VERSION})")
         except Exception as e:
             print(f"Error with Mermaid diagrams: {e}")
 
