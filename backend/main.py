@@ -366,21 +366,6 @@ async def startup_event():
 async def health_check():
     return {"status": "healthy", "version": "1.0.0"}
 
-# Temporary database export endpoint (remove after migration)
-@app.get("/api/db-export/{secret_key}")
-async def export_database(secret_key: str):
-    """Temporary endpoint to export SQLite database for migration"""
-    import base64
-    expected_key = os.getenv("DB_EXPORT_KEY", "migrate-to-fly-2024")
-    if secret_key != expected_key:
-        raise HTTPException(status_code=403, detail="Invalid key")
-    db_path = "/app/data/appsec.db"
-    if not os.path.exists(db_path):
-        db_path = "./data/appsec.db"
-    if not os.path.exists(db_path):
-        raise HTTPException(status_code=404, detail="Database not found")
-    return FileResponse(db_path, filename="appsec.db", media_type="application/octet-stream")
-
 # AI Impact Service Status
 @app.get("/api/ai-impact/status")
 async def ai_impact_status():
