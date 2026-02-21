@@ -1,11 +1,12 @@
-app = "appsec-backend"
-primary_region = "sin"
+# fly.toml app configuration file generated for appsec-backend on 2026-02-21T23:50:11+05:30
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'appsec-backend'
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
-
-[env]
-  PORT = "8080"
 
 [http_service]
   internal_port = 8080
@@ -13,15 +14,14 @@ primary_region = "sin"
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ['app']
 
-[[http_service.checks]]
-  grace_period = "30s"
-  interval = "30s"
-  method = "GET"
-  path = "/health"
-  timeout = "10s"
+[mounts]
+  source = "appsec_data"
+  destination = "/app/data"
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 1024
