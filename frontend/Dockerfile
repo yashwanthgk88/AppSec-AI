@@ -6,9 +6,8 @@ WORKDIR /app
 # Copy ONLY package files first (cached layer - only rebuilds if deps change)
 COPY package*.json ./
 
-# Install dependencies with cache mount for faster rebuilds
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --legacy-peer-deps
+# Install dependencies
+RUN npm ci --legacy-peer-deps
 
 # Copy application code AFTER deps are installed
 COPY . .

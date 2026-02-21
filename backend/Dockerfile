@@ -11,9 +11,8 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first (cached layer - only rebuilds if requirements change)
 COPY requirements.txt .
 
-# Install Python dependencies with pip cache for faster rebuilds
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code LAST (changes frequently)
 COPY . .
