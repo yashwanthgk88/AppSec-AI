@@ -1,33 +1,41 @@
+# Build stage - install dependencies
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Production stage - minimal runtime
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (cached layer)
-RUN apt-get update && apt-get install -y \
+# Install only runtime dependencies (curl for health checks)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy requirements first (cached layer - only rebuilds if requirements change)
-COPY requirements.txt .
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code LAST (changes frequently)
+# Copy application code
 COPY . .
 
-# Create data directory for SQLite
+# Create data directory
 RUN mkdir -p /app/data
 
-# Default port (Railway will override with PORT env var)
 ENV PORT=8000
-
-# Expose port
 EXPOSE 8000
 
-# Fast startup: init DB, run migrations, start server
-CMD python3 -c "from models.database import init_db; init_db()" && \
-    python3 migrate_db.py 2>/dev/null || true && \
-    python3 init_custom_rules_sqlite.py && \
-    gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120
+# Fast startup
+CMD ["sh", "-c", "python3 -c 'from models.database import init_db; init_db()' && python3 migrate_db.py 2>/dev/null || true && python3 init_custom_rules_sqlite.py && gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120"]
