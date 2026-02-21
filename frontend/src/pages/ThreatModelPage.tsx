@@ -127,6 +127,7 @@ export default function ThreatModelPage() {
   const [currentStep, setCurrentStep] = useState(0)
   const [generationComplete, setGenerationComplete] = useState(false)
   const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample' | 'docs'>('select')
+  const [selectedComponent, setSelectedComponent] = useState<any>(null)
 
   // Toast notifications
   const { toasts, addToast, removeToast, warning, error: showError, info } = useToast()
@@ -147,6 +148,20 @@ export default function ThreatModelPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper to get all threats from stride_analysis
+  const getAllThreats = () => {
+    if (!threatModel?.stride_analysis) return []
+    const allThreats: any[] = []
+    Object.entries(threatModel.stride_analysis).forEach(([category, threats]: [string, any]) => {
+      if (Array.isArray(threats)) {
+        threats.forEach((threat: any) => {
+          allThreats.push({ ...threat, stride_category: category })
+        })
+      }
+    })
+    return allThreats
   }
 
   // Poll status endpoint for generation progress
@@ -984,9 +999,21 @@ export default function ThreatModelPage() {
           <MermaidDiagram
             dfdData={currentDFD}
             level={selectedLevel}
+            onComponentClick={(comp) => setSelectedComponent(comp)}
+            nodes={threatModel.dfd_data?.nodes || []}
           />
         )}
       </div>
+
+      {/* Component Details Panel */}
+      {selectedComponent && (
+        <ComponentDetailsPanel
+          component={selectedComponent}
+          threats={getAllThreats()}
+          edges={threatModel.dfd_data?.edges || []}
+          onClose={() => setSelectedComponent(null)}
+        />
+      )}
 
       {/* Eraser AI Professional Diagrams */}
       {threatModel.eraser_diagrams?.enabled && (
@@ -2045,7 +2072,14 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
   )
 }
 
-function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
+interface MermaidDiagramProps {
+  dfdData: any;
+  level: number;
+  onComponentClick?: (component: any) => void;
+  nodes?: any[];
+}
+
+function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: MermaidDiagramProps) {
   const mermaidRef = useRef<HTMLDivElement>(null)
   const [mermaidSvg, setMermaidSvg] = useState<string>('')
   const [renderError, setRenderError] = useState<string | null>(null)
@@ -2055,6 +2089,53 @@ function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
       renderMermaid()
     }
   }, [dfdData, level])
+
+  // Add click handlers to SVG nodes after rendering
+  useEffect(() => {
+    if (mermaidSvg && mermaidRef.current && onComponentClick && nodes.length > 0) {
+      addClickHandlers()
+    }
+  }, [mermaidSvg, nodes])
+
+  const addClickHandlers = () => {
+    if (!mermaidRef.current) return
+
+    // Find all node elements in the SVG
+    const svgElement = mermaidRef.current.querySelector('svg')
+    if (!svgElement) return
+
+    // Add click handlers to all node groups
+    const nodeGroups = svgElement.querySelectorAll('.node, [class*="flowchart-"]')
+    nodeGroups.forEach((nodeEl) => {
+      const nodeId = nodeEl.id || nodeEl.getAttribute('data-id')
+      if (!nodeId) return
+
+      // Extract the component ID (remove mermaid prefixes)
+      const cleanId = nodeId.replace(/^flowchart-/, '').replace(/-\d+$/, '')
+
+      // Find matching node in our data
+      const matchingNode = nodes.find(n =>
+        n.id === cleanId ||
+        n.id.replace(/[^a-zA-Z0-9_]/g, '_') === cleanId ||
+        cleanId.includes(n.id.replace(/[^a-zA-Z0-9_]/g, '_'))
+      )
+
+      if (matchingNode) {
+        nodeEl.setAttribute('style', 'cursor: pointer;')
+        nodeEl.addEventListener('click', (e) => {
+          e.stopPropagation()
+          onComponentClick(matchingNode)
+        })
+        // Add hover effect
+        nodeEl.addEventListener('mouseenter', () => {
+          (nodeEl as HTMLElement).style.opacity = '0.8'
+        })
+        nodeEl.addEventListener('mouseleave', () => {
+          (nodeEl as HTMLElement).style.opacity = '1'
+        })
+      }
+    })
+  }
 
   const renderMermaid = async () => {
     try {
@@ -2177,9 +2258,231 @@ function MermaidDiagram({ dfdData, level }: { dfdData: any; level: number }) {
             'Context diagram showing the system as a single process with external entities' :
             'Detailed diagram showing internal processes, data stores, and data flows with trust boundaries'}
         </p>
+        {onComponentClick && nodes.length > 0 && (
+          <p className="text-sm text-blue-600 mt-2 flex items-center gap-1">
+            <Info className="w-4 h-4" />
+            Click on any component in the diagram to view its security controls and associated threats.
+          </p>
+        )}
       </div>
     </div>
   )
+}
+
+// Component Details Panel - Shows when a component is clicked in the diagram
+interface ComponentDetailsPanelProps {
+  component: any;
+  threats: any[];
+  edges: any[];
+  onClose: () => void;
+}
+
+function ComponentDetailsPanel({ component, threats, edges, onClose }: ComponentDetailsPanelProps) {
+  if (!component) return null;
+
+  // Find threats that affect this component
+  const componentThreats = threats.filter(threat =>
+    threat.target_component === component.id ||
+    threat.affected_components?.includes(component.id) ||
+    threat.target_component?.toLowerCase().includes(component.label?.toLowerCase()) ||
+    threat.target?.toLowerCase().includes(component.label?.toLowerCase())
+  );
+
+  // Find data flows involving this component
+  const relatedFlows = edges.filter(edge =>
+    edge.source === component.id || edge.target === component.id
+  );
+
+  // Security controls based on component properties
+  const securityControls: string[] = [];
+  if (component.encrypted) securityControls.push('Encryption Enabled');
+  if (component.authenticated) securityControls.push('Authentication Required');
+  if (!component.internet_facing) securityControls.push('Internal Only');
+  if (component.handles_sensitive_data) securityControls.push('Handles Sensitive Data');
+  if (component.trust_level === 'trusted') securityControls.push('Trusted Component');
+
+  // Recommended controls based on component type
+  const recommendedControls: string[] = [];
+  if (component.type === 'external' || component.internet_facing) {
+    recommendedControls.push('Input Validation', 'Rate Limiting', 'Web Application Firewall');
+  }
+  if (component.type === 'datastore' || component.category === 'database') {
+    recommendedControls.push('Encryption at Rest', 'Access Control Lists', 'Backup & Recovery');
+  }
+  if (component.handles_sensitive_data) {
+    recommendedControls.push('Data Masking', 'Audit Logging', 'Data Loss Prevention');
+  }
+  if (component.category === 'authentication') {
+    recommendedControls.push('MFA', 'Account Lockout', 'Secure Session Management');
+  }
+  if (component.category === 'api') {
+    recommendedControls.push('API Gateway', 'OAuth/JWT', 'Request Throttling');
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-end z-50">
+      <div className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-xl">
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">{component.label || component.name}</h3>
+            <p className="text-sm text-gray-500 capitalize">{component.type} - {component.category}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-6">
+          {/* Component Properties */}
+          <section>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Info className="w-4 h-4" />
+              Component Properties
+            </h4>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <span className="text-xs text-gray-500">Technology</span>
+                <p className="text-sm font-medium">{component.technology || 'Not specified'}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <span className="text-xs text-gray-500">Trust Level</span>
+                <p className="text-sm font-medium capitalize">{component.trust_level || 'Unknown'}</p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <span className="text-xs text-gray-500">Internet Facing</span>
+                <p className={`text-sm font-medium ${component.internet_facing ? 'text-red-600' : 'text-green-600'}`}>
+                  {component.internet_facing ? 'Yes' : 'No'}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <span className="text-xs text-gray-500">Sensitive Data</span>
+                <p className={`text-sm font-medium ${component.handles_sensitive_data ? 'text-orange-600' : 'text-green-600'}`}>
+                  {component.handles_sensitive_data ? 'Yes' : 'No'}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Current Security Controls */}
+          <section>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Shield className="w-4 h-4" />
+              Current Security Controls
+            </h4>
+            {securityControls.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {securityControls.map((control, idx) => (
+                  <span key={idx} className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                    {control}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 italic">No security controls detected</p>
+            )}
+          </section>
+
+          {/* Recommended Controls */}
+          <section>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <CheckCircle className="w-4 h-4" />
+              Recommended Controls
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {recommendedControls.map((control, idx) => (
+                <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
+                  {control}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* Data Flows */}
+          {relatedFlows.length > 0 && (
+            <section>
+              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <Route className="w-4 h-4" />
+                Data Flows ({relatedFlows.length})
+              </h4>
+              <div className="space-y-2">
+                {relatedFlows.map((flow, idx) => (
+                  <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className={flow.source === component.id ? 'font-semibold' : ''}>
+                        {flow.source}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                      <span className={flow.target === component.id ? 'font-semibold' : ''}>
+                        {flow.target}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{flow.label}</span>
+                      <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{flow.protocol}</span>
+                      {flow.encrypted && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Encrypted
+                        </span>
+                      )}
+                      {flow.authenticated && (
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                          Authenticated
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Associated Threats */}
+          <section>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Associated Threats ({componentThreats.length})
+            </h4>
+            {componentThreats.length > 0 ? (
+              <div className="space-y-2">
+                {componentThreats.slice(0, 10).map((threat, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-start justify-between">
+                      <span className="text-sm font-medium">{threat.name || threat.threat}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        threat.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                        threat.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                        threat.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {threat.severity}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
+                    {threat.stride_category && (
+                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mt-2 inline-block">
+                        {threat.stride_category}
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {componentThreats.length > 10 && (
+                  <p className="text-sm text-gray-500 text-center">
+                    +{componentThreats.length - 10} more threats
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 italic">No specific threats identified for this component</p>
+            )}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ThreatCard({

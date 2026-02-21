@@ -171,16 +171,19 @@ export const ThreatHistoryPanel: React.FC<ThreatHistoryPanelProps> = ({
         Version History
       </h3>
       <div className="space-y-1">
-        {versions.map((version) => (
+        {versions.map((version, index) => (
           <VersionCard
             key={version.id}
             version={version}
+            previousVersion={versions[index + 1]} // Previous version in the sorted list
             isExpanded={expandedVersion === version.id}
             isCurrent={currentVersionId === version.id}
             onToggle={() => setExpandedVersion(
               expandedVersion === version.id ? null : version.id
             )}
             onSelect={() => onVersionSelect?.(version.id)}
+            projectId={projectId}
+            token={token}
           />
         ))}
       </div>
@@ -190,19 +193,29 @@ export const ThreatHistoryPanel: React.FC<ThreatHistoryPanelProps> = ({
 
 interface VersionCardProps {
   version: ArchitectureVersion;
+  previousVersion?: ArchitectureVersion;
   isExpanded: boolean;
   isCurrent: boolean;
   onToggle: () => void;
   onSelect: () => void;
+  projectId: number;
+  token: string;
 }
 
 const VersionCard: React.FC<VersionCardProps> = ({
   version,
+  previousVersion,
   isExpanded,
   isCurrent,
   onToggle,
-  onSelect
+  onSelect,
+  projectId,
+  token
 }) => {
+  const [showDiff, setShowDiff] = useState(false);
+  const [diffData, setDiffData] = useState<any>(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
@@ -216,6 +229,26 @@ const VersionCard: React.FC<VersionCardProps> = ({
     if (score >= 0.7) return 'text-red-600 bg-red-50';
     if (score >= 0.4) return 'text-yellow-600 bg-yellow-50';
     return 'text-green-600 bg-green-50';
+  };
+
+  const loadDiff = async () => {
+    if (!previousVersion || diffData) return;
+    setLoadingDiff(true);
+    try {
+      const data = await fetchVersionDiff(projectId, previousVersion.id, version.id, token);
+      setDiffData(data);
+    } catch (e) {
+      console.error('Failed to load diff:', e);
+    } finally {
+      setLoadingDiff(false);
+    }
+  };
+
+  const handleToggleDiff = async () => {
+    if (!showDiff && !diffData) {
+      await loadDiff();
+    }
+    setShowDiff(!showDiff);
   };
 
   const summary = version.change_summary;
@@ -335,15 +368,116 @@ const VersionCard: React.FC<VersionCardProps> = ({
             </div>
           )}
 
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
-            className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-medium"
-          >
-            View this version
-          </button>
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect();
+              }}
+              className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            >
+              View this version
+            </button>
+
+            {previousVersion && (
+              <>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleDiff();
+                  }}
+                  className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                >
+                  <GitBranch className="w-3 h-3" />
+                  {showDiff ? 'Hide diff' : 'Compare with v' + previousVersion.version_number}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Diff Display */}
+          {showDiff && previousVersion && (
+            <div className="mt-3 border border-purple-200 rounded-lg bg-purple-50/50 p-3">
+              <div className="flex items-center gap-2 text-xs text-purple-700 font-medium mb-2">
+                <GitBranch className="w-3 h-3" />
+                Changes from v{previousVersion.version_number} → v{version.version_number}
+              </div>
+
+              {loadingDiff ? (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Activity className="w-3 h-3 animate-spin" />
+                  Loading diff...
+                </div>
+              ) : diffData ? (
+                <div className="space-y-2">
+                  {/* Security Impact */}
+                  {diffData.has_security_relevant_changes && (
+                    <div className="flex items-center gap-1 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                      <AlertCircle className="w-3 h-3" />
+                      Security-relevant changes detected
+                    </div>
+                  )}
+
+                  {/* Impact Score */}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">Impact Score:</span>
+                    <span className={`font-medium ${
+                      diffData.impact_score >= 0.7 ? 'text-red-600' :
+                      diffData.impact_score >= 0.4 ? 'text-yellow-600' : 'text-green-600'
+                    }`}>
+                      {(diffData.impact_score * 100).toFixed(0)}%
+                    </span>
+                  </div>
+
+                  {/* Change Counts */}
+                  {diffData.diff && (
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div className="bg-green-100 text-green-700 px-2 py-1 rounded text-center">
+                        +{diffData.diff.added_components?.length || 0} added
+                      </div>
+                      <div className="bg-red-100 text-red-700 px-2 py-1 rounded text-center">
+                        -{diffData.diff.removed_components?.length || 0} removed
+                      </div>
+                      <div className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-center">
+                        ~{diffData.diff.modified_components?.length || 0} modified
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Threat Changes */}
+                  {diffData.threat_changes && (
+                    <div className="border-t border-purple-200 pt-2 mt-2">
+                      <span className="text-xs font-medium text-purple-700">Threat Changes:</span>
+                      <div className="grid grid-cols-4 gap-1 mt-1 text-xs">
+                        <div className="bg-green-100 text-green-700 px-1 py-0.5 rounded text-center">
+                          {diffData.threat_changes.new || 0} new
+                        </div>
+                        <div className="bg-gray-100 text-gray-600 px-1 py-0.5 rounded text-center">
+                          {diffData.threat_changes.existing || 0} same
+                        </div>
+                        <div className="bg-yellow-100 text-yellow-700 px-1 py-0.5 rounded text-center">
+                          {diffData.threat_changes.modified || 0} mod
+                        </div>
+                        <div className="bg-blue-100 text-blue-700 px-1 py-0.5 rounded text-center">
+                          {diffData.threat_changes.resolved || 0} fixed
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Description */}
+                  {diffData.description && (
+                    <p className="text-xs text-gray-600 italic mt-2">
+                      {diffData.description}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">No diff data available</p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
