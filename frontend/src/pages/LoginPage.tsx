@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Shield, Lock, Mail } from 'lucide-react'
-import axios from 'axios'
+import axios from '../config/axios'
+import { API_URL } from '../config/api'
 
 interface LoginPageProps {
   onLogin: (token: string) => void
