@@ -3493,14 +3493,45 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         project_id: int,
         limit: int = 10
     ) -> List[Dict]:
-        """Get architecture version history for a project."""
-        from models.models import ArchitectureVersion
+        """Get architecture version history for a project with user details and threat counts."""
+        from models.models import ArchitectureVersion, ThreatHistory, User
+
         versions = db_session.query(ArchitectureVersion).filter(
             ArchitectureVersion.project_id == project_id
         ).order_by(ArchitectureVersion.version_number.desc()).limit(limit).all()
 
-        return [
-            {
+        result = []
+        for v in versions:
+            # Get user info if available
+            user_info = None
+            if v.created_by:
+                user = db_session.query(User).filter(User.id == v.created_by).first()
+                if user:
+                    user_info = {
+                        'id': user.id,
+                        'username': user.username,
+                        'email': user.email
+                    }
+
+            # Get threat counts for this version
+            threat_stats = {'new': 0, 'existing': 0, 'modified': 0, 'resolved': 0, 'total': 0}
+            threats = db_session.query(ThreatHistory).filter(
+                ThreatHistory.architecture_version_id == v.id
+            ).all()
+            for t in threats:
+                threat_stats['total'] += 1
+                if t.status:
+                    status_key = t.status.value if hasattr(t.status, 'value') else str(t.status)
+                    if status_key in threat_stats:
+                        threat_stats[status_key] += 1
+
+            # Get mermaid diagram preview from architecture snapshot
+            diagram_preview = None
+            if v.architecture_snapshot:
+                arch = v.architecture_snapshot if isinstance(v.architecture_snapshot, dict) else {}
+                diagram_preview = arch.get('mermaid_level_0') or arch.get('mermaid')
+
+            result.append({
                 'id': v.id,
                 'version_number': v.version_number,
                 'architecture_hash': v.architecture_hash,
@@ -3508,10 +3539,13 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
                 'change_description': v.change_description,
                 'impact_score': v.impact_score,
                 'created_at': v.created_at.isoformat() if v.created_at else None,
-                'created_by': v.created_by
-            }
-            for v in versions
-        ]
+                'created_by': v.created_by,
+                'user': user_info,
+                'threat_stats': threat_stats,
+                'diagram_preview': diagram_preview
+            })
+
+        return result
 
     def get_threat_timeline(
         self,

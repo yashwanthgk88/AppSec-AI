@@ -10,11 +10,29 @@ import {
   AlertCircle,
   CheckCircle,
   Plus,
-  Minus
+  Minus,
+  User,
+  Shield,
+  TrendingUp,
+  Sparkles
 } from 'lucide-react';
 import { ThreatStatusBadge, ThreatStatus } from './ThreatStatusBadge';
 
 // Types
+interface UserInfo {
+  id: number;
+  username: string;
+  email: string;
+}
+
+interface ThreatStats {
+  new: number;
+  existing: number;
+  modified: number;
+  resolved: number;
+  total: number;
+}
+
 interface ArchitectureVersion {
   id: number;
   version_number: number;
@@ -34,6 +52,9 @@ interface ArchitectureVersion {
   impact_score: number;
   created_at: string;
   created_by?: number;
+  user?: UserInfo;
+  threat_stats?: ThreatStats;
+  diagram_preview?: string;
 }
 
 interface ThreatTimelineEntry {
@@ -198,6 +219,8 @@ const VersionCard: React.FC<VersionCardProps> = ({
   };
 
   const summary = version.change_summary;
+  const stats = version.threat_stats;
+  const user = version.user;
 
   return (
     <div
@@ -206,37 +229,75 @@ const VersionCard: React.FC<VersionCardProps> = ({
       }`}
     >
       <div
-        className="p-3 cursor-pointer flex items-center justify-between"
+        className="p-3 cursor-pointer"
         onClick={onToggle}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-900">
               Version {version.version_number}
-              {isCurrent && (
-                <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                  Current
-                </span>
-              )}
             </span>
-            <span className="text-xs text-gray-500 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatDate(version.created_at)}
-            </span>
+            {isCurrent && (
+              <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                Current
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {summary && summary.total_changes > 0 && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${getImpactColor(version.impact_score)}`}>
+                {summary.total_changes} changes
+              </span>
+            )}
+            {isExpanded ? (
+              <ChevronUp className="w-4 h-4 text-gray-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-gray-400" />
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {summary && summary.total_changes > 0 && (
-            <span className={`text-xs px-2 py-0.5 rounded-full ${getImpactColor(version.impact_score)}`}>
-              {summary.total_changes} changes
+
+        {/* User and timestamp row */}
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            {formatDate(version.created_at)}
+          </span>
+          {user && (
+            <span className="flex items-center gap-1">
+              <User className="w-3 h-3" />
+              {user.username || user.email}
             </span>
           )}
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-gray-400" />
-          )}
         </div>
+
+        {/* Threat stats badges */}
+        {stats && stats.total > 0 && (
+          <div className="flex items-center gap-2 mt-2">
+            <Shield className="w-3 h-3 text-gray-400" />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                {stats.total} threats
+              </span>
+              {stats.new > 0 && (
+                <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  {stats.new} new
+                </span>
+              )}
+              {stats.modified > 0 && (
+                <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                  {stats.modified} modified
+                </span>
+              )}
+              {stats.resolved > 0 && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+                  {stats.resolved} resolved
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {isExpanded && (
@@ -247,7 +308,7 @@ const VersionCard: React.FC<VersionCardProps> = ({
 
           {summary && (
             <div className="space-y-2">
-              {summary.added_components.length > 0 && (
+              {summary.added_components?.length > 0 && (
                 <ChangeSummaryItem
                   icon={<Plus className="w-3 h-3 text-green-600" />}
                   label="Added"
@@ -255,7 +316,7 @@ const VersionCard: React.FC<VersionCardProps> = ({
                   color="green"
                 />
               )}
-              {summary.removed_components.length > 0 && (
+              {summary.removed_components?.length > 0 && (
                 <ChangeSummaryItem
                   icon={<Minus className="w-3 h-3 text-red-600" />}
                   label="Removed"
@@ -263,7 +324,7 @@ const VersionCard: React.FC<VersionCardProps> = ({
                   color="red"
                 />
               )}
-              {summary.modified_components.length > 0 && (
+              {summary.modified_components?.length > 0 && (
                 <ChangeSummaryItem
                   icon={<AlertCircle className="w-3 h-3 text-yellow-600" />}
                   label="Modified"
