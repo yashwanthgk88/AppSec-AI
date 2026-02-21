@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Architecture Diagram</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        h1 { color: #333; text-align: center; }
+        .diagram { display: flex; flex-direction: column; gap: 20px; }
+        .layer { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
+        .box { padding: 15px 25px; border-radius: 8px; text-align: center; min-width: 120px; }
+        .external { background: #e3f2fd; border: 2px solid #1976d2; }
+        .frontend { background: #fff3e0; border: 2px solid #f57c00; }
+        .gateway { background: #fce4ec; border: 2px solid #c2185b; }
+        .service { background: #e8f5e9; border: 2px solid #388e3c; }
+        .data { background: #f3e5f5; border: 2px solid #7b1fa2; }
+        .arrow { text-align: center; font-size: 24px; color: #666; }
+        .label { font-size: 12px; color: #666; margin-top: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Banking Application Architecture</h1>
+
+        <div class="diagram">
+            <div class="label">External Users</div>
+            <div class="layer">
+                <div class="box external">Mobile App<br><small>iOS/Android</small></div>
+                <div class="box external">Web Browser<br><small>React SPA</small></div>
+                <div class="box external">Partner APIs<br><small>B2B Integration</small></div>
+            </div>
+
+            <div class="arrow">&#8595;</div>
+
+            <div class="label">Edge Layer (DMZ)</div>
+            <div class="layer">
+                <div class="box gateway">CDN<br><small>CloudFront</small></div>
+                <div class="box gateway">WAF<br><small>AWS WAF</small></div>
+                <div class="box gateway">API Gateway<br><small>Kong</small></div>
+            </div>
+
+            <div class="arrow">&#8595;</div>
+
+            <div class="label">Application Layer</div>
+            <div class="layer">
+                <div class="box service">Auth Service<br><small>OAuth2/JWT</small></div>
+                <div class="box service">Account Service<br><small>Core Banking</small></div>
+                <div class="box service">Payment Service<br><small>Transfers</small></div>
+                <div class="box service">Fraud Detection<br><small>ML Model</small></div>
+            </div>
+
+            <div class="arrow">&#8595;</div>
+
+            <div class="label">Data Layer</div>
+            <div class="layer">
+                <div class="box data">PostgreSQL<br><small>Transactions</small></div>
+                <div class="box data">Redis<br><small>Session Cache</small></div>
+                <div class="box data">Kafka<br><small>Event Bus</small></div>
+                <div class="box data">Vault<br><small>Secrets</small></div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 15px; background: #fff9c4; border-radius: 8px;">
+            <strong>Security Controls:</strong>
+            <ul>
+                <li>TLS 1.3 encryption for all connections</li>
+                <li>OAuth2 + MFA for authentication</li>
+                <li>PCI-DSS compliant payment processing</li>
+                <li>Real-time fraud detection with ML</li>
+                <li>Database encryption at rest (AES-256)</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

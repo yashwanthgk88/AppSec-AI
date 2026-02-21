@@ -2,7 +2,8 @@ from models.database import Base, engine, get_db, init_db
 from models.models import (
     User, Project, Scan, Vulnerability, ThreatModel, ChatMessage,
     ScanType, SeverityLevel, ScanStatus, SystemSettings,
-    ProfileStatus, SuggestionStatus, ApplicationProfile, SuggestedRule
+    ProfileStatus, SuggestionStatus, ApplicationProfile, SuggestedRule,
+    ArchitectureVersion, ThreatHistory, ThreatStatus
 )
 
 __all__ = [
@@ -24,4 +25,7 @@ __all__ = [
     "SuggestionStatus",
     "ApplicationProfile",
     "SuggestedRule",
+    "ArchitectureVersion",
+    "ThreatHistory",
+    "ThreatStatus",
 ]

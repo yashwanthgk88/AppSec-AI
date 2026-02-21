@@ -46,6 +46,7 @@ def init_db():
     """Initialize database tables"""
     from models.models import (
         User, Project, Scan, Vulnerability, ThreatModel, ChatMessage,
-        SystemSettings, ApplicationProfile, SuggestedRule, PromptFeedback
+        SystemSettings, ApplicationProfile, SuggestedRule, PromptFeedback,
+        ArchitectureVersion, ThreatHistory
     )
     Base.metadata.create_all(bind=engine)
