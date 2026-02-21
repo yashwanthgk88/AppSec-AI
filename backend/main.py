@@ -1886,26 +1886,34 @@ async def analyze_documents_for_architecture(
         # Initialize document analysis service with user's AI config
         from services.document_analysis_service import DocumentAnalysisService
 
+        logger.info(f"[DocAnalysis] Starting analysis for project {project_id}, files: {len(file_contents)}")
+
         ai_config = get_user_ai_config(current_user)
+        logger.info(f"[DocAnalysis] AI config: provider={ai_config.provider if ai_config else 'None'}, has_key={bool(ai_config.api_key) if ai_config else False}")
+
         analysis_service = DocumentAnalysisService(ai_config=ai_config)
 
         if not analysis_service.enabled:
+            logger.warning(f"[DocAnalysis] Service not enabled - AI not configured")
             raise HTTPException(
                 status_code=400,
-                detail="AI service not configured. Please configure your AI provider in settings."
+                detail="AI service not configured. Please configure your AI provider in Settings > AI Configuration."
             )
+
+        logger.info(f"[DocAnalysis] Service enabled, starting analysis...")
 
         # Analyze all documents
         result = await analysis_service.analyze_documents(file_contents)
 
         if not result.get("success"):
+            logger.warning(f"[DocAnalysis] Analysis failed: {result.get('error')}")
             raise HTTPException(
                 status_code=400,
                 detail=result.get("error", "Failed to analyze documents")
             )
 
         logger.info(
-            f"Analyzed {result.get('documents_analyzed', 0)} documents for project {project_id}: "
+            f"[DocAnalysis] Analyzed {result.get('documents_analyzed', 0)} documents for project {project_id}: "
             f"{result.get('components_found', 0)} components found"
         )
 
@@ -1914,8 +1922,10 @@ async def analyze_documents_for_architecture(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to analyze documents: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        logger.error(f"[DocAnalysis] Exception: {e}")
+        logger.error(f"[DocAnalysis] Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Document analysis failed: {str(e)}")
 
 
 @app.post("/api/projects/{project_id}/architecture/merge")
