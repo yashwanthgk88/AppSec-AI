@@ -199,6 +199,40 @@ def reload_ai_services(new_config):
 
     print(f"[AI Services] Reloaded with provider={new_config.provider}, model={new_config.model}")
 
+
+def get_user_ai_config(user: User):
+    """Get AI configuration for a specific user.
+
+    Checks user's personal AI settings first, falls back to global config.
+    """
+    from services.ai_client_factory import AIConfig, get_global_ai_config
+
+    # Check if user has personal AI configuration
+    if user.ai_api_key and user.ai_provider:
+        return AIConfig(
+            provider=user.ai_provider,
+            api_key=user.ai_api_key,
+            model=user.ai_model,
+            base_url=user.ai_base_url,
+            api_version=user.ai_api_version
+        )
+
+    # Fall back to global configuration
+    global_config = get_global_ai_config()
+
+    # If user has a provider preference but no key, use global key with user's provider
+    if user.ai_provider and global_config and global_config.api_key:
+        return AIConfig(
+            provider=user.ai_provider,
+            api_key=global_config.api_key,
+            model=user.ai_model or global_config.model,
+            base_url=user.ai_base_url or global_config.base_url,
+            api_version=user.ai_api_version or global_config.api_version
+        )
+
+    return global_config
+
+
 # Pydantic Schemas
 class UserCreate(BaseModel):
     email: EmailStr
