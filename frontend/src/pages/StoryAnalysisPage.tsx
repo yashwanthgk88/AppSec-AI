@@ -461,8 +461,8 @@ export default function StoryAnalysisPage() {
               </h3>
             </div>
             <div className="divide-y divide-gray-100">
-              {analysis.abuse_cases.map((abuse) => (
-                <div key={abuse.id} className="p-4 hover:bg-gray-50">
+              {analysis.abuse_cases.map((abuse, index) => (
+                <div key={`abuse-${index}-${abuse.id}`} className="p-4 hover:bg-gray-50">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
