@@ -2120,7 +2120,7 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
         cleanId.includes(n.id.replace(/[^a-zA-Z0-9_]/g, '_'))
       )
 
-      if (matchingNode) {
+      if (matchingNode && onComponentClick) {
         nodeEl.setAttribute('style', 'cursor: pointer;')
         nodeEl.addEventListener('click', (e) => {
           e.stopPropagation()
