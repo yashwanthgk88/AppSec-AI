@@ -33,7 +33,15 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Initialize database and start server with dynamic port
-CMD python3 -c "from models.database import init_db; init_db(); print('Database initialized')" && \
-    python3 migrate_db.py || echo "Migration skipped" && \
+CMD echo "=== Starting AppSec Platform ===" && \
+    echo "PORT=$PORT" && \
+    echo "PWD=$(pwd)" && \
+    ls -la && \
+    echo "=== Initializing Database ===" && \
+    python3 -c "from models.database import init_db; init_db(); print('Database initialized successfully')" && \
+    echo "=== Running Migrations ===" && \
+    python3 migrate_db.py || echo "Migration skipped (may already be applied)" && \
+    echo "=== Initializing Custom Rules ===" && \
     python3 init_custom_rules_sqlite.py && \
-    gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120
+    echo "=== Starting Gunicorn ===" && \
+    gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120 --log-level info --access-logfile - --error-logfile -
