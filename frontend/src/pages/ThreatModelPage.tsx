@@ -21,12 +21,13 @@ mermaid.initialize({
   theme: 'default',
   securityLevel: 'loose',
   flowchart: {
-    useMaxWidth: true,
+    useMaxWidth: false,
     htmlLabels: true,
     curve: 'basis',
-    padding: 15,
-    nodeSpacing: 50,
-    rankSpacing: 50
+    padding: 20,
+    nodeSpacing: 60,
+    rankSpacing: 80,
+    diagramPadding: 20
   }
 })
 
@@ -2228,7 +2229,8 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
 
       <div
         ref={mermaidRef}
-        className="bg-white rounded-lg p-8 border border-gray-200 overflow-auto min-h-[200px]"
+        className="bg-white rounded-lg p-8 border border-gray-200 overflow-auto min-h-[400px] max-h-[600px]"
+        style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}
         dangerouslySetInnerHTML={{ __html: mermaidSvg }}
       />
 
