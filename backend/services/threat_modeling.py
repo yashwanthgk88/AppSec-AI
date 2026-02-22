@@ -1370,7 +1370,7 @@ For each component, determine the most appropriate category from: api, database,
 
     def generate_mermaid_dfd(self, dfd_data: Dict[str, Any], level: int = 0) -> str:
         """Generate professional Mermaid DFD with proper styling"""
-        lines = ["graph LR"]
+        lines = ["graph TD"]
 
         # Enhanced styling
         lines.extend([

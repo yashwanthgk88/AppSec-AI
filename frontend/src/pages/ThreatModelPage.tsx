@@ -2146,14 +2146,9 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
 
       const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, dfdData.mermaid)
 
-      // Fix SVG sizing - remove max-width constraint and ensure proper display
-      const fixedSvg = svg
-        .replace(/max-width:\s*[\d.]+px;?/gi, '')
-        .replace(/style="([^"]*)"/i, (match: string, styles: string) => {
-          // Add proper sizing styles
-          const newStyles = styles.replace(/height:\s*[\d.]+px;?/gi, '').replace(/width:\s*[\d.]+px;?/gi, '')
-          return `style="${newStyles} width: 100%; height: auto; min-height: 400px;"`
-        })
+      // Keep SVG at natural size - don't force width to 100%
+      // Just remove max-width constraint that Mermaid adds
+      const fixedSvg = svg.replace(/max-width:\s*[\d.]+px;?/gi, '')
 
       setMermaidSvg(fixedSvg)
     } catch (error: any) {
@@ -2239,20 +2234,13 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
 
       <div
         ref={mermaidRef}
-        className="bg-white rounded-lg p-4 border border-gray-200 overflow-x-auto overflow-y-auto"
+        className="bg-white rounded-lg p-4 border border-gray-200 overflow-auto"
         style={{
-          minHeight: '500px',
-          maxHeight: '80vh'
+          minHeight: '400px',
+          maxHeight: '70vh'
         }}
         dangerouslySetInnerHTML={{ __html: mermaidSvg }}
       />
-      <style>{`
-        #mermaidRef svg {
-          min-width: 100%;
-          height: auto !important;
-          max-width: none !important;
-        }
-      `}</style>
 
       {/* Legend */}
       <div className="flex items-center justify-center space-x-8 mt-6">
