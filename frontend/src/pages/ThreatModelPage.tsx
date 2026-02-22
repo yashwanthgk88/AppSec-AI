@@ -2557,9 +2557,26 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
       document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
 
       // Use focused mermaid if in focus mode
-      const mermaidCode = focusMode && focusedNode
+      let mermaidCode = focusMode && focusedNode
         ? generateFocusedMermaid(focusedNode)
         : dfdData.mermaid
+
+      // Validate mermaid code exists
+      if (!mermaidCode || typeof mermaidCode !== 'string' || mermaidCode.trim().length === 0) {
+        console.warn('No mermaid code available, generating fallback')
+        // Generate a simple fallback diagram from nodes
+        if (nodes && nodes.length > 0) {
+          mermaidCode = generateSimpleFallbackDiagram()
+        } else {
+          setRenderError('No diagram data available. Please regenerate the threat model.')
+          return
+        }
+      }
+
+      // Sanitize mermaid code - fix common issues
+      mermaidCode = sanitizeMermaidCode(mermaidCode)
+
+      console.log('Rendering mermaid diagram, code length:', mermaidCode.length)
 
       const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, mermaidCode)
 
@@ -2570,11 +2587,105 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
       setMermaidSvg(fixedSvg)
     } catch (error: any) {
       console.error('Failed to render mermaid:', error)
+      console.error('Mermaid code that failed:', dfdData?.mermaid?.substring(0, 500))
+
+      // Try fallback diagram
+      try {
+        const fallbackCode = generateSimpleFallbackDiagram()
+        if (fallbackCode) {
+          const { svg } = await mermaid.render(`mermaid-fallback-${Date.now()}`, fallbackCode)
+          setMermaidSvg(svg.replace(/max-width:\s*[\d.]+px;?/gi, ''))
+          setRenderError(null)
+          return
+        }
+      } catch (fallbackError) {
+        console.error('Fallback diagram also failed:', fallbackError)
+      }
+
       setRenderError('Unable to render diagram. The diagram syntax may be invalid.')
       setMermaidSvg('')
       // Clean up error elements that Mermaid may have added to the DOM
       document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
     }
+  }
+
+  // Sanitize mermaid code to fix common syntax issues
+  const sanitizeMermaidCode = (code: string): string => {
+    if (!code) return ''
+
+    let sanitized = code
+
+    // Remove problematic characters that can break mermaid
+    sanitized = sanitized.replace(/[""'']/g, '"')  // Normalize quotes
+    sanitized = sanitized.replace(/\r\n/g, '\n')   // Normalize line endings
+    sanitized = sanitized.replace(/\t/g, '    ')   // Replace tabs with spaces
+
+    // Fix double pipes which break edge labels
+    sanitized = sanitized.replace(/\|\|/g, '|')
+
+    // Remove any null/undefined that might have been stringified
+    sanitized = sanitized.replace(/null|undefined/gi, '')
+
+    // Ensure classDef lines are valid
+    sanitized = sanitized.split('\n').map(line => {
+      // Skip classDef lines that have syntax issues
+      if (line.trim().startsWith('classDef') && (line.includes('undefined') || line.includes('null'))) {
+        return '    %% ' + line.trim()  // Comment out problematic classDef
+      }
+      return line
+    }).join('\n')
+
+    return sanitized
+  }
+
+  // Generate a simple fallback diagram from nodes
+  const generateSimpleFallbackDiagram = (): string => {
+    if (!nodes || nodes.length === 0) return ''
+
+    const lines = ['graph TD']
+    lines.push('    %% Fallback diagram generated from nodes')
+    lines.push('    classDef external fill:#fee2e2,stroke:#dc2626,stroke-width:2px')
+    lines.push('    classDef process fill:#dbeafe,stroke:#2563eb,stroke-width:2px')
+    lines.push('    classDef datastore fill:#d1fae5,stroke:#059669,stroke-width:2px')
+    lines.push('')
+
+    // Add nodes (limit to 15 for readability)
+    const limitedNodes = nodes.slice(0, 15)
+    limitedNodes.forEach(node => {
+      const id = (node.id || 'node').replace(/[^a-zA-Z0-9_]/g, '_')
+      const label = (node.label || node.name || node.id || 'Node').replace(/["']/g, '')
+      const type = node.type || 'process'
+
+      if (type === 'external') {
+        lines.push(`    ${id}["🌐 ${label}"]`)
+      } else if (type === 'datastore') {
+        lines.push(`    ${id}[("💾 ${label}")]`)
+      } else {
+        lines.push(`    ${id}("📦 ${label}")`)
+      }
+      lines.push(`    class ${id} ${type}`)
+    })
+
+    // Add edges (limit to 20)
+    if (edges && edges.length > 0) {
+      lines.push('')
+      const limitedEdges = edges.slice(0, 20)
+      limitedEdges.forEach(edge => {
+        const source = (edge.source || '').replace(/[^a-zA-Z0-9_]/g, '_')
+        const target = (edge.target || '').replace(/[^a-zA-Z0-9_]/g, '_')
+        const label = (edge.label || '').replace(/["'|]/g, '').substring(0, 30)
+
+        if (source && target) {
+          if (label) {
+            lines.push(`    ${source} -->|"${label}"| ${target}`)
+          } else {
+            lines.push(`    ${source} --> ${target}`)
+          }
+        }
+      })
+    }
+
+    return lines.join('\n')
   }
 
   const downloadPNG = async () => {
