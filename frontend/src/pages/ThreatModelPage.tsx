@@ -3702,45 +3702,75 @@ function DocumentUploadSection({
           <>
             {/* Show warning if no components extracted */}
             {(!extractedFromDocs.components || extractedFromDocs.components.length === 0) && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start space-x-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">No Components Extracted</p>
-                  <p className="text-sm text-yellow-700 mt-1">
-                    Could not extract architecture components from the uploaded documents.
-                    Try uploading clearer diagrams or documents with more detailed architecture descriptions.
-                  </p>
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-800">No Components Extracted</p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      The AI couldn't automatically extract architecture components from your document.
+                      This can happen with:
+                    </p>
+                    <ul className="text-sm text-yellow-700 mt-2 list-disc list-inside space-y-1">
+                      <li>Hand-drawn or low-quality diagrams</li>
+                      <li>Non-standard diagram formats</li>
+                      <li>Documents without clear component labels</li>
+                    </ul>
+                    <p className="text-sm text-yellow-800 font-medium mt-3">
+                      You can use the Architecture Builder to manually define your components:
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowDocUploadModal(false)
+                      setShowArchitectureEditor(true)
+                    }}
+                    className="btn btn-primary inline-flex items-center justify-center space-x-2"
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span>Open Architecture Builder</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setExtractedFromDocs(null)
+                      setUploadedDocs([])
+                    }}
+                    className="btn btn-secondary inline-flex items-center justify-center space-x-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Upload Different File</span>
+                  </button>
                 </div>
               </div>
             )}
 
-            <div className="flex space-x-3">
-              {/* Re-analyze button */}
-              <button
-                onClick={() => {
-                  setExtractedFromDocs(null)
-                  setUploadedDocs([])
-                }}
-                className="btn btn-secondary inline-flex items-center justify-center space-x-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>Try Again</span>
-              </button>
+            {/* Show action buttons only if components were found */}
+            {extractedFromDocs.components && extractedFromDocs.components.length > 0 && (
+              <div className="flex space-x-3">
+                {/* Re-analyze button */}
+                <button
+                  onClick={() => {
+                    setExtractedFromDocs(null)
+                    setUploadedDocs([])
+                  }}
+                  className="btn btn-secondary inline-flex items-center justify-center space-x-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Try Again</span>
+                </button>
 
-              {/* Generate button - disabled if no components */}
-              <button
-                onClick={() => onGenerateThreatModel(extractedFromDocs)}
-                disabled={!extractedFromDocs.components || extractedFromDocs.components.length === 0}
-                className={`btn flex-1 inline-flex items-center justify-center space-x-2 ${
-                  extractedFromDocs.components && extractedFromDocs.components.length > 0
-                    ? 'btn-primary'
-                    : 'btn-secondary opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <Zap className="w-4 h-4" />
-                <span>Generate Threat Model</span>
-              </button>
-            </div>
+                {/* Generate button */}
+                <button
+                  onClick={() => onGenerateThreatModel(extractedFromDocs)}
+                  className="btn btn-primary flex-1 inline-flex items-center justify-center space-x-2"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>Generate Threat Model</span>
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
