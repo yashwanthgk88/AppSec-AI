@@ -1992,6 +1992,16 @@ async def analyze_documents_for_architecture(
             f"{result.get('components_found', 0)} components found"
         )
 
+        # Add diagnostic info if no components found
+        if result.get('components_found', 0) == 0:
+            result['diagnostic'] = {
+                'ai_provider': analysis_service.provider,
+                'ai_enabled': analysis_service.enabled,
+                'files_processed': len(file_contents),
+                'suggestion': 'Try uploading a clearer architecture diagram (PNG/JPG) or a document with detailed component descriptions.'
+            }
+            logger.warning(f"[DocAnalysis] No components extracted. AI provider: {analysis_service.provider}, enabled: {analysis_service.enabled}")
+
         return result
 
     except HTTPException:

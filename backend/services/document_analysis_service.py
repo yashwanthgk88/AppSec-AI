@@ -827,11 +827,14 @@ Extract as much detail as possible from the text."""
 
     def analyze_text_with_ai(self, text_content: str) -> Dict[str, Any]:
         """Analyze text content using AI to extract architecture information."""
+        logger.info(f"[DocAnalysis] analyze_text_with_ai called, text length: {len(text_content)}")
+
         if not self.enabled or not self._ai_client:
-            logger.warning("AI client not available for text analysis")
+            logger.warning("[DocAnalysis] AI client not available for text analysis")
             return {}
 
         if not text_content.strip():
+            logger.warning("[DocAnalysis] Empty text content provided")
             return {}
 
         try:
@@ -839,6 +842,7 @@ Extract as much detail as possible from the text."""
             max_chars = 15000
             if len(text_content) > max_chars:
                 text_content = text_content[:max_chars] + "\n...[truncated]..."
+                logger.info(f"[DocAnalysis] Text truncated to {max_chars} chars")
 
             messages = [
                 {
@@ -847,21 +851,33 @@ Extract as much detail as possible from the text."""
                 }
             ]
 
+            logger.info(f"[DocAnalysis] Sending text to AI for analysis...")
             response = self._ai_client.chat_completion(
                 messages=messages,
                 max_tokens=4000
             )
 
             response_text = response.get('content', '')
+            logger.info(f"[DocAnalysis] AI response length: {len(response_text)} chars")
+            logger.debug(f"[DocAnalysis] AI response preview: {response_text[:500]}...")
 
             # Extract JSON from response
             json_match = re.search(r'\{[\s\S]*\}', response_text)
             if json_match:
-                return json.loads(json_match.group())
+                result = json.loads(json_match.group())
+                logger.info(f"[DocAnalysis] Parsed JSON with {len(result.get('components', []))} components")
+                return result
+            else:
+                logger.warning(f"[DocAnalysis] No JSON found in AI response: {response_text[:200]}...")
 
             return {}
+        except json.JSONDecodeError as e:
+            logger.error(f"[DocAnalysis] Failed to parse AI response as JSON: {e}")
+            return {}
         except Exception as e:
-            logger.error(f"Failed to analyze text with AI: {e}")
+            logger.error(f"[DocAnalysis] Failed to analyze text with AI: {e}")
+            import traceback
+            logger.error(f"[DocAnalysis] Traceback: {traceback.format_exc()}")
             return {}
 
     def analyze_document(
@@ -871,10 +887,17 @@ Extract as much detail as possible from the text."""
         content_type: str
     ) -> ExtractedContent:
         """Analyze a single document and extract architecture information."""
+        logger.info(f"[DocAnalysis] Starting analysis of {filename} ({content_type}, {len(content)} bytes)")
+        logger.info(f"[DocAnalysis] AI enabled: {self.enabled}, provider: {self.provider}")
+
         extracted = ExtractedContent(
             filename=filename,
             file_type=content_type
         )
+
+        if not self.enabled:
+            logger.warning(f"[DocAnalysis] AI not enabled, cannot analyze document")
+            return extracted
 
         # Determine document type and process accordingly
         if content_type.startswith('image/'):
@@ -913,16 +936,18 @@ Extract as much detail as possible from the text."""
 
         elif content_type == 'application/pdf':
             # Extract text from PDF and check if it's scanned
-            logger.info(f"Analyzing PDF: {filename}")
+            logger.info(f"[DocAnalysis] Analyzing PDF: {filename}")
             text, is_scanned = self.extract_text_from_pdf(content)
             extracted.text_content = text
+            logger.info(f"[DocAnalysis] PDF text extraction: {len(text)} chars, is_scanned={is_scanned}")
 
             if is_scanned:
                 # Scanned PDF - use OCR via AI vision
-                logger.info(f"PDF appears to be scanned, performing OCR: {filename}")
+                logger.info(f"[DocAnalysis] PDF appears to be scanned/image-based, performing OCR via AI vision")
                 extracted.is_diagram = True
 
                 ocr_analysis = self.analyze_scanned_pdf(content)
+                logger.info(f"[DocAnalysis] OCR analysis result: {len(ocr_analysis.get('components', []))} components found")
 
                 if ocr_analysis:
                     # Combine OCR text with any extracted text
@@ -940,10 +965,15 @@ Extract as much detail as possible from the text."""
                         f"{f.get('source_id', '')} -> {f.get('target_id', '')}"
                         for f in ocr_analysis.get('data_flows', [])
                     ]
+                else:
+                    logger.warning(f"[DocAnalysis] OCR analysis returned empty result")
             else:
                 # Text-based PDF - analyze text content
+                logger.info(f"[DocAnalysis] PDF has extractable text, analyzing with AI...")
                 if text:
+                    logger.info(f"[DocAnalysis] Text content preview: {text[:500]}...")
                     analysis = self.analyze_text_with_ai(text)
+                    logger.info(f"[DocAnalysis] Text analysis result: {len(analysis.get('components', []))} components found")
                     extracted.diagram_analysis = analysis
                     if analysis:
                         extracted.components_found = [
@@ -953,6 +983,10 @@ Extract as much detail as possible from the text."""
                             f"{f.get('source_id', '')} -> {f.get('target_id', '')}"
                             for f in analysis.get('data_flows', [])
                         ]
+                    else:
+                        logger.warning(f"[DocAnalysis] Text analysis returned empty result")
+                else:
+                    logger.warning(f"[DocAnalysis] No text extracted from PDF")
 
         elif 'wordprocessingml' in content_type or content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
             # Extract text and embedded images from DOCX
