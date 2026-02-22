@@ -1368,9 +1368,30 @@ For each component, determine the most appropriate category from: api, database,
             "trust_boundaries": parsed_arch.get('trust_boundaries', [])
         }
 
-    def generate_mermaid_dfd(self, dfd_data: Dict[str, Any], level: int = 0) -> str:
-        """Generate professional Mermaid DFD with proper styling"""
+    def generate_mermaid_dfd(self, dfd_data: Dict[str, Any], level: int = 0, max_nodes: int = 20) -> str:
+        """Generate professional Mermaid DFD with proper styling - simplified for readability"""
         lines = ["graph TD"]
+
+        # Limit nodes for readability - prioritize external entities, datastores, and key processes
+        all_nodes = dfd_data.get('nodes', [])
+        if len(all_nodes) > max_nodes:
+            # Prioritize: external entities, datastores, then processes
+            external = [n for n in all_nodes if n.get('type') == 'external']
+            datastores = [n for n in all_nodes if n.get('type') == 'datastore']
+            processes = [n for n in all_nodes if n.get('type') not in ['external', 'datastore']]
+
+            # Take all external and datastores, fill rest with processes
+            limited_nodes = external + datastores
+            remaining = max_nodes - len(limited_nodes)
+            if remaining > 0:
+                limited_nodes += processes[:remaining]
+
+            dfd_data = {**dfd_data, 'nodes': limited_nodes}
+
+            # Filter edges to only include nodes we're showing
+            node_ids = {n['id'] for n in limited_nodes}
+            dfd_data['edges'] = [e for e in dfd_data.get('edges', [])
+                                 if e.get('source') in node_ids and e.get('target') in node_ids]
 
         # Enhanced styling
         lines.extend([
