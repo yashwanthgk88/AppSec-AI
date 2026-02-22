@@ -35,8 +35,10 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # Copy built application from builder stage (includes downloads)
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Verify the extension file is present
-RUN ls -la /usr/share/nginx/html/downloads/
+# Verify the extension file is present (v2.0.0 - rebuild Feb 23 2025)
+RUN ls -la /usr/share/nginx/html/downloads/ && \
+    test -f /usr/share/nginx/html/downloads/appsec-ai-scanner-2.0.0.vsix && \
+    echo "VSIX v2.0.0 verified successfully"
 
 # Default port (Railway will override with PORT env var)
 ENV PORT=80
