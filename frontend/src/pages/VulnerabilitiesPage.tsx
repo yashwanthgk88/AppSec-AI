@@ -45,31 +45,207 @@ function parseScaDependencyType(vulnerability: any): { isTransitive: boolean; in
   return { isTransitive, introducedBy, dependencyChain }
 }
 
-// Helper function to extract CVE IDs from SCA vulnerability
-function parseScaCveIds(vulnerability: any): string[] {
-  if (vulnerability.scan_type !== 'sca') return []
+// Helper function to extract CVE and GHSA IDs from SCA vulnerability
+function parseScaVulnIds(vulnerability: any): { cves: string[]; ghsas: string[]; others: string[] } {
+  if (vulnerability.scan_type !== 'sca') return { cves: [], ghsas: [], others: [] }
 
   const codeSnippet = vulnerability.code_snippet || ''
   const title = vulnerability.title || ''
   const description = vulnerability.description || ''
+  const allText = `${codeSnippet} ${title} ${description}`
 
-  // Extract CVE from code_snippet: "CVE: CVE-2021-3749" or "CVE: CVE-2020-8203, CVE-2019-10744"
+  const cves: string[] = []
+  const ghsas: string[] = []
+  const others: string[] = []
+
+  // Extract CVE from code_snippet: "CVE: CVE-2021-3749, CVE-2020-8203"
   const cveMatch = codeSnippet.match(/CVE:\s*([^\n]+)/i)
   if (cveMatch) {
-    const cveStr = cveMatch[1]
-    // Parse comma-separated CVEs
-    const cves = cveStr.split(/[,\s]+/).filter((s: string) => s.startsWith('CVE-'))
-    if (cves.length > 0) return cves
+    cveMatch[1].split(/[,\s]+/).forEach((s: string) => {
+      if (s.startsWith('CVE-') && !cves.includes(s)) cves.push(s)
+    })
   }
 
-  // Also check title and description for CVE patterns
-  const allText = `${title} ${description}`
-  const cvePatterns = allText.match(/CVE-\d{4}-\d{4,}/g)
-  if (cvePatterns) {
-    return [...new Set(cvePatterns)]
+  // Extract GHSA from code_snippet: "GHSA: GHSA-xxxx-xxxx-xxxx"
+  const ghsaMatch = codeSnippet.match(/GHSA:\s*([^\n]+)/i)
+  if (ghsaMatch) {
+    ghsaMatch[1].split(/[,\s]+/).forEach((s: string) => {
+      if (s.startsWith('GHSA-') && !ghsas.includes(s)) ghsas.push(s)
+    })
   }
 
-  return []
+  // Also search all text for CVE/GHSA patterns
+  const cvePatterns = allText.match(/CVE-\d{4}-\d{4,}/g) || []
+  cvePatterns.forEach((cve: string) => {
+    if (!cves.includes(cve)) cves.push(cve)
+  })
+
+  const ghsaPatterns = allText.match(/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/gi) || []
+  ghsaPatterns.forEach((ghsa: string) => {
+    if (!ghsas.includes(ghsa)) ghsas.push(ghsa)
+  })
+
+  return { cves, ghsas, others }
+}
+
+// Get all vulnerability IDs (CVE + GHSA)
+function parseScaCveIds(vulnerability: any): string[] {
+  const { cves, ghsas } = parseScaVulnIds(vulnerability)
+  return [...cves, ...ghsas]
+}
+
+// Live CVE Panel - Fetches real-time CVE data from NVD/OSV
+function LiveCvePanel({ packageName, version, ecosystem, existingCves }: {
+  packageName: string
+  version: string
+  ecosystem: string
+  existingCves: string[]
+}) {
+  const [loading, setLoading] = useState(false)
+  const [liveCves, setLiveCves] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [fetched, setFetched] = useState(false)
+
+  const fetchLiveCves = async () => {
+    if (!packageName) return
+    setLoading(true)
+    setError(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `/api/sca/cve/live/${encodeURIComponent(packageName)}`,
+        {
+          params: { version, ecosystem },
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      )
+
+      if (response.data.success) {
+        setLiveCves(response.data.vulnerabilities || [])
+      } else {
+        setError(response.data.error || 'Failed to fetch CVE data')
+      }
+      setFetched(true)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || 'Failed to fetch live CVE data')
+      setFetched(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Combine existing CVEs with live CVEs
+  const allCveIds = new Set<string>()
+  existingCves.forEach(c => allCveIds.add(c))
+  liveCves.forEach(v => {
+    (v.cve_ids || []).forEach((c: string) => allCveIds.add(c))
+    if (v.ghsa_ids) v.ghsa_ids.forEach((g: string) => allCveIds.add(g))
+  })
+
+  const cveArray = Array.from(allCveIds)
+  const cveIds = cveArray.filter(c => c.startsWith('CVE-'))
+  const ghsaIds = cveArray.filter(c => c.startsWith('GHSA-'))
+
+  return (
+    <div className="bg-red-50 rounded-lg p-4 border border-red-200 mt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <Shield className="w-5 h-5 text-red-600" />
+          <p className="text-sm text-red-800 font-semibold">CVE Identifiers (Live from NVD/OSV)</p>
+        </div>
+        {!fetched && (
+          <button
+            onClick={fetchLiveCves}
+            disabled={loading || !packageName}
+            className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <Globe className="w-3 h-3 mr-1" />
+                Fetch Live CVEs
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-600 mb-2">{error}</p>
+      )}
+
+      {cveIds.length > 0 || ghsaIds.length > 0 ? (
+        <>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {cveIds.map((cve, idx) => (
+              <a
+                key={idx}
+                href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-100 text-red-800 hover:bg-red-200 border border-red-300 transition-colors"
+              >
+                <Shield className="w-4 h-4 mr-2" />
+                {cve}
+                <ExternalLink className="w-4 h-4 ml-2" />
+              </a>
+            ))}
+            {ghsaIds.map((ghsa, idx) => (
+              <a
+                key={idx}
+                href={`https://github.com/advisories/${ghsa}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-300 transition-colors"
+              >
+                <Github className="w-4 h-4 mr-2" />
+                {ghsa}
+                <ExternalLink className="w-4 h-4 ml-2" />
+              </a>
+            ))}
+          </div>
+          <p className="text-xs text-red-600">
+            Click to view full vulnerability details on NVD or GitHub Advisory
+          </p>
+        </>
+      ) : fetched ? (
+        <p className="text-sm text-gray-600">No CVE identifiers found. Click "Fetch Live CVEs" to query real-time databases.</p>
+      ) : (
+        <p className="text-sm text-gray-600">Click "Fetch Live CVEs" to get real-time vulnerability data from NVD and OSV.</p>
+      )}
+
+      {/* Show live vulnerability details */}
+      {liveCves.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-red-700 font-semibold">Live Vulnerability Details:</p>
+          {liveCves.slice(0, 5).map((vuln, idx) => (
+            <div key={idx} className="bg-white rounded p-2 border border-red-100 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-red-800">{vuln.id || vuln.cve_ids?.[0] || 'Unknown'}</span>
+                <span className={`px-2 py-0.5 rounded ${
+                  vuln.severity === 'CRITICAL' ? 'bg-red-600 text-white' :
+                  vuln.severity === 'HIGH' ? 'bg-orange-500 text-white' :
+                  vuln.severity === 'MEDIUM' ? 'bg-yellow-500 text-white' :
+                  'bg-gray-400 text-white'
+                }`}>
+                  {vuln.severity || 'UNKNOWN'}
+                </span>
+              </div>
+              {vuln.summary && <p className="text-gray-600 mt-1 line-clamp-2">{vuln.summary}</p>}
+            </div>
+          ))}
+          {liveCves.length > 5 && (
+            <p className="text-xs text-gray-500">+{liveCves.length - 5} more vulnerabilities</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Dependency Type Badge component
@@ -1246,36 +1422,12 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                 </div>
 
                 {/* CVE Information - Prominently displayed for SCA */}
-                {(() => {
-                  const cves = parseScaCveIds(vulnerability)
-                  if (cves.length === 0) return null
-                  return (
-                    <div className="bg-red-50 rounded-lg p-4 border border-red-200 mt-4">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <Shield className="w-5 h-5 text-red-600" />
-                        <p className="text-sm text-red-800 font-semibold">Associated CVE Identifiers</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {cves.map((cve, idx) => (
-                          <a
-                            key={idx}
-                            href={`https://nvd.nist.gov/vuln/detail/${cve}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-100 text-red-800 hover:bg-red-200 border border-red-300 transition-colors"
-                          >
-                            <Shield className="w-4 h-4 mr-2" />
-                            {cve}
-                            <ExternalLink className="w-4 h-4 ml-2" />
-                          </a>
-                        ))}
-                      </div>
-                      <p className="text-xs text-red-600 mt-2">
-                        Click to view full vulnerability details on NVD (National Vulnerability Database)
-                      </p>
-                    </div>
-                  )
-                })()}
+                <LiveCvePanel
+                  packageName={scaInfo?.package || vulnerability.title?.split(' in ')[1]?.trim() || ''}
+                  version={scaInfo?.version || ''}
+                  ecosystem={vulnerability.file_path?.includes('npm') ? 'npm' : vulnerability.file_path?.includes('pip') ? 'pip' : 'npm'}
+                  existingCves={parseScaCveIds(vulnerability)}
+                />
               </div>
             )
           })()}

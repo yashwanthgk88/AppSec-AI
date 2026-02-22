@@ -718,8 +718,44 @@ async def create_project(
             if dependency_path and len(dependency_path) > 1:
                 path_str = " → ".join([p.split('@')[0] for p in dependency_path])
                 code_snippet_parts.append(f"Dependency chain: {path_str}")
+
+            # Collect all CVE/GHSA identifiers from multiple possible fields
+            vuln_ids = []
             if finding.get('cve'):
-                code_snippet_parts.append(f"CVE: {finding.get('cve')}")
+                cve_val = finding.get('cve')
+                if isinstance(cve_val, list):
+                    vuln_ids.extend(cve_val)
+                else:
+                    vuln_ids.append(cve_val)
+            if finding.get('all_cves'):
+                vuln_ids.extend(finding.get('all_cves', []))
+            if finding.get('cve_ids'):
+                vuln_ids.extend(finding.get('cve_ids', []))
+            if finding.get('vulnerability_id') and finding.get('vulnerability_id') not in vuln_ids:
+                vuln_ids.append(finding.get('vulnerability_id'))
+            if finding.get('aliases'):
+                for alias in finding.get('aliases', []):
+                    if alias.startswith(('CVE-', 'GHSA-')) and alias not in vuln_ids:
+                        vuln_ids.append(alias)
+
+            # Remove duplicates while preserving order, prioritize CVE over GHSA
+            seen = set()
+            unique_ids = []
+            for vid in vuln_ids:
+                if vid and vid not in seen:
+                    seen.add(vid)
+                    unique_ids.append(vid)
+            # Sort to put CVE first, then GHSA
+            cve_ids = [v for v in unique_ids if v.startswith('CVE-')]
+            ghsa_ids = [v for v in unique_ids if v.startswith('GHSA-')]
+            other_ids = [v for v in unique_ids if not v.startswith(('CVE-', 'GHSA-'))]
+
+            if cve_ids:
+                code_snippet_parts.append(f"CVE: {', '.join(cve_ids)}")
+            if ghsa_ids:
+                code_snippet_parts.append(f"GHSA: {', '.join(ghsa_ids)}")
+            if other_ids:
+                code_snippet_parts.append(f"ID: {', '.join(other_ids)}")
             if fixed_version_str and 'upgrade' not in fixed_version_str.lower():
                 code_snippet_parts.append(f"Fixed in: {fixed_version_str}")
 
@@ -5523,6 +5559,215 @@ async def scan_with_realtime_cves(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Real-time CVE scan failed: {str(e)}")
+
+
+@app.get("/api/sca/cve/live/{package}")
+async def get_live_cve_for_package(
+    package: str,
+    version: str = None,
+    ecosystem: str = "npm",
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Fetch live CVE data for a specific package from NVD, OSV, and GitHub Advisory.
+
+    This queries real-time vulnerability databases and returns all known CVEs.
+
+    Args:
+        package: Package name (e.g., "lodash", "axios")
+        version: Optional version to filter applicable vulnerabilities
+        ecosystem: Package ecosystem (npm, pip, maven, nuget, go, cargo)
+
+    Returns:
+        Live CVE data including CVE IDs, severity, description, and references
+    """
+    try:
+        from services.realtime_cve_service import get_realtime_cve_service
+
+        cve_service = get_realtime_cve_service()
+        if not cve_service:
+            # Fallback to OSV API directly
+            import httpx
+
+            osv_ecosystems = {
+                'npm': 'npm', 'pip': 'PyPI', 'maven': 'Maven',
+                'nuget': 'NuGet', 'go': 'Go', 'cargo': 'crates.io'
+            }
+
+            osv_ecosystem = osv_ecosystems.get(ecosystem, ecosystem)
+
+            payload = {"package": {"name": package, "ecosystem": osv_ecosystem}}
+            if version:
+                payload["version"] = version
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    "https://api.osv.dev/v1/query",
+                    json=payload
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    vulns = data.get("vulns", [])
+
+                    cves = []
+                    for vuln in vulns:
+                        cve_ids = [a for a in vuln.get("aliases", []) if a.startswith("CVE-")]
+                        ghsa_ids = [a for a in vuln.get("aliases", []) if a.startswith("GHSA-")]
+
+                        cves.append({
+                            "id": vuln.get("id"),
+                            "cve_ids": cve_ids,
+                            "ghsa_ids": ghsa_ids,
+                            "summary": vuln.get("summary", ""),
+                            "details": vuln.get("details", ""),
+                            "severity": vuln.get("severity", [{}])[0].get("type", "UNKNOWN") if vuln.get("severity") else "UNKNOWN",
+                            "cvss_score": None,
+                            "published": vuln.get("published"),
+                            "modified": vuln.get("modified"),
+                            "references": [ref.get("url") for ref in vuln.get("references", [])[:5]],
+                            "affected_versions": [
+                                {
+                                    "range": r.get("events", []),
+                                    "fixed": next((e.get("fixed") for e in r.get("events", []) if "fixed" in e), None)
+                                }
+                                for r in vuln.get("affected", [{}])[0].get("ranges", [])
+                            ] if vuln.get("affected") else [],
+                            "source": "OSV"
+                        })
+
+                    return {
+                        "success": True,
+                        "package": package,
+                        "version": version,
+                        "ecosystem": ecosystem,
+                        "vulnerabilities": cves,
+                        "total_count": len(cves),
+                        "sources_queried": ["OSV"]
+                    }
+                else:
+                    return {
+                        "success": True,
+                        "package": package,
+                        "version": version,
+                        "ecosystem": ecosystem,
+                        "vulnerabilities": [],
+                        "total_count": 0,
+                        "sources_queried": ["OSV"],
+                        "message": "No vulnerabilities found"
+                    }
+
+        # Use real-time CVE service if available
+        vulns = await cve_service.query_vulnerabilities(package, version or "*", ecosystem)
+
+        return {
+            "success": True,
+            "package": package,
+            "version": version,
+            "ecosystem": ecosystem,
+            "vulnerabilities": vulns,
+            "total_count": len(vulns),
+            "sources_queried": ["OSV", "NVD", "GitHub Advisory"]
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "package": package,
+            "error": str(e),
+            "vulnerabilities": []
+        }
+
+
+@app.get("/api/cve/{cve_id}")
+async def get_cve_details(
+    cve_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Fetch detailed information about a specific CVE from NVD.
+
+    Args:
+        cve_id: CVE identifier (e.g., "CVE-2021-44228")
+
+    Returns:
+        Detailed CVE information including CVSS scores, references, and affected products
+    """
+    import httpx
+
+    if not cve_id.startswith("CVE-"):
+        raise HTTPException(status_code=400, detail="Invalid CVE ID format")
+
+    try:
+        # Query NVD API
+        nvd_api_key = os.getenv("NVD_API_KEY", "")
+        headers = {"apiKey": nvd_api_key} if nvd_api_key else {}
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"https://services.nvd.nist.gov/rest/json/cves/2.0",
+                params={"cveId": cve_id},
+                headers=headers
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                vulns = data.get("vulnerabilities", [])
+
+                if vulns:
+                    cve_data = vulns[0].get("cve", {})
+
+                    # Extract CVSS scores
+                    metrics = cve_data.get("metrics", {})
+                    cvss_v31 = metrics.get("cvssMetricV31", [{}])[0] if metrics.get("cvssMetricV31") else {}
+                    cvss_v30 = metrics.get("cvssMetricV30", [{}])[0] if metrics.get("cvssMetricV30") else {}
+                    cvss_v2 = metrics.get("cvssMetricV2", [{}])[0] if metrics.get("cvssMetricV2") else {}
+
+                    cvss_data = cvss_v31.get("cvssData", {}) or cvss_v30.get("cvssData", {}) or cvss_v2.get("cvssData", {})
+
+                    # Extract descriptions
+                    descriptions = cve_data.get("descriptions", [])
+                    description = next((d.get("value") for d in descriptions if d.get("lang") == "en"), "")
+
+                    # Extract CWEs
+                    weaknesses = cve_data.get("weaknesses", [])
+                    cwe_ids = []
+                    for weakness in weaknesses:
+                        for desc in weakness.get("description", []):
+                            if desc.get("value", "").startswith("CWE-"):
+                                cwe_ids.append(desc.get("value"))
+
+                    return {
+                        "success": True,
+                        "cve_id": cve_id,
+                        "description": description,
+                        "severity": cvss_data.get("baseSeverity", "UNKNOWN"),
+                        "cvss_score": cvss_data.get("baseScore"),
+                        "cvss_vector": cvss_data.get("vectorString"),
+                        "cwe_ids": cwe_ids,
+                        "published": cve_data.get("published"),
+                        "modified": cve_data.get("lastModified"),
+                        "references": [ref.get("url") for ref in cve_data.get("references", [])[:10]],
+                        "source": "NVD",
+                        "nvd_url": f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+                    }
+
+            return {
+                "success": False,
+                "cve_id": cve_id,
+                "error": "CVE not found in NVD",
+                "nvd_url": f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "cve_id": cve_id,
+            "error": str(e),
+            "nvd_url": f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+        }
 
 
 if __name__ == "__main__":
