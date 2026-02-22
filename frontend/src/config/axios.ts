@@ -8,6 +8,9 @@ import { API_URL } from './api';
 // Configure axios defaults
 axios.defaults.baseURL = API_URL;
 
+// Debug log (remove in production if needed)
+console.log('[Axios Config] API_URL:', API_URL);
+
 // Add request interceptor to include auth token
 axios.interceptors.request.use(
   (config) => {
