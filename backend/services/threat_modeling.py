@@ -1370,7 +1370,7 @@ For each component, determine the most appropriate category from: api, database,
 
     def generate_mermaid_dfd(self, dfd_data: Dict[str, Any], level: int = 0) -> str:
         """Generate professional Mermaid DFD with proper styling"""
-        lines = ["graph TB"]
+        lines = ["graph LR"]
 
         # Enhanced styling
         lines.extend([
@@ -1394,7 +1394,7 @@ For each component, determine the most appropriate category from: api, database,
             # System process node
             lines.extend([
                 "    subgraph System[\"🔐 Application System\"]",
-                "        direction TB"
+                "        direction LR"
             ])
 
             # Add a summary of internal components
@@ -1449,7 +1449,7 @@ For each component, determine the most appropriate category from: api, database,
                 emoji = "🔒" if 'internet' in raw_b_name.lower() else "🛡️"
 
                 lines.append(f"    subgraph {b_id}[\"{emoji} {b_name}\"]")
-                lines.append("        direction TB")
+                lines.append("        direction LR")
 
                 for node in dfd_data['nodes']:
                     if node['id'] in boundary_nodes.get(boundary['id'], set()):
