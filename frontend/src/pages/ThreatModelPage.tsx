@@ -237,7 +237,7 @@ export default function ThreatModelPage() {
     setTimeout(poll, 2000)
   }
 
-  const regenerateThreatModel = async (incremental: boolean = false) => {
+  const regenerateThreatModel = async (incremental: boolean = false, quickMode: boolean = false) => {
     setRegenerating(true)
     setGenerationComplete(false)
     setCurrentStep(1)
@@ -255,8 +255,10 @@ export default function ThreatModelPage() {
           { headers: { Authorization: `Bearer ${token}` } }
         )
       } else {
-        // Full regeneration
-        const response = await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+        // Full regeneration - pass quick_mode option
+        const response = await axios.post(`/api/projects/${id}/threat-model/regenerate`, {
+          quick_mode: quickMode
+        }, {
           headers: { Authorization: `Bearer ${token}` },
         })
       }
@@ -929,13 +931,17 @@ export default function ThreatModelPage() {
           <div className="relative">
             <div className="flex">
               <button
-                onClick={() => regenerateThreatModel(false)}
+                onClick={() => regenerateThreatModel(false, true)}
                 disabled={regenerating}
                 className="btn btn-secondary inline-flex items-center space-x-2 rounded-r-none border-r-0"
-                title="Full regeneration - reanalyze entire architecture"
+                title="Quick regeneration - fast using templates"
               >
-                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-                <span>{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
+                {regenerating ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4 text-green-600" />
+                )}
+                <span>{regenerating ? 'Regenerating...' : 'Quick Regenerate'}</span>
               </button>
               <button
                 onClick={() => setShowRegenerateMenu(!showRegenerateMenu)}
@@ -946,13 +952,23 @@ export default function ThreatModelPage() {
               </button>
             </div>
             {showRegenerateMenu && (
-              <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                 <button
-                  onClick={() => { regenerateThreatModel(false); setShowRegenerateMenu(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-t-lg border-b border-gray-100"
+                  onClick={() => { regenerateThreatModel(false, true); setShowRegenerateMenu(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-green-50 rounded-t-lg border-b border-gray-100"
+                >
+                  <div className="font-medium text-green-700 flex items-center">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Quick Mode (Recommended)
+                  </div>
+                  <div className="text-xs text-gray-500">Fast generation using templates, skips AI enrichment</div>
+                </button>
+                <button
+                  onClick={() => { regenerateThreatModel(false, false); setShowRegenerateMenu(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100"
                 >
                   <div className="font-medium text-gray-900">Full Regenerate</div>
-                  <div className="text-xs text-gray-500">Reanalyze entire architecture from scratch</div>
+                  <div className="text-xs text-gray-500">Complete AI-powered analysis (slower)</div>
                 </button>
                 <button
                   onClick={() => { regenerateThreatModel(true); setShowRegenerateMenu(false); }}

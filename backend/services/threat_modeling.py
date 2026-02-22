@@ -769,8 +769,14 @@ For each component, determine the most appropriate category from: api, database,
 
         return flows
 
-    def generate_stride_analysis(self, parsed_arch: Dict[str, Any], system_context: str = "") -> Dict[str, List[Dict]]:
-        """Generate comprehensive STRIDE analysis with AI-powered threat enrichment"""
+    def generate_stride_analysis(self, parsed_arch: Dict[str, Any], system_context: str = "", skip_ai_enrichment: bool = False) -> Dict[str, List[Dict]]:
+        """Generate comprehensive STRIDE analysis with AI-powered threat enrichment
+
+        Args:
+            parsed_arch: Parsed architecture data
+            system_context: System context for AI prompts
+            skip_ai_enrichment: Skip AI API calls for faster generation (uses templates)
+        """
         stride_threats = {cat: [] for cat in self.STRIDE_CATEGORIES.keys()}
 
         # Build system context if not provided
@@ -840,7 +846,8 @@ For each component, determine the most appropriate category from: api, database,
                     })
 
                     # Queue high-severity threats for AI enrichment (will override fallbacks)
-                    if threat_template['severity'] in ['critical', 'high'] and self.anthropic_client:
+                    # Skip if skip_ai_enrichment is True (quick mode)
+                    if not skip_ai_enrichment and threat_template['severity'] in ['critical', 'high'] and self.anthropic_client:
                         threats_to_enrich.append({
                             'threat_obj': threat_obj,
                             'threat_template': threat_template,
@@ -2139,7 +2146,8 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         customer_count: int = 10000,
         generate_eraser_diagrams: bool = False,  # Disabled by default - requires API key
         diagram_theme: str = "light",
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[callable] = None,
+        quick_mode: bool = False  # Skip AI enrichment for faster generation
     ) -> Dict[str, Any]:
         """
         Complete threat modeling workflow with AI-powered analysis.
@@ -2156,6 +2164,7 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
             generate_eraser_diagrams: Whether to generate Eraser AI professional diagrams
             diagram_theme: "light" or "dark" theme for Eraser diagrams
             progress_callback: Optional callback function(step: str, progress: int, message: str)
+            quick_mode: Skip AI enrichment of threats for faster generation (uses templates)
         """
 
         def update_progress(step: str, progress: int, message: str = ""):
@@ -2185,21 +2194,43 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         dfd_level_1 = self.generate_dfd(parsed_arch, level=1)
         dfd_level_1['mermaid'] = self.generate_mermaid_dfd(dfd_level_1, level=1)
-        update_progress("stride", 35, "Running STRIDE analysis...")
 
-        # Generate STRIDE analysis with AI enrichment
-        stride_analysis = self.generate_stride_analysis(parsed_arch, system_context)
-        update_progress("mitre", 50, "Mapping to MITRE ATT&CK...")
+        if quick_mode:
+            update_progress("stride", 40, "Running STRIDE analysis (Quick Mode)...")
+        else:
+            update_progress("stride", 35, "Running STRIDE analysis with AI enrichment...")
 
-        # Map to MITRE ATT&CK
+        # Generate STRIDE analysis (skip AI enrichment in quick mode)
+        stride_analysis = self.generate_stride_analysis(parsed_arch, system_context, skip_ai_enrichment=quick_mode)
+
+        if quick_mode:
+            update_progress("mitre", 60, "Mapping to MITRE ATT&CK...")
+        else:
+            update_progress("mitre", 50, "Mapping to MITRE ATT&CK...")
+
+        # Map to MITRE ATT&CK (template-based, fast)
         mitre_mapping = self.map_mitre_attack(stride_analysis)
-        update_progress("attack_paths", 60, "Analyzing attack paths...")
 
-        # Generate attack paths with AI analysis
-        attack_paths = self.generate_attack_paths(parsed_arch, stride_analysis, system_context)
-        update_progress("fair", 70, "Calculating FAIR risk...")
+        # In quick mode, skip expensive AI-powered analyses
+        if quick_mode:
+            update_progress("fair", 80, "Calculating risk scores...")
+            attack_paths = []  # Skip in quick mode
+            attack_trees = []  # Skip in quick mode
+            kill_chain = {"phases": [], "summary": "Skipped in Quick Mode"}  # Skip in quick mode
+        else:
+            update_progress("attack_paths", 60, "Analyzing attack paths...")
+            # Generate attack paths with AI analysis
+            attack_paths = self.generate_attack_paths(parsed_arch, stride_analysis, system_context)
+            update_progress("attack_trees", 80, "Building attack trees...")
+            # Generate Attack Trees
+            attack_trees = self.generate_attack_trees(stride_analysis, parsed_arch)
+            update_progress("kill_chain", 85, "Analyzing kill chain...")
+            # Generate Kill Chain Analysis
+            kill_chain = self.generate_kill_chain_analysis(stride_analysis, mitre_mapping, attack_paths)
 
-        # Generate FAIR Risk Quantification
+        update_progress("fair", 90 if quick_mode else 70, "Calculating FAIR risk...")
+
+        # Generate FAIR Risk Quantification (fast calculation, not AI-dependent)
         fair_risk = self.calculate_fair_risk(
             stride_analysis, parsed_arch,
             organization_size=organization_size,
@@ -2207,14 +2238,6 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
             annual_revenue=annual_revenue,
             customer_count=customer_count
         )
-        update_progress("attack_trees", 80, "Building attack trees...")
-
-        # Generate Attack Trees
-        attack_trees = self.generate_attack_trees(stride_analysis, parsed_arch)
-        update_progress("kill_chain", 85, "Analyzing kill chain...")
-
-        # Generate Kill Chain Analysis
-        kill_chain = self.generate_kill_chain_analysis(stride_analysis, mitre_mapping, attack_paths)
 
         # Generate Eraser AI Professional Diagrams (if enabled and configured)
         eraser_diagrams = {"enabled": False, "diagrams": {}}
@@ -2255,6 +2278,7 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         return {
             "project_name": project_name,
             "generated_at": datetime.now().isoformat(),
+            "quick_mode": quick_mode,  # Indicates if fast generation was used
             "system_overview": parsed_arch.get('system_overview', ''),
             "technology_stack": parsed_arch.get('technology_stack', []),
 

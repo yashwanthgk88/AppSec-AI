@@ -1102,12 +1102,17 @@ async def delete_threat_model(
     return {"message": "Threat model deleted successfully", "project_id": project_id}
 
 
-def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str):
-    """Background task to generate threat model"""
+def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str, quick_mode: bool = False):
+    """Background task to generate threat model
+
+    Args:
+        quick_mode: If True, skip AI enrichment for faster generation (uses templates)
+    """
     from models.database import SessionLocal
 
-    logger.info(f"[Threat Model BG] Starting background generation for project {project_id}")
-    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5}
+    mode_str = "Quick Mode" if quick_mode else "Full Mode"
+    logger.info(f"[Threat Model BG] Starting background generation for project {project_id} ({mode_str})")
+    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5, "quick_mode": quick_mode}
 
     # Progress callback to update status in real-time
     def progress_callback(step: str, progress: int, message: str = ""):
@@ -1128,12 +1133,13 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             db.commit()
             logger.info(f"[Threat Model BG] Deleted existing threat model")
 
-        logger.info(f"[Threat Model BG] Calling generate_threat_model...")
+        logger.info(f"[Threat Model BG] Calling generate_threat_model (quick_mode={quick_mode})...")
         threat_model_data = threat_service.generate_threat_model(
             architecture_doc,
             project_name,
             progress_callback=progress_callback,
-            generate_eraser_diagrams=threat_service.eraser_enabled  # Enable if API key configured
+            generate_eraser_diagrams=threat_service.eraser_enabled and not quick_mode,  # Skip in quick mode
+            quick_mode=quick_mode
         )
         logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
         logger.info(f"[Threat Model BG] Data keys: {list(threat_model_data.keys())}")
@@ -1213,8 +1219,15 @@ async def regenerate_threat_model(
 
     Can accept optional architecture_data from document analysis or architecture builder.
     If architecture_data is provided, it will be converted to a description and saved to the project.
+
+    Request body options:
+        - architecture_data: Structured architecture data
+        - quick_mode: If true, skip AI enrichment for faster generation (uses templates)
     """
-    logger.info(f"[Threat Model Regenerate] Starting for project {project_id}")
+    # Check for quick_mode option
+    quick_mode = request_body.get("quick_mode", False) if request_body else False
+    mode_str = "Quick Mode" if quick_mode else "Full Mode"
+    logger.info(f"[Threat Model Regenerate] Starting for project {project_id} ({mode_str})")
 
     project = db.query(Project).filter(
         Project.id == project_id,
@@ -1261,20 +1274,22 @@ async def regenerate_threat_model(
             }
 
     # Start background task
-    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5}
+    threat_model_generation_status[project_id] = {"status": "in_progress", "step": "starting", "progress": 5, "quick_mode": quick_mode}
     background_tasks.add_task(
         _generate_threat_model_background,
         project_id,
         project.name,
-        architecture_doc
+        architecture_doc,
+        quick_mode
     )
 
-    logger.info(f"[Threat Model Regenerate] Background task started for project {project_id}")
+    logger.info(f"[Threat Model Regenerate] Background task started for project {project_id} ({mode_str})")
 
     return {
         "success": True,
-        "message": "Threat model generation started",
+        "message": f"Threat model generation started ({mode_str})",
         "status": "in_progress",
+        "quick_mode": quick_mode,
         "progress": 5
     }
 
