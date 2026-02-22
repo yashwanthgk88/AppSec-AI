@@ -8,7 +8,8 @@
  */
 
 // Get API URL from environment variable or use production URL as fallback
-export const API_URL = import.meta.env.VITE_API_URL || 'https://backend-production-ee900.up.railway.app';
+const BACKEND_URL = 'https://backend-production-ee900.up.railway.app';
+export const API_URL = BACKEND_URL;
 
 // Export individual parts for flexibility
 export const API_BASE = API_URL;
