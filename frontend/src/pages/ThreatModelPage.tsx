@@ -130,6 +130,8 @@ export default function ThreatModelPage() {
   const [generationComplete, setGenerationComplete] = useState(false)
   const [inputMode, setInputMode] = useState<'select' | 'builder' | 'sample' | 'docs'>('select')
   const [selectedComponent, setSelectedComponent] = useState<any>(null)
+  const [showArchitectureEditor, setShowArchitectureEditor] = useState(false)
+  const [pendingArchitectureChanges, setPendingArchitectureChanges] = useState<any>(null)
 
   // Toast notifications
   const { toasts, addToast, removeToast, warning, error: showError, info } = useToast()
@@ -272,6 +274,46 @@ export default function ThreatModelPage() {
   }
 
   const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
+
+  // Handle architecture changes for incremental update
+  const handleArchitectureEdit = async (architecture: any, useIncremental: boolean = true) => {
+    setShowArchitectureEditor(false)
+    setRegenerating(true)
+    setGenerationComplete(false)
+    setCurrentStep(1)
+    setGenerationProgress(5)
+
+    try {
+      const token = localStorage.getItem('token')
+
+      if (useIncremental) {
+        // Incremental update with new architecture
+        await axios.post(
+          `/api/projects/${id}/threat-model/incremental`,
+          architecture,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      } else {
+        // Full regeneration - save architecture first, then regenerate
+        const architectureDoc = convertArchitectureToDoc(architecture)
+        await axios.put(`/api/projects/${id}`, {
+          architecture_doc: architectureDoc
+        }, { headers: { Authorization: `Bearer ${token}` } })
+
+        await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      }
+
+      pollGenerationStatus()
+    } catch (error: any) {
+      console.error('Failed to update architecture:', error)
+      alert(error.response?.data?.detail || 'Failed to update architecture')
+      setRegenerating(false)
+      setGenerationProgress(0)
+      setCurrentStep(0)
+    }
+  }
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -875,6 +917,15 @@ export default function ThreatModelPage() {
           <p className="text-gray-600 mt-1">AI-Powered Threat Modeling with STRIDE & MITRE ATT&CK</p>
         </div>
         <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowArchitectureEditor(true)}
+            disabled={regenerating}
+            className="btn btn-secondary inline-flex items-center space-x-2"
+            title="Edit architecture and trigger incremental update"
+          >
+            <Layers className="w-4 h-4" />
+            <span>Edit Architecture</span>
+          </button>
           <div className="relative">
             <div className="flex">
               <button
@@ -1390,6 +1441,68 @@ export default function ThreatModelPage() {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Architecture Editor Modal */}
+      {showArchitectureEditor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Edit Architecture</h3>
+                <p className="text-sm text-gray-500">Modify components and data flows, then save to trigger incremental analysis</p>
+              </div>
+              <button
+                onClick={() => setShowArchitectureEditor(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <ArchitectureBuilder
+                projectId={id || ''}
+                initialData={threatModel.dfd_data}
+                onSave={(architecture) => {
+                  setPendingArchitectureChanges(architecture)
+                }}
+              />
+
+              {pendingArchitectureChanges && (
+                <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <h4 className="font-medium text-purple-900 mb-3">How would you like to apply these changes?</h4>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => handleArchitectureEdit(pendingArchitectureChanges, true)}
+                      className="btn bg-purple-600 text-white hover:bg-purple-700 inline-flex items-center space-x-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>Incremental Update</span>
+                    </button>
+                    <button
+                      onClick={() => handleArchitectureEdit(pendingArchitectureChanges, false)}
+                      className="btn btn-secondary inline-flex items-center space-x-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Full Regenerate</span>
+                    </button>
+                    <button
+                      onClick={() => setPendingArchitectureChanges(null)}
+                      className="btn btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  <p className="text-xs text-purple-700 mt-2">
+                    <strong>Incremental:</strong> Only analyzes changes, tracks threat lifecycle (new/modified/resolved)
+                    <br />
+                    <strong>Full:</strong> Reanalyzes entire architecture from scratch
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
