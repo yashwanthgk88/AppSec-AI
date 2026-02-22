@@ -2145,7 +2145,17 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
       document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
 
       const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, dfdData.mermaid)
-      setMermaidSvg(svg)
+
+      // Fix SVG sizing - remove max-width constraint and ensure proper display
+      const fixedSvg = svg
+        .replace(/max-width:\s*[\d.]+px;?/gi, '')
+        .replace(/style="([^"]*)"/i, (match: string, styles: string) => {
+          // Add proper sizing styles
+          const newStyles = styles.replace(/height:\s*[\d.]+px;?/gi, '').replace(/width:\s*[\d.]+px;?/gi, '')
+          return `style="${newStyles} width: 100%; height: auto; min-height: 400px;"`
+        })
+
+      setMermaidSvg(fixedSvg)
     } catch (error: any) {
       console.error('Failed to render mermaid:', error)
       setRenderError('Unable to render diagram. The diagram syntax may be invalid.')
@@ -2229,10 +2239,20 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
 
       <div
         ref={mermaidRef}
-        className="bg-white rounded-lg p-8 border border-gray-200 overflow-auto min-h-[400px] max-h-[600px]"
-        style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}
+        className="bg-white rounded-lg p-4 border border-gray-200 overflow-x-auto overflow-y-auto"
+        style={{
+          minHeight: '500px',
+          maxHeight: '80vh'
+        }}
         dangerouslySetInnerHTML={{ __html: mermaidSvg }}
       />
+      <style>{`
+        #mermaidRef svg {
+          min-width: 100%;
+          height: auto !important;
+          max-width: none !important;
+        }
+      `}</style>
 
       {/* Legend */}
       <div className="flex items-center justify-center space-x-8 mt-6">
