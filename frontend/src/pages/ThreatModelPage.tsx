@@ -713,6 +713,10 @@ export default function ThreatModelPage() {
           extractedFromDocs={extractedFromDocs}
           setExtractedFromDocs={setExtractedFromDocs}
           onShowNotification={warning}
+          onOpenArchitectureBuilder={() => {
+            setInputMode('select')
+            setShowArchitectureEditor(true)
+          }}
           onGenerateThreatModel={async (architecture: any) => {
             // Validate extracted architecture has sufficient data
             if (!architecture || !architecture.components || architecture.components.length === 0) {
@@ -3366,7 +3370,8 @@ function DocumentUploadSection({
   extractedFromDocs,
   setExtractedFromDocs,
   onShowNotification,
-  onGenerateThreatModel
+  onGenerateThreatModel,
+  onOpenArchitectureBuilder
 }: {
   projectId: string
   onBack: () => void
@@ -3380,6 +3385,7 @@ function DocumentUploadSection({
   setExtractedFromDocs: (data: any) => void
   onShowNotification: (message: string) => void
   onGenerateThreatModel: (architecture: any) => void
+  onOpenArchitectureBuilder: () => void
 }) {
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -3723,10 +3729,7 @@ function DocumentUploadSection({
                 </div>
                 <div className="mt-4 flex space-x-3">
                   <button
-                    onClick={() => {
-                      setShowDocUploadModal(false)
-                      setShowArchitectureEditor(true)
-                    }}
+                    onClick={onOpenArchitectureBuilder}
                     className="btn btn-primary inline-flex items-center justify-center space-x-2"
                   >
                     <Layers className="w-4 h-4" />
