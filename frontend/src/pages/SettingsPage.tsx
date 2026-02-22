@@ -1547,7 +1547,11 @@ export default function SettingsPage() {
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
-              <span>Sidebar tree view organized by severity</span>
+              <span>Sidebar tree view organized by severity with login/scan prompts</span>
+            </li>
+            <li className="flex items-start">
+              <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
+              <span>Clickable login and scan actions directly from the sidebar</span>
             </li>
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
@@ -1559,33 +1563,33 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between">
           <div>
             <a
-              href="/downloads/appsec-ai-scanner-1.9.0.vsix"
+              href="/downloads/appsec-ai-scanner-2.0.0.vsix"
               download
               className="btn btn-primary inline-flex items-center"
             >
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 1.9.0 • 4.3 MB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 2.0.0 • 144 KB</p>
           </div>
         </div>
 
         <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
           <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
-            What's New in v1.9.0
+            What's New in v2.0.0
           </h4>
           <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
+            <li><strong>🔐 IMPROVED UX:</strong> Login prompts shown when not authenticated - no more empty tree views</li>
+            <li><strong>🔍 SCAN PROMPTS:</strong> Clear "Run scan" buttons when no findings exist</li>
+            <li><strong>📊 BETTER FEEDBACK:</strong> Helpful status messages guide users through the workflow</li>
+            <li><strong>🎯 CLICKABLE ACTIONS:</strong> Login and scan commands directly from the sidebar</li>
             <li><strong>🚀 PRODUCTION READY:</strong> Full cloud backend support for enterprise deployment</li>
             <li><strong>⚡ PARALLEL SCANNING:</strong> 5x faster workspace scans with parallel file processing</li>
-            <li><strong>🎯 SMART FILE PRIORITIZATION:</strong> Automatically prioritizes source folders for better vulnerability coverage</li>
-            <li><strong>🛡️ 140+ OWASP PATTERNS:</strong> Comprehensive PHP & Java inline detection for all OWASP Top 10 2021 categories</li>
-            <li><strong>🔍 REAL-TIME INLINE DETECTION:</strong> See security issues as you type - no scan required</li>
-            <li><strong>🔧 AI FIX APPLY:</strong> One-click AI-powered remediation with automatic code fixes</li>
-            <li><strong>🌐 REMOTE BACKEND:</strong> Seamlessly scan files using cloud-hosted backend (Railway, AWS, etc.)</li>
+            <li><strong>🛡️ 140+ OWASP PATTERNS:</strong> Comprehensive PHP & Java inline detection for OWASP Top 10</li>
             <li><strong>🔗 INTER-PROCEDURAL ANALYSIS:</strong> Cross-function taint tracking across method boundaries</li>
             <li><strong>📊 CALL GRAPH VISUALIZATION:</strong> Interactive diagrams showing data flow from source to sink</li>
-            <li><strong>🔐 ENHANCED AUTH:</strong> Improved token validation with automatic session management</li>
+            <li><strong>🔧 AI FIX APPLY:</strong> One-click AI-powered remediation with automatic code fixes</li>
           </ul>
         </div>
 
