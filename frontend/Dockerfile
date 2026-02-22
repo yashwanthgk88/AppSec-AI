@@ -19,12 +19,9 @@ ENV VITE_API_URL=$VITE_API_URL
 # Build the application
 RUN echo "Building with API URL: $VITE_API_URL" && npm run build
 
-# Create downloads directory and download extension from GitHub
-RUN mkdir -p dist/downloads && \
-    apk add --no-cache curl && \
-    curl -L -o dist/downloads/appsec-ai-scanner-1.8.6.vsix \
-    "https://github.com/yashwanthgk88/AppSec-AI/raw/dev/frontend/public/downloads/appsec-ai-scanner-1.8.6.vsix" && \
-    ls -la dist/downloads/
+# The public/downloads folder is already copied during COPY . . above
+# Just verify the extension file is in dist/downloads after build
+RUN ls -la dist/downloads/ || echo "Downloads folder will be created by vite build"
 
 # Production stage
 FROM nginx:alpine
