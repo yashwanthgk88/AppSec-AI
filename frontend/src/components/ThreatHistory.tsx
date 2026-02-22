@@ -17,6 +17,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { ThreatStatusBadge, ThreatStatus } from './ThreatStatusBadge';
+import { API_URL } from '../config/api';
 
 // Types
 interface UserInfo {
@@ -78,7 +79,7 @@ interface ThreatHistoryPanelProps {
 // API functions
 const fetchVersionHistory = async (projectId: number, token: string, limit: number = 10) => {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/projects/${projectId}/threat-model/history?limit=${limit}`,
+    `${API_URL}/api/projects/${projectId}/threat-model/history?limit=${limit}`,
     {
       headers: { Authorization: `Bearer ${token}` }
     }
@@ -89,7 +90,7 @@ const fetchVersionHistory = async (projectId: number, token: string, limit: numb
 
 const fetchThreatTimeline = async (projectId: number, threatId: string, token: string) => {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/projects/${projectId}/threats/${threatId}/timeline`,
+    `${API_URL}/api/projects/${projectId}/threats/${threatId}/timeline`,
     {
       headers: { Authorization: `Bearer ${token}` }
     }
@@ -100,7 +101,7 @@ const fetchThreatTimeline = async (projectId: number, threatId: string, token: s
 
 const fetchVersionDiff = async (projectId: number, v1: number, v2: number, token: string) => {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/projects/${projectId}/threat-model/diff/${v1}/${v2}`,
+    `${API_URL}/api/projects/${projectId}/threat-model/diff/${v1}/${v2}`,
     {
       headers: { Authorization: `Bearer ${token}` }
     }
