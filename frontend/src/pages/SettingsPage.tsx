@@ -1570,7 +1570,7 @@ export default function SettingsPage() {
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-500">Version 2.0.0 • 144 KB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 2.0.0 • 4.3 MB</p>
           </div>
         </div>
 
