@@ -30,16 +30,48 @@ export class FindingsProvider implements vscode.TreeDataProvider<FindingItem> {
     }
 
     async getChildren(element?: FindingItem): Promise<FindingItem[]> {
-        if (!await this.apiClient.isAuthenticated()) {
-            return [];
-        }
+        const isAuthenticated = await this.apiClient.isAuthenticated();
 
         if (!element) {
+            // Show login prompt if not authenticated
+            if (!isAuthenticated) {
+                const loginItem = new FindingItem(
+                    '🔐 Login to view findings',
+                    vscode.TreeItemCollapsibleState.None,
+                    'login-prompt',
+                    undefined
+                );
+                loginItem.command = {
+                    command: 'appsec.login',
+                    title: 'Login'
+                };
+                loginItem.tooltip = 'Click to login to SecureDev AI platform';
+                return [loginItem];
+            }
+
             // Update counts for each severity
             const criticalCount = this.findings.filter(f => f.severity.toLowerCase() === 'critical').length;
             const highCount = this.findings.filter(f => f.severity.toLowerCase() === 'high').length;
             const mediumCount = this.findings.filter(f => f.severity.toLowerCase() === 'medium').length;
             const lowCount = this.findings.filter(f => f.severity.toLowerCase() === 'low').length;
+
+            const totalFindings = criticalCount + highCount + mediumCount + lowCount;
+
+            // Show scan prompt if no findings
+            if (totalFindings === 0) {
+                const scanItem = new FindingItem(
+                    '🔍 Run scan to detect vulnerabilities',
+                    vscode.TreeItemCollapsibleState.None,
+                    'scan-prompt',
+                    undefined
+                );
+                scanItem.command = {
+                    command: 'appsec.scanWorkspace',
+                    title: 'Scan Workspace'
+                };
+                scanItem.tooltip = 'Click to scan workspace for security vulnerabilities';
+                return [scanItem];
+            }
 
             return [
                 new FindingItem(`Critical (${criticalCount})`, vscode.TreeItemCollapsibleState.Expanded, 'category', 'critical'),

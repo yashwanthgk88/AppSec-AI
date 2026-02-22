@@ -56,10 +56,18 @@ class SecretsFindingsProvider {
         return element;
     }
     async getChildren(element) {
-        if (!await this.apiClient.isAuthenticated()) {
-            return [];
-        }
+        const isAuthenticated = await this.apiClient.isAuthenticated();
         if (!element) {
+            // Show login prompt if not authenticated
+            if (!isAuthenticated) {
+                const loginItem = new SecretFindingItem('🔐 Login to view secrets', vscode.TreeItemCollapsibleState.None, 'login-prompt');
+                loginItem.command = {
+                    command: 'appsec.login',
+                    title: 'Login'
+                };
+                loginItem.tooltip = 'Click to login to SecureDev AI platform';
+                return [loginItem];
+            }
             // Group by secret type
             const secretTypes = {};
             this.findings.forEach((f) => {
@@ -67,7 +75,13 @@ class SecretsFindingsProvider {
                 secretTypes[type] = (secretTypes[type] || 0) + 1;
             });
             if (Object.keys(secretTypes).length === 0) {
-                return [new SecretFindingItem('No secrets detected', vscode.TreeItemCollapsibleState.None, 'empty')];
+                const scanItem = new SecretFindingItem('🔍 Run scan to detect secrets', vscode.TreeItemCollapsibleState.None, 'scan-prompt');
+                scanItem.command = {
+                    command: 'appsec.scanWorkspace',
+                    title: 'Scan Workspace'
+                };
+                scanItem.tooltip = 'Click to scan workspace for exposed secrets';
+                return [scanItem];
             }
             // Create categories sorted by count
             return Object.entries(secretTypes)

@@ -30,11 +30,24 @@ export class ScaFindingsProvider implements vscode.TreeDataProvider<ScaFindingIt
     }
 
     async getChildren(element?: ScaFindingItem): Promise<ScaFindingItem[]> {
-        if (!await this.apiClient.isAuthenticated()) {
-            return [];
-        }
+        const isAuthenticated = await this.apiClient.isAuthenticated();
 
         if (!element) {
+            // Show login prompt if not authenticated
+            if (!isAuthenticated) {
+                const loginItem = new ScaFindingItem(
+                    '🔐 Login to view SCA findings',
+                    vscode.TreeItemCollapsibleState.None,
+                    'login-prompt'
+                );
+                loginItem.command = {
+                    command: 'appsec.login',
+                    title: 'Login'
+                };
+                loginItem.tooltip = 'Click to login to SecureDev AI platform';
+                return [loginItem];
+            }
+
             // Update counts for each severity
             const criticalCount = this.findings.filter(f => f.severity?.toLowerCase() === 'critical').length;
             const highCount = this.findings.filter(f => f.severity?.toLowerCase() === 'high').length;
@@ -43,7 +56,17 @@ export class ScaFindingsProvider implements vscode.TreeDataProvider<ScaFindingIt
             const totalCount = this.findings.length;
 
             if (totalCount === 0) {
-                return [new ScaFindingItem('No SCA vulnerabilities found', vscode.TreeItemCollapsibleState.None, 'empty')];
+                const scanItem = new ScaFindingItem(
+                    '🔍 Run scan to check dependencies',
+                    vscode.TreeItemCollapsibleState.None,
+                    'scan-prompt'
+                );
+                scanItem.command = {
+                    command: 'appsec.scanWorkspace',
+                    title: 'Scan Workspace'
+                };
+                scanItem.tooltip = 'Click to scan workspace for vulnerable dependencies';
+                return [scanItem];
             }
 
             return [
