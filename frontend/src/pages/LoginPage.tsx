@@ -21,6 +21,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
     try {
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
+      console.log('[Login] API_URL:', API_URL)
+      console.log('[Login] axios.defaults.baseURL:', axios.defaults.baseURL)
+      console.log('[Login] Full URL:', `${axios.defaults.baseURL}${endpoint}`)
+
       const response = await axios.post(endpoint, {
         username: email.split('@')[0],
         email,
@@ -29,7 +33,10 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
 
       onLogin(response.data.access_token)
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Authentication failed')
+      console.error('[Login] Error:', err)
+      console.error('[Login] Error response:', err.response)
+      const errorMsg = err.response?.data?.detail || err.message || 'Authentication failed'
+      setError(`${errorMsg} (URL: ${axios.defaults.baseURL})`)
     } finally {
       setLoading(false)
     }
