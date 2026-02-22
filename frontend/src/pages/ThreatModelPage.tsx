@@ -2082,8 +2082,35 @@ interface MermaidDiagramProps {
 
 function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: MermaidDiagramProps) {
   const mermaidRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const [mermaidSvg, setMermaidSvg] = useState<string>('')
   const [renderError, setRenderError] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+  const handleZoomIn = () => setZoom(z => Math.min(z + 0.25, 3))
+  const handleZoomOut = () => setZoom(z => Math.max(z - 0.25, 0.25))
+  const handleResetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true)
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y })
+  }
+
+  const handleMouseUp = () => setIsDragging(false)
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault()
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    setZoom(z => Math.min(Math.max(z + delta, 0.25), 3))
+  }
 
   useEffect(() => {
     if (dfdData?.mermaid) {
@@ -2213,34 +2240,79 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
 
   return (
     <div>
-      <div className="flex justify-end space-x-2 mb-4">
-        <button
-          onClick={downloadPNG}
-          disabled={!mermaidSvg}
-          className="inline-flex items-center px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Export PNG
-        </button>
-        <button
-          onClick={downloadSVG}
-          disabled={!mermaidSvg}
-          className="inline-flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Export SVG
-        </button>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleZoomOut}
+            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+            title="Zoom Out"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <span className="text-sm font-medium text-gray-600 w-16 text-center">{Math.round(zoom * 100)}%</span>
+          <button
+            onClick={handleZoomIn}
+            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+            title="Zoom In"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <button
+            onClick={handleResetZoom}
+            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition"
+            title="Reset View"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="flex space-x-2">
+          <button
+            onClick={downloadPNG}
+            disabled={!mermaidSvg}
+            className="inline-flex items-center px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export PNG
+          </button>
+          <button
+            onClick={downloadSVG}
+            disabled={!mermaidSvg}
+            className="inline-flex items-center px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export SVG
+          </button>
+        </div>
       </div>
 
       <div
-        ref={mermaidRef}
-        className="bg-white rounded-lg p-4 border border-gray-200 overflow-auto"
-        style={{
-          minHeight: '400px',
-          maxHeight: '70vh'
-        }}
-        dangerouslySetInnerHTML={{ __html: mermaidSvg }}
-      />
+        ref={containerRef}
+        className="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-grab active:cursor-grabbing"
+        style={{ height: '500px' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+      >
+        <div
+          ref={mermaidRef}
+          className="p-4"
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'top left',
+            transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+          }}
+          dangerouslySetInnerHTML={{ __html: mermaidSvg }}
+        />
+      </div>
+      <p className="text-xs text-gray-500 mt-2 text-center">
+        Use mouse wheel to zoom, drag to pan. Click Reset to restore original view.
+      </p>
 
       {/* Legend */}
       <div className="flex items-center justify-center space-x-8 mt-6">
