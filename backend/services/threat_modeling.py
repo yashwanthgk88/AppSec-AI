@@ -1394,7 +1394,7 @@ For each component, determine the most appropriate category from: api, database,
             # System process node
             lines.extend([
                 "    subgraph System[\"🔐 Application System\"]",
-                "        direction LR"
+                "        direction TB"
             ])
 
             # Add a summary of internal components
@@ -1449,7 +1449,7 @@ For each component, determine the most appropriate category from: api, database,
                 emoji = "🔒" if 'internet' in raw_b_name.lower() else "🛡️"
 
                 lines.append(f"    subgraph {b_id}[\"{emoji} {b_name}\"]")
-                lines.append("        direction LR")
+                lines.append("        direction TB")
 
                 for node in dfd_data['nodes']:
                     if node['id'] in boundary_nodes.get(boundary['id'], set()):
