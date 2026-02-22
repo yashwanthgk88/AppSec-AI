@@ -134,9 +134,57 @@ export default function ArchitectureBuilder({ projectId, onSave, initialData }: 
     loadLibrary()
   }, [])
 
-  // Load existing architecture
+  // Load existing architecture from initialData or API
   useEffect(() => {
     const loadExisting = async () => {
+      // If initialData is provided, use it directly
+      if (initialData) {
+        try {
+          // Handle different data formats
+          const data = initialData.nodes ? {
+            // Convert from DFD format (nodes/edges) to components/flows
+            components: (initialData.nodes || []).map((n: any) => ({
+              id: n.id,
+              name: n.label || n.id,
+              type: n.type || 'process',
+              technology: n.technology || '',
+              trust_zone: n.trust_zone || 'internal',
+              description: n.description || '',
+              data_handled: n.data_handled || [],
+              data_stored: n.data_stored || [],
+              security_controls: n.security_controls || [],
+              exposed_ports: n.exposed_ports || [],
+              third_party: n.third_party || false,
+              internal_only: n.internal_only || false,
+            })),
+            data_flows: (initialData.edges || []).map((e: any) => ({
+              id: e.id || `${e.source}_${e.target}`,
+              source_id: e.source,
+              target_id: e.target,
+              protocol: e.protocol || 'HTTPS',
+              data_types: e.data_types || [],
+              is_encrypted: e.encrypted !== false,
+              authentication: e.authentication || '',
+              description: e.label || '',
+            })),
+            trust_boundaries: initialData.trust_boundaries || [],
+          } : initialData
+
+          setProjectName(data.project_name || '')
+          setDescription(data.description || '')
+          setDeploymentModel(data.deployment_model || 'cloud')
+          setCloudProviders(data.cloud_providers || [])
+          setCompliance(data.compliance_requirements || [])
+          setComponents(data.components || [])
+          setDataFlows(data.data_flows || [])
+          setTrustBoundaries(data.trust_boundaries || [])
+        } catch (error) {
+          console.error('Failed to parse initialData:', error)
+        }
+        return
+      }
+
+      // Otherwise load from API
       if (!projectId) return
       try {
         const token = localStorage.getItem('token')
@@ -159,7 +207,7 @@ export default function ArchitectureBuilder({ projectId, onSave, initialData }: 
       }
     }
     loadExisting()
-  }, [projectId])
+  }, [projectId, initialData])
 
   // Generate unique ID
   const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
