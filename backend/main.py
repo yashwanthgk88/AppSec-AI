@@ -4649,6 +4649,203 @@ async def enhanced_directory_scan(
         raise HTTPException(status_code=500, detail=f"Enhanced directory scan failed: {str(e)}")
 
 
+# ==================== COMPREHENSIVE SAST SCAN ENDPOINTS ====================
+
+class ComprehensiveScanRequest(BaseModel):
+    """Request model for comprehensive SAST scan with inter-procedural analysis"""
+    source_code: Optional[str] = None
+    file_path: Optional[str] = None
+    file_name: Optional[str] = None
+    language: Optional[str] = None
+    enable_interprocedural: bool = True
+    enable_framework_rules: bool = True
+
+
+@app.post("/api/scan/comprehensive")
+async def comprehensive_sast_scan(
+    request: ComprehensiveScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Comprehensive SAST scan with inter-procedural analysis.
+
+    Features:
+    - Taint source/sink tracking across function boundaries
+    - Context-aware sanitizer detection
+    - Framework-specific vulnerability patterns (Django, Flask, Express, Spring, Laravel, etc.)
+    - Inter-procedural data flow analysis
+    - Reduced false positives through semantic analysis
+
+    Supported languages:
+    - Python (Django, Flask, FastAPI)
+    - JavaScript/TypeScript (Express, React, Node.js)
+    - Go (Gin, Echo)
+    - PHP (Laravel, Symfony, WordPress)
+    - C#/.NET (ASP.NET Core)
+    - Java (Spring, Servlet)
+    """
+    try:
+        # Get source code
+        source_code = None
+        file_path = "unknown"
+
+        if request.source_code:
+            source_code = request.source_code
+            file_path = request.file_name or "uploaded_file"
+        elif request.file_path:
+            import os
+            if not os.path.exists(request.file_path):
+                raise HTTPException(status_code=404, detail="File not found")
+            with open(request.file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                source_code = f.read()
+            file_path = request.file_path
+        else:
+            raise HTTPException(status_code=400, detail="Either source_code or file_path must be provided")
+
+        # Skip very large files
+        if len(source_code) > 1024 * 1024:  # 1MB limit
+            raise HTTPException(status_code=400, detail="File too large for comprehensive scan (>1MB)")
+
+        # Run comprehensive scan
+        findings = sast_scanner.scan_code_comprehensive(
+            code_content=source_code,
+            file_path=file_path,
+            language=request.language,
+            enable_interprocedural=request.enable_interprocedural
+        )
+
+        # Aggregate statistics
+        severity_counts = {
+            "critical": len([f for f in findings if f.get("severity") == "critical"]),
+            "high": len([f for f in findings if f.get("severity") == "high"]),
+            "medium": len([f for f in findings if f.get("severity") == "medium"]),
+            "low": len([f for f in findings if f.get("severity") == "low"]),
+        }
+
+        taint_tracked_count = len([f for f in findings if f.get("taint_flow")])
+        interprocedural_count = len([f for f in findings if f.get("analysis_type") == "interprocedural"])
+        framework_count = len([f for f in findings if f.get("analysis_type") == "framework_specific"])
+
+        return {
+            "file_path": file_path,
+            "language": request.language or sast_scanner._detect_language(file_path),
+            "total_findings": len(findings),
+            "severity_counts": severity_counts,
+            "taint_tracked_findings": taint_tracked_count,
+            "interprocedural_findings": interprocedural_count,
+            "framework_specific_findings": framework_count,
+            "findings": findings,
+            "analysis_config": {
+                "interprocedural_enabled": request.enable_interprocedural,
+                "framework_rules_enabled": request.enable_framework_rules
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Comprehensive scan failed: {str(e)}")
+
+
+class ComprehensiveDirectoryScanRequest(BaseModel):
+    """Request model for comprehensive directory scan"""
+    directory_path: str
+    enable_interprocedural: bool = True
+    enable_framework_rules: bool = True
+    file_extensions: List[str] = [".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".php", ".go", ".cs", ".rb"]
+    exclude_dirs: List[str] = ["node_modules", "venv", ".git", "__pycache__", "dist", "build", ".venv", "vendor"]
+
+
+@app.post("/api/scan/comprehensive/directory")
+async def comprehensive_directory_scan(
+    request: ComprehensiveDirectoryScanRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Comprehensive SAST scan for entire directory with inter-procedural analysis.
+    Scans all supported language files with advanced taint tracking.
+    """
+    try:
+        import os
+        if not os.path.exists(request.directory_path):
+            raise HTTPException(status_code=404, detail="Directory not found")
+
+        all_findings = []
+        files_scanned = 0
+        errors = []
+
+        # Walk directory
+        for root, dirs, files in os.walk(request.directory_path):
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if d not in request.exclude_dirs]
+
+            for file in files:
+                ext = os.path.splitext(file)[1]
+                if ext in request.file_extensions:
+                    file_path = os.path.join(root, file)
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            source_code = f.read()
+
+                        # Skip very large files (>500KB)
+                        if len(source_code) > 500 * 1024:
+                            continue
+
+                        findings = sast_scanner.scan_code_comprehensive(
+                            code_content=source_code,
+                            file_path=file_path,
+                            enable_interprocedural=request.enable_interprocedural
+                        )
+                        all_findings.extend(findings)
+                        files_scanned += 1
+
+                    except Exception as e:
+                        errors.append(f"Error scanning {file_path}: {str(e)}")
+                        continue
+
+        # Aggregate statistics
+        severity_counts = {
+            "critical": len([f for f in all_findings if f.get("severity") == "critical"]),
+            "high": len([f for f in all_findings if f.get("severity") == "high"]),
+            "medium": len([f for f in all_findings if f.get("severity") == "medium"]),
+            "low": len([f for f in all_findings if f.get("severity") == "low"]),
+        }
+
+        # Group by vulnerability type
+        vuln_type_counts = {}
+        for f in all_findings:
+            vtype = f.get("title", "Unknown")
+            vuln_type_counts[vtype] = vuln_type_counts.get(vtype, 0) + 1
+
+        # Group by language
+        language_counts = {}
+        for f in all_findings:
+            lang = f.get("language", "unknown")
+            language_counts[lang] = language_counts.get(lang, 0) + 1
+
+        return {
+            "directory": request.directory_path,
+            "files_scanned": files_scanned,
+            "total_findings": len(all_findings),
+            "severity_counts": severity_counts,
+            "vulnerability_type_counts": vuln_type_counts,
+            "language_counts": language_counts,
+            "taint_tracked_findings": len([f for f in all_findings if f.get("taint_flow")]),
+            "interprocedural_findings": len([f for f in all_findings if f.get("analysis_type") == "interprocedural"]),
+            "findings": all_findings,
+            "errors": errors if errors else None
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Comprehensive directory scan failed: {str(e)}")
+
+
 # ==================== INTER-PROCEDURAL ANALYSIS ENDPOINTS ====================
 
 class InterproceduralScanRequest(BaseModel):

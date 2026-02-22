@@ -3599,3 +3599,501 @@ data = file.read(MAX_FILE_SIZE)"""
                 continue
 
         return findings
+
+    def scan_code_comprehensive(self, code_content: str, file_path: str = "unknown",
+                                 language: str = None, enable_interprocedural: bool = True) -> List[Dict[str, Any]]:
+        """
+        Comprehensive security scan using production-grade taint analysis engine.
+
+        Features:
+        - Precise taint state machine (UNTAINTED, TAINTED, SANITIZED, PARTIALLY_SANITIZED, UNKNOWN)
+        - Three-phase analysis: source identification, propagation tracking, sink detection
+        - Context-sensitive sanitizer effectiveness verification
+        - Full propagation chain tracking for each tainted value
+        - Inter-procedural data flow analysis across function boundaries
+        - Framework-specific vulnerability patterns
+        - Reduced false positives through semantic analysis
+
+        Args:
+            code_content: Source code to scan
+            file_path: Path to the source file
+            language: Programming language (auto-detected if not provided)
+            enable_interprocedural: Enable inter-procedural analysis (slower but more accurate)
+
+        Returns:
+            List of vulnerability findings with detailed taint tracking information
+        """
+        # Import the precise taint analysis engine
+        try:
+            from services.taint_engine import TaintAnalysisEngine
+            use_precise_taint = True
+        except ImportError:
+            logger.warning("[SASTScanner] Precise taint engine not available")
+            use_precise_taint = False
+
+        try:
+            from services.sast_rules_comprehensive import sast_engine
+        except ImportError:
+            logger.warning("[SASTScanner] Comprehensive rules engine not available, falling back to V2 scan")
+            return self.scan_code_v2(code_content, file_path, language)
+
+        if not language:
+            language = self._detect_language(file_path)
+
+        findings = []
+        lines = code_content.split('\n')
+        seen_findings: Set[str] = set()
+
+        # =============================================================================
+        # PHASE 1: PRECISE TAINT ANALYSIS (using TaintAnalysisEngine)
+        # =============================================================================
+        taint_analysis_results = None
+        if use_precise_taint:
+            try:
+                taint_engine = TaintAnalysisEngine(language)
+                taint_analysis_results = taint_engine.analyze(code_content, file_path)
+
+                # Convert taint engine vulnerabilities to findings
+                for vuln in taint_analysis_results.get("vulnerabilities", []):
+                    # Map from taint_engine structure:
+                    # {type, severity, cwe_id, sink, line_number, expression, file_path,
+                    #  description, confidence, taint_info{is_tainted, source_type, source_line,
+                    #  propagation_length, sanitizers_applied}, remediation}
+                    vuln_type = vuln.get('type', 'Security Vulnerability')
+                    finding_key = f"{file_path}:{vuln.get('line_number')}:{vuln_type}"
+                    if finding_key in seen_findings:
+                        continue
+                    seen_findings.add(finding_key)
+
+                    # Get code context
+                    line_num = vuln.get('line_number', 1)
+                    context_start = max(0, line_num - 3)
+                    context_end = min(len(lines), line_num + 2)
+                    code_snippet = '\n'.join(lines[context_start:context_end])
+
+                    # Extract taint info
+                    taint_info = vuln.get('taint_info', {}) or {}
+
+                    findings.append({
+                        "title": vuln_type,
+                        "description": vuln.get('description', ''),
+                        "severity": vuln.get('severity', 'medium'),
+                        "cwe_id": vuln.get('cwe_id', ''),
+                        "file_path": file_path,
+                        "line_number": line_num,
+                        "code_snippet": code_snippet,
+                        "vulnerable_code": vuln.get('expression', ''),
+                        "confidence": vuln.get('confidence', 'medium'),
+                        "language": language,
+                        "sink_name": vuln.get('sink', ''),
+                        "is_tainted": taint_info.get('is_tainted', False),
+                        "is_sanitized": len(taint_info.get('sanitizers_applied', [])) > 0,
+                        "taint_flow": {
+                            "source_var": None,  # Not available at this level
+                            "source_line": taint_info.get('source_line'),
+                            "source_type": taint_info.get('source_type'),
+                            "sink_line": line_num,
+                            "sink_type": vuln.get('sink', ''),
+                            "propagation_length": taint_info.get('propagation_length', 0),
+                            "sanitizers_applied": taint_info.get('sanitizers_applied', []),
+                        },
+                        "analysis_type": "precise_taint_analysis",
+                        "remediation": vuln.get('remediation', ''),
+                        "cvss_score": self._calculate_cvss(vuln.get('severity', 'medium')),
+                        "stride_category": self._map_to_stride(vuln_type),
+                    })
+
+                # Include detected taint flows for detailed reporting
+                for flow in taint_analysis_results.get("taint_flows", []):
+                    flow_key = f"{file_path}:{flow.get('sink', {}).get('line')}:flow:{flow.get('vulnerability_type')}"
+                    if flow_key in seen_findings:
+                        continue
+                    seen_findings.add(flow_key)
+
+                    sink_line = flow.get('sink', {}).get('line', 1)
+                    context_start = max(0, sink_line - 3)
+                    context_end = min(len(lines), sink_line + 2)
+                    code_snippet = '\n'.join(lines[context_start:context_end])
+
+                    findings.append({
+                        "title": f"Taint Flow: {flow.get('vulnerability_type', 'Unknown')}",
+                        "description": f"Tainted data from {flow.get('source', {}).get('type', 'unknown source')} "
+                                      f"flows to {flow.get('sink', {}).get('name', 'sink')} without proper sanitization.",
+                        "severity": flow.get('severity', 'high'),
+                        "cwe_id": flow.get('cwe_id', ''),
+                        "file_path": file_path,
+                        "line_number": sink_line,
+                        "code_snippet": code_snippet,
+                        "vulnerable_code": flow.get('sink', {}).get('expression', ''),
+                        "confidence": flow.get('confidence', 0.8),
+                        "language": language,
+                        "is_tainted": True,
+                        "is_sanitized": False,
+                        "taint_flow": {
+                            "flow_id": flow.get('flow_id', ''),
+                            "source_var": flow.get('source', {}).get('variable', ''),
+                            "source_line": flow.get('source', {}).get('line', 0),
+                            "source_type": flow.get('source', {}).get('type', ''),
+                            "source_expression": flow.get('source', {}).get('expression', ''),
+                            "sink_line": sink_line,
+                            "sink_name": flow.get('sink', {}).get('name', ''),
+                            "sink_expression": flow.get('sink', {}).get('expression', ''),
+                            "propagation_chain": flow.get('propagation_chain', []),
+                            "sanitizers_applied": flow.get('sanitizers_applied', []),
+                            "taint_state": flow.get('source', {}).get('taint_state', 'TAINTED'),
+                        },
+                        "analysis_type": "precise_taint_flow",
+                        "cvss_score": self._calculate_cvss(flow.get('severity', 'high')),
+                        "stride_category": self._map_to_stride(flow.get('vulnerability_type', '')),
+                    })
+
+                logger.info(f"[TaintEngine] Analysis complete: {taint_analysis_results.get('statistics', {})}")
+
+            except Exception as e:
+                logger.error(f"[TaintEngine] Error during precise taint analysis: {e}")
+                use_precise_taint = False
+
+        # =============================================================================
+        # PHASE 2: FALLBACK/SUPPLEMENTARY SIMPLE TAINT TRACKING (if precise engine fails)
+        # =============================================================================
+        if not use_precise_taint:
+            # Track tainted variables across the file (simple tracking)
+            tainted_variables: Dict[str, Dict[str, Any]] = {}
+            function_defs: Dict[str, Dict[str, Any]] = {}
+            current_function = None
+
+            for line_num, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if not stripped or self._is_comment(stripped, language):
+                    continue
+
+                # Detect function definitions
+                func_match = self._detect_function_definition(stripped, language)
+                if func_match:
+                    if current_function:
+                        function_defs[current_function]['end_line'] = line_num - 1
+                    current_function = func_match.get('name')
+                    function_defs[current_function] = {
+                        'start_line': line_num,
+                        'end_line': len(lines),
+                        'params': func_match.get('params', []),
+                        'tainted_params': set()
+                    }
+
+                # Detect taint sources
+                sources = sast_engine.check_line_for_source(line, language)
+                for source in sources:
+                    var_match = re.search(r'(\w+)\s*=', line)
+                    if var_match:
+                        var_name = var_match.group(1)
+                        tainted_variables[var_name] = {
+                            'source': source.name,
+                            'line': line_num,
+                            'type': source.description,
+                            'function': current_function,
+                            'confidence': source.confidence
+                        }
+
+            # Second pass: Detect sinks and check for taint flow
+            for line_num, line in enumerate(lines, 1):
+                stripped = line.strip()
+                if not stripped or self._is_comment(stripped, language):
+                    continue
+
+                sinks = sast_engine.check_line_for_sink(line, language)
+                for sink in sinks:
+                    taint_flow = None
+                    is_tainted = False
+
+                    for var_name, taint_info in tainted_variables.items():
+                        if re.search(rf'\b{re.escape(var_name)}\b', line):
+                            is_tainted = True
+                            taint_flow = {
+                                'source_var': var_name,
+                                'source_line': taint_info['line'],
+                                'source_type': taint_info['source'],
+                                'sink_line': line_num,
+                                'sink_type': sink.name
+                            }
+                            break
+
+                    if not is_tainted:
+                        sources_in_line = sast_engine.check_line_for_source(line, language)
+                        if sources_in_line:
+                            is_tainted = True
+                            taint_flow = {
+                                'source_var': 'direct',
+                                'source_line': line_num,
+                                'source_type': sources_in_line[0].name,
+                                'sink_line': line_num,
+                                'sink_type': sink.name
+                            }
+
+                    context_start = max(0, line_num - 6)
+                    context_lines = lines[context_start:line_num]
+                    is_sanitized = sast_engine.is_line_sanitized(
+                        line, context_lines, language, sink.vulnerability_type
+                    )
+
+                    should_report = False
+                    confidence = "low"
+
+                    if sink.requires_taint:
+                        if is_tainted and not is_sanitized:
+                            should_report = True
+                            confidence = "high" if taint_flow else "medium"
+                    else:
+                        should_report = True
+                        confidence = "high"
+
+                    if should_report:
+                        finding_key = f"{file_path}:{line_num}:{sink.vulnerability_type}"
+                        if finding_key in seen_findings:
+                            continue
+                        seen_findings.add(finding_key)
+
+                        context_start = max(0, line_num - 3)
+                        context_end = min(len(lines), line_num + 2)
+                        code_snippet = '\n'.join(lines[context_start:context_end])
+
+                        findings.append({
+                            "title": f"{sink.vulnerability_type}",
+                            "description": sink.description,
+                            "severity": sink.severity.value if hasattr(sink.severity, 'value') else sink.severity,
+                            "cwe_id": sink.cwe,
+                            "file_path": file_path,
+                            "line_number": line_num,
+                            "code_snippet": code_snippet,
+                            "vulnerable_code": line.strip(),
+                            "confidence": confidence,
+                            "language": language,
+                            "sink_name": sink.name,
+                            "is_tainted": is_tainted,
+                            "is_sanitized": is_sanitized,
+                            "taint_flow": taint_flow,
+                            "analysis_type": "fallback_taint_tracking",
+                            "remediation": self._get_remediation_for_sink(sink),
+                            "cvss_score": self._calculate_cvss(
+                                sink.severity.value if hasattr(sink.severity, 'value') else sink.severity
+                            ),
+                            "stride_category": self._map_to_stride(sink.vulnerability_type),
+                        })
+
+        # =============================================================================
+        # PHASE 3: FRAMEWORK-SPECIFIC ANALYSIS
+        # =============================================================================
+        framework = sast_engine._detect_framework(code_content, language)
+        if framework:
+            framework_findings = sast_engine._check_framework_rules(code_content, file_path, framework)
+            for ff in framework_findings:
+                finding_key = f"{file_path}:{ff['line_number']}:{ff['type']}"
+                if finding_key not in seen_findings:
+                    seen_findings.add(finding_key)
+                    findings.append({
+                        "title": ff['type'],
+                        "description": ff['description'],
+                        "severity": ff['severity'],
+                        "cwe_id": ff['cwe'],
+                        "file_path": file_path,
+                        "line_number": ff['line_number'],
+                        "code_snippet": ff['line_content'],
+                        "vulnerable_code": ff['line_content'],
+                        "confidence": ff['confidence'],
+                        "language": language,
+                        "framework": ff.get('framework'),
+                        "analysis_type": "framework_specific",
+                        "cvss_score": self._calculate_cvss(ff['severity']),
+                    })
+
+        # =============================================================================
+        # PHASE 4: INTER-PROCEDURAL PATTERN ANALYSIS
+        # =============================================================================
+        if enable_interprocedural and not use_precise_taint:
+            # Only run legacy inter-procedural if precise engine not used
+            # tainted_variables and function_defs are defined in the fallback block above
+            try:
+                interprocedural_findings = self._analyze_interprocedural_flows(
+                    code_content, file_path, language, tainted_variables, function_defs
+                )
+                for ipf in interprocedural_findings:
+                    finding_key = f"{file_path}:{ipf['line_number']}:interprocedural:{ipf['title']}"
+                    if finding_key not in seen_findings:
+                        seen_findings.add(finding_key)
+                        findings.append(ipf)
+            except NameError:
+                # Variables not defined if precise engine was used
+                pass
+
+        # =============================================================================
+        # PHASE 5: STANDARD RULES SCAN (for completeness)
+        # =============================================================================
+        standard_findings = self.scan_code(code_content, file_path, language)
+        for sf in standard_findings:
+            finding_key = f"{file_path}:{sf.get('line_number')}:{sf.get('title')}"
+            if finding_key not in seen_findings:
+                seen_findings.add(finding_key)
+                findings.append(sf)
+
+        # Add analysis summary to response
+        if taint_analysis_results:
+            logger.info(
+                f"[ComprehensiveScan] {file_path}: "
+                f"tainted_values={taint_analysis_results.get('statistics', {}).get('total_tainted_values', 0)}, "
+                f"flows={taint_analysis_results.get('statistics', {}).get('total_flows', 0)}, "
+                f"vulnerabilities={len(findings)}"
+            )
+
+        return findings
+
+    def _detect_function_definition(self, line: str, language: str) -> Optional[Dict[str, Any]]:
+        """Detect function definition and extract name and parameters"""
+        patterns = {
+            'python': r'def\s+(\w+)\s*\(([^)]*)\)',
+            'javascript': r'(?:function\s+(\w+)|const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(\w+)\s*:\s*(?:async\s*)?\([^)]*\)\s*=>)',
+            'typescript': r'(?:function\s+(\w+)|const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>|(\w+)\s*\([^)]*\)\s*:\s*\w+)',
+            'go': r'func\s+(?:\([^)]+\)\s*)?(\w+)\s*\(([^)]*)\)',
+            'php': r'function\s+(\w+)\s*\(([^)]*)\)',
+            'csharp': r'(?:public|private|protected|internal)?\s*(?:static\s+)?(?:async\s+)?\w+\s+(\w+)\s*\(([^)]*)\)',
+            'java': r'(?:public|private|protected)?\s*(?:static\s+)?(?:final\s+)?\w+\s+(\w+)\s*\(([^)]*)\)',
+        }
+
+        pattern = patterns.get(language.lower())
+        if not pattern:
+            return None
+
+        match = re.search(pattern, line)
+        if match:
+            # Extract function name (may be in different groups depending on pattern)
+            func_name = None
+            for group in match.groups():
+                if group and not group.startswith('('):
+                    func_name = group
+                    break
+
+            # Extract parameters
+            params = []
+            params_str = match.groups()[-1] if match.groups() else ''
+            if params_str:
+                # Simple parameter extraction
+                param_matches = re.findall(r'(\w+)\s*[,:\)]', params_str)
+                params = param_matches
+
+            return {'name': func_name, 'params': params}
+
+        return None
+
+    def _analyze_interprocedural_flows(self, code_content: str, file_path: str,
+                                        language: str, tainted_vars: Dict,
+                                        function_defs: Dict) -> List[Dict[str, Any]]:
+        """Analyze inter-procedural taint flows through function calls"""
+        findings = []
+        lines = code_content.split('\n')
+
+        try:
+            from services.sast_rules_comprehensive import sast_engine
+            interprocedural_patterns = sast_engine.get_interprocedural_patterns(language)
+        except ImportError:
+            return findings
+
+        for pattern in interprocedural_patterns:
+            # Find source matches
+            source_matches = []
+            for line_num, line in enumerate(lines, 1):
+                if re.search(pattern.source_pattern, line, re.IGNORECASE):
+                    source_matches.append({'line': line_num, 'content': line.strip()})
+
+            # Find sink matches
+            sink_matches = []
+            for line_num, line in enumerate(lines, 1):
+                if re.search(pattern.sink_pattern, line, re.IGNORECASE):
+                    sink_matches.append({'line': line_num, 'content': line.strip()})
+
+            # Check for propagation paths between sources and sinks
+            for source in source_matches:
+                for sink in sink_matches:
+                    # Simple check: sink comes after source
+                    if sink['line'] > source['line']:
+                        # Check if there's a function call between them that could propagate taint
+                        has_propagation = False
+                        for line_num in range(source['line'], sink['line']):
+                            if line_num < len(lines):
+                                if re.search(pattern.propagation_pattern, lines[line_num - 1], re.IGNORECASE):
+                                    has_propagation = True
+                                    break
+
+                        # Check for tainted variable usage in sink
+                        taint_reaches_sink = False
+                        for var_name, taint_info in tainted_vars.items():
+                            if taint_info['line'] <= sink['line'] and re.search(rf'\b{re.escape(var_name)}\b', sink['content']):
+                                taint_reaches_sink = True
+                                break
+
+                        if has_propagation or taint_reaches_sink:
+                            findings.append({
+                                "title": f"Inter-Procedural {pattern.vulnerability_type}",
+                                "description": pattern.description,
+                                "severity": pattern.severity.value if hasattr(pattern.severity, 'value') else str(pattern.severity),
+                                "cwe_id": pattern.cwe,
+                                "file_path": file_path,
+                                "line_number": sink['line'],
+                                "code_snippet": sink['content'],
+                                "vulnerable_code": sink['content'],
+                                "confidence": "high" if taint_reaches_sink else "medium",
+                                "language": language,
+                                "analysis_type": "interprocedural",
+                                "taint_flow": {
+                                    'source_line': source['line'],
+                                    'source_content': source['content'],
+                                    'sink_line': sink['line'],
+                                    'sink_content': sink['content'],
+                                    'pattern_name': pattern.name
+                                },
+                                "cvss_score": self._calculate_cvss(
+                                    pattern.severity.value if hasattr(pattern.severity, 'value') else str(pattern.severity)
+                                ),
+                            })
+
+        return findings
+
+    def _get_remediation_for_sink(self, sink) -> str:
+        """Get remediation guidance for a specific sink type"""
+        remediations = {
+            "SQL Injection": """**Remediation:**
+1. Use parameterized queries or prepared statements
+2. Use an ORM framework (SQLAlchemy, Hibernate, Entity Framework)
+3. Implement input validation using allowlists
+4. Apply principle of least privilege for database accounts""",
+            "Command Injection": """**Remediation:**
+1. Avoid shell commands with user input
+2. Use subprocess with list arguments (shell=False)
+3. Use allowlists for permitted commands
+4. Sanitize input with shlex.quote() or equivalent""",
+            "XSS": """**Remediation:**
+1. Use context-aware output encoding (HTML, JS, URL, CSS)
+2. Use a templating engine with auto-escaping
+3. Implement Content-Security-Policy headers
+4. Use DOMPurify for client-side sanitization""",
+            "Path Traversal": """**Remediation:**
+1. Use basename() to strip directory components
+2. Validate paths against an allowlist of directories
+3. Use realpath() and verify the result is within allowed directory
+4. Never concatenate user input directly into file paths""",
+            "SSRF": """**Remediation:**
+1. Validate and sanitize all URLs
+2. Use an allowlist of permitted domains
+3. Disable unnecessary URL schemes (file://, gopher://)
+4. Implement network segmentation for internal services""",
+            "Insecure Deserialization": """**Remediation:**
+1. Never deserialize untrusted data
+2. Use safe serialization formats (JSON instead of pickle/serialize)
+3. Implement integrity checks (HMAC) on serialized data
+4. Use allowlists for permitted classes if deserialization is required""",
+            "Weak Cryptography": """**Remediation:**
+1. Use strong algorithms: AES-256-GCM for encryption, SHA-256+ for hashing
+2. For passwords, use bcrypt, scrypt, or Argon2
+3. Never use MD5, SHA1, DES, or RC4
+4. Use authenticated encryption modes (GCM, CCM)""",
+        }
+
+        vuln_type = sink.vulnerability_type if hasattr(sink, 'vulnerability_type') else str(sink)
+        return remediations.get(vuln_type, "Review and remediate this security vulnerability.")

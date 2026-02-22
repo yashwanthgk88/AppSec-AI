@@ -14,6 +14,8 @@ import ArchitectureBuilder from '../components/ArchitectureBuilder'
 import { ThreatStatusBadge, ThreatLifecycleSummary, ThreatChangeReason, ThreatStatus } from '../components/ThreatStatusBadge'
 import { ThreatHistoryPanel, ThreatTimeline } from '../components/ThreatHistory'
 import { Toast, useToast } from '../components/Toast'
+import ThreatMatrixView from '../components/ThreatMatrixView'
+import ValidationDashboard from '../components/ValidationDashboard'
 
 // Initialize mermaid with enhanced config
 mermaid.initialize({
@@ -132,6 +134,9 @@ export default function ThreatModelPage() {
   const [selectedComponent, setSelectedComponent] = useState<any>(null)
   const [showArchitectureEditor, setShowArchitectureEditor] = useState(false)
   const [pendingArchitectureChanges, setPendingArchitectureChanges] = useState<any>(null)
+  const [threatFeedback, setThreatFeedback] = useState<Record<string, { status: 'confirmed' | 'rejected'; reason?: string }>>({})
+  const [showValidationDashboard, setShowValidationDashboard] = useState(false)
+  const [showThreatMatrix, setShowThreatMatrix] = useState(false)
 
   // Toast notifications
   const { toasts, addToast, removeToast, warning, error: showError, info } = useToast()
@@ -166,6 +171,24 @@ export default function ThreatModelPage() {
       }
     })
     return allThreats
+  }
+
+  // Handle threat feedback (confirm/reject)
+  const handleThreatFeedback = (threatId: string, feedback: 'confirm' | 'reject', reason?: string) => {
+    setThreatFeedback(prev => ({
+      ...prev,
+      [threatId]: {
+        status: feedback === 'confirm' ? 'confirmed' : 'rejected',
+        reason
+      }
+    }))
+
+    // Show toast
+    if (feedback === 'confirm') {
+      info(`Threat confirmed`)
+    } else {
+      info(`Threat marked for review`)
+    }
   }
 
   // Poll status endpoint for generation progress
@@ -1114,6 +1137,33 @@ export default function ThreatModelPage() {
                 📊 Diagram
               </button>
             </div>
+            {/* Additional View Toggles */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setShowThreatMatrix(!showThreatMatrix)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition flex items-center gap-1 ${
+                  showThreatMatrix
+                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                    : 'bg-gray-100 text-gray-600 hover:text-gray-900'
+                }`}
+                title="Show Threat Matrix - Grid view of components vs STRIDE categories"
+              >
+                <Target className="w-4 h-4" />
+                Matrix
+              </button>
+              <button
+                onClick={() => setShowValidationDashboard(!showValidationDashboard)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition flex items-center gap-1 ${
+                  showValidationDashboard
+                    ? 'bg-green-100 text-green-700 border border-green-300'
+                    : 'bg-gray-100 text-gray-600 hover:text-gray-900'
+                }`}
+                title="Show Validation Dashboard - Validate threat model completeness"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Validate
+              </button>
+            </div>
             {/* Level Toggle - only show for diagram view */}
             {viewMode === 'diagram' && (
               <div className="flex items-center space-x-2">
@@ -1156,6 +1206,7 @@ export default function ThreatModelPage() {
               level={selectedLevel}
               onComponentClick={(comp) => setSelectedComponent(comp)}
               nodes={threatModel.dfd_data?.nodes || []}
+              edges={threatModel.dfd_data?.edges || []}
             />
           )
         )}
@@ -1169,6 +1220,33 @@ export default function ThreatModelPage() {
           edges={threatModel.dfd_data?.edges || []}
           onClose={() => setSelectedComponent(null)}
         />
+      )}
+
+      {/* Threat Matrix View */}
+      {showThreatMatrix && threatModel?.stride_analysis && (
+        <div className="card p-6">
+          <ThreatMatrixView
+            strideAnalysis={threatModel.stride_analysis}
+            components={threatModel.dfd_data?.nodes || []}
+            onThreatClick={(threat) => {
+              // Could open threat details modal
+              console.log('Threat clicked:', threat)
+            }}
+            onComponentClick={(comp) => setSelectedComponent(comp)}
+          />
+        </div>
+      )}
+
+      {/* Validation Dashboard */}
+      {showValidationDashboard && threatModel?.stride_analysis && (
+        <div className="card p-0 overflow-hidden">
+          <ValidationDashboard
+            strideAnalysis={threatModel.stride_analysis}
+            components={threatModel.dfd_data?.nodes || []}
+            threatModel={threatModel}
+            onThreatFeedback={handleThreatFeedback}
+          />
+        </div>
       )}
 
       {/* Eraser AI Professional Diagrams */}
@@ -2295,9 +2373,10 @@ interface MermaidDiagramProps {
   level: number;
   onComponentClick?: (component: any) => void;
   nodes?: any[];
+  edges?: any[];
 }
 
-function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: MermaidDiagramProps) {
+function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = [] }: MermaidDiagramProps) {
   const mermaidRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [mermaidSvg, setMermaidSvg] = useState<string>('')
@@ -2306,6 +2385,8 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
   const [pan, setPan] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [focusMode, setFocusMode] = useState(false)
+  const [focusedNode, setFocusedNode] = useState<any | null>(null)
 
   const handleZoomIn = () => setZoom(z => Math.min(z + 0.25, 3))
   const handleZoomOut = () => setZoom(z => Math.max(z - 0.25, 0.25))
@@ -2333,14 +2414,27 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
     if (dfdData?.mermaid) {
       renderMermaid()
     }
-  }, [dfdData, level])
+  }, [dfdData, level, focusMode, focusedNode])
+
+  // Handle click on component - toggle focus if focus mode is enabled
+  const handleNodeClick = (node: any) => {
+    if (focusMode) {
+      if (focusedNode?.id === node.id) {
+        // Clicking focused node again clears focus
+        setFocusedNode(null)
+      } else {
+        setFocusedNode(node)
+      }
+    }
+    onComponentClick?.(node)
+  }
 
   // Add click handlers to SVG nodes after rendering
   useEffect(() => {
-    if (mermaidSvg && mermaidRef.current && onComponentClick && nodes.length > 0) {
+    if (mermaidSvg && mermaidRef.current && nodes.length > 0) {
       addClickHandlers()
     }
-  }, [mermaidSvg, nodes])
+  }, [mermaidSvg, nodes, focusMode])
 
   const addClickHandlers = () => {
     if (!mermaidRef.current) return
@@ -2365,11 +2459,11 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
         cleanId.includes(n.id.replace(/[^a-zA-Z0-9_]/g, '_'))
       )
 
-      if (matchingNode && onComponentClick) {
+      if (matchingNode) {
         nodeEl.setAttribute('style', 'cursor: pointer;')
         nodeEl.addEventListener('click', (e) => {
           e.stopPropagation()
-          onComponentClick(matchingNode)
+          handleNodeClick(matchingNode)
         })
         // Add hover effect
         nodeEl.addEventListener('mouseenter', () => {
@@ -2382,13 +2476,92 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
     })
   }
 
+  // Generate focused mermaid diagram showing only selected node and its connections
+  const generateFocusedMermaid = (focusNode: any): string => {
+    if (!focusNode || !edges.length) return dfdData.mermaid
+
+    const focusId = focusNode.id
+    const focusIdClean = focusId.replace(/[^a-zA-Z0-9_]/g, '_')
+
+    // Find all connected edges
+    const connectedEdges = edges.filter(edge =>
+      edge.source === focusId || edge.target === focusId ||
+      edge.source === focusIdClean || edge.target === focusIdClean
+    )
+
+    // Find all connected node IDs
+    const connectedNodeIds = new Set<string>([focusId, focusIdClean])
+    connectedEdges.forEach(edge => {
+      connectedNodeIds.add(edge.source)
+      connectedNodeIds.add(edge.target)
+      connectedNodeIds.add(edge.source.replace(/[^a-zA-Z0-9_]/g, '_'))
+      connectedNodeIds.add(edge.target.replace(/[^a-zA-Z0-9_]/g, '_'))
+    })
+
+    // Get connected nodes
+    const connectedNodes = nodes.filter(node =>
+      connectedNodeIds.has(node.id) ||
+      connectedNodeIds.has(node.id.replace(/[^a-zA-Z0-9_]/g, '_'))
+    )
+
+    // Build focused mermaid diagram
+    let mermaidCode = 'flowchart TD\n'
+
+    // Add node definitions
+    connectedNodes.forEach(node => {
+      const nodeId = node.id.replace(/[^a-zA-Z0-9_]/g, '_')
+      const label = node.label || node.name || node.id
+      const nodeType = node.type?.toLowerCase() || 'process'
+
+      // Determine node shape based on type
+      if (nodeType === 'external_entity' || nodeType === 'external') {
+        mermaidCode += `    ${nodeId}[${label}]:::externalEntity\n`
+      } else if (nodeType === 'data_store' || nodeType === 'database' || nodeType === 'datastore') {
+        mermaidCode += `    ${nodeId}[(${label})]:::dataStore\n`
+      } else {
+        mermaidCode += `    ${nodeId}((${label})):::process\n`
+      }
+    })
+
+    // Add edge definitions
+    connectedEdges.forEach(edge => {
+      const sourceId = edge.source.replace(/[^a-zA-Z0-9_]/g, '_')
+      const targetId = edge.target.replace(/[^a-zA-Z0-9_]/g, '_')
+      const label = edge.label || edge.data_type || ''
+      if (label) {
+        mermaidCode += `    ${sourceId} -->|${label}| ${targetId}\n`
+      } else {
+        mermaidCode += `    ${sourceId} --> ${targetId}\n`
+      }
+    })
+
+    // Add styling
+    mermaidCode += `
+    classDef externalEntity fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    classDef dataStore fill:#d1fae5,stroke:#10b981,stroke-width:2px
+    classDef process fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    classDef focusNode fill:#fce7f3,stroke:#ec4899,stroke-width:3px
+`
+
+    // Highlight the focused node
+    const focusNodeClean = focusId.replace(/[^a-zA-Z0-9_]/g, '_')
+    mermaidCode += `    class ${focusNodeClean} focusNode\n`
+
+    return mermaidCode
+  }
+
   const renderMermaid = async () => {
     try {
       setRenderError(null)
       // Clean up any existing error elements from Mermaid
       document.querySelectorAll('.mermaid-error, [id^="dmermaid"]').forEach(el => el.remove())
 
-      const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, dfdData.mermaid)
+      // Use focused mermaid if in focus mode
+      const mermaidCode = focusMode && focusedNode
+        ? generateFocusedMermaid(focusedNode)
+        : dfdData.mermaid
+
+      const { svg } = await mermaid.render(`mermaid-${level}-${Date.now()}`, mermaidCode)
 
       // Keep SVG at natural size - don't force width to 100%
       // Just remove max-width constraint that Mermaid adds
@@ -2485,6 +2658,34 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
           >
             Reset
           </button>
+          <div className="border-l border-gray-300 mx-2"></div>
+          <button
+            onClick={() => {
+              setFocusMode(!focusMode)
+              if (!focusMode) {
+                setFocusedNode(null)
+              }
+            }}
+            className={`px-3 py-2 rounded-lg text-sm transition flex items-center gap-1 ${
+              focusMode
+                ? 'bg-pink-100 text-pink-700 border border-pink-300'
+                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+            }`}
+            title="Focus Mode - Click a component to show only its connections"
+          >
+            <Target className="w-4 h-4" />
+            Focus
+          </button>
+          {focusMode && focusedNode && (
+            <button
+              onClick={() => setFocusedNode(null)}
+              className="px-3 py-2 bg-pink-500 text-white rounded-lg text-sm transition hover:bg-pink-600 flex items-center gap-1"
+              title="Clear focus and show all components"
+            >
+              <X className="w-4 h-4" />
+              Clear ({focusedNode.label || focusedNode.name || focusedNode.id})
+            </button>
+          )}
         </div>
         <div className="flex space-x-2">
           <button
@@ -2529,6 +2730,8 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
       </div>
       <p className="text-xs text-gray-500 mt-2 text-center">
         Use mouse wheel to zoom, drag to pan. Click Reset to restore original view.
+        {focusMode && !focusedNode && ' | Focus Mode: Click a component to show only its connections.'}
+        {focusMode && focusedNode && ' | Focused on: ' + (focusedNode.label || focusedNode.name || focusedNode.id)}
       </p>
 
       {/* Legend */}
