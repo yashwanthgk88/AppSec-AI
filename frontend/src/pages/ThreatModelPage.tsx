@@ -113,6 +113,7 @@ export default function ThreatModelPage() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedLevel, setSelectedLevel] = useState<number>(0)
+  const [viewMode, setViewMode] = useState<'explorer' | 'diagram'>('explorer')
   const [controls, setControls] = useState<string[]>([])
   const [newControl, setNewControl] = useState('')
   const [expandedThreats, setExpandedThreats] = useState<Set<number>>(new Set())
@@ -970,39 +971,76 @@ export default function ThreatModelPage() {
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-gray-900">
-            Data Flow Diagram
+            Architecture View
           </h2>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setSelectedLevel(0)}
-              className={`px-4 py-2 text-sm rounded-lg transition ${
-                selectedLevel === 0
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Level 0 (Context)
-            </button>
-            <button
-              onClick={() => setSelectedLevel(1)}
-              className={`px-4 py-2 text-sm rounded-lg transition ${
-                selectedLevel === 1
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Level 1 (Detailed)
-            </button>
+          <div className="flex items-center space-x-4">
+            {/* View Toggle */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('explorer')}
+                className={`px-3 py-1.5 text-sm rounded-md transition ${
+                  viewMode === 'explorer'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🗂️ Explorer
+              </button>
+              <button
+                onClick={() => setViewMode('diagram')}
+                className={`px-3 py-1.5 text-sm rounded-md transition ${
+                  viewMode === 'diagram'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                📊 Diagram
+              </button>
+            </div>
+            {/* Level Toggle - only show for diagram view */}
+            {viewMode === 'diagram' && (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setSelectedLevel(0)}
+                  className={`px-4 py-2 text-sm rounded-lg transition ${
+                    selectedLevel === 0
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Level 0 (Context)
+                </button>
+                <button
+                  onClick={() => setSelectedLevel(1)}
+                  className={`px-4 py-2 text-sm rounded-lg transition ${
+                    selectedLevel === 1
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Level 1 (Detailed)
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {currentDFD && (
-          <MermaidDiagram
-            dfdData={currentDFD}
-            level={selectedLevel}
-            onComponentClick={(comp) => setSelectedComponent(comp)}
+        {viewMode === 'explorer' ? (
+          <ComponentExplorer
             nodes={threatModel.dfd_data?.nodes || []}
+            edges={threatModel.dfd_data?.edges || []}
+            trustBoundaries={currentDFD?.trust_boundaries || []}
+            onComponentClick={(comp) => setSelectedComponent(comp)}
           />
+        ) : (
+          currentDFD && (
+            <MermaidDiagram
+              dfdData={currentDFD}
+              level={selectedLevel}
+              onComponentClick={(comp) => setSelectedComponent(comp)}
+              nodes={threatModel.dfd_data?.nodes || []}
+            />
+          )
         )}
       </div>
 
@@ -2349,6 +2387,269 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [] }: Mermai
       </div>
     </div>
   )
+}
+
+// Component Explorer - Interactive tree view of architecture
+interface ComponentExplorerProps {
+  nodes: any[];
+  edges: any[];
+  trustBoundaries: any[];
+  onComponentClick?: (component: any) => void;
+}
+
+function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: ComponentExplorerProps) {
+  const [expandedBoundaries, setExpandedBoundaries] = useState<Set<string>>(new Set(['all']));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedType, setSelectedType] = useState<string>('all');
+
+  const toggleBoundary = (id: string) => {
+    setExpandedBoundaries(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const getComponentIcon = (type: string) => {
+    switch (type) {
+      case 'external': return '👤';
+      case 'process': return '⚙️';
+      case 'datastore': return '💾';
+      case 'api': return '🔌';
+      case 'web': return '🌐';
+      case 'database': return '🗄️';
+      default: return '📦';
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'external': return 'bg-red-100 text-red-800 border-red-300';
+      case 'process': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'datastore': return 'bg-green-100 text-green-800 border-green-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+    }
+  };
+
+  // Group nodes by trust boundary
+  const boundaryNodeMap = new Map<string, Set<string>>();
+  trustBoundaries.forEach(b => {
+    boundaryNodeMap.set(b.id, new Set(b.components_inside || []));
+  });
+
+  const getNodesInBoundary = (boundaryId: string) => {
+    const nodeIds = boundaryNodeMap.get(boundaryId) || new Set();
+    return nodes.filter(n => nodeIds.has(n.id));
+  };
+
+  const getNodesOutsideBoundaries = () => {
+    const allBoundaryNodes = new Set<string>();
+    boundaryNodeMap.forEach(nodeSet => nodeSet.forEach(id => allBoundaryNodes.add(id)));
+    return nodes.filter(n => !allBoundaryNodes.has(n.id));
+  };
+
+  const getConnections = (nodeId: string) => {
+    const incoming = edges.filter(e => e.target === nodeId);
+    const outgoing = edges.filter(e => e.source === nodeId);
+    return { incoming, outgoing };
+  };
+
+  const filteredNodes = nodes.filter(n => {
+    const matchesSearch = !searchTerm ||
+      n.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      n.id?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = selectedType === 'all' || n.type === selectedType;
+    return matchesSearch && matchesType;
+  });
+
+  const componentTypes = ['all', ...new Set(nodes.map(n => n.type))];
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Filter */}
+      <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Search components..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+          <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <select
+          value={selectedType}
+          onChange={(e) => setSelectedType(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+        >
+          {componentTypes.map(type => (
+            <option key={type} value={type}>
+              {type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-4">
+        <div className="bg-blue-50 p-3 rounded-lg text-center">
+          <div className="text-2xl font-bold text-blue-600">{nodes.length}</div>
+          <div className="text-xs text-blue-800">Components</div>
+        </div>
+        <div className="bg-green-50 p-3 rounded-lg text-center">
+          <div className="text-2xl font-bold text-green-600">{edges.length}</div>
+          <div className="text-xs text-green-800">Data Flows</div>
+        </div>
+        <div className="bg-purple-50 p-3 rounded-lg text-center">
+          <div className="text-2xl font-bold text-purple-600">{trustBoundaries.length}</div>
+          <div className="text-xs text-purple-800">Trust Boundaries</div>
+        </div>
+        <div className="bg-orange-50 p-3 rounded-lg text-center">
+          <div className="text-2xl font-bold text-orange-600">{nodes.filter(n => n.type === 'external').length}</div>
+          <div className="text-xs text-orange-800">External Entities</div>
+        </div>
+      </div>
+
+      {/* Trust Boundaries */}
+      <div className="space-y-3 max-h-[500px] overflow-y-auto">
+        {trustBoundaries.map(boundary => {
+          const boundaryNodes = getNodesInBoundary(boundary.id).filter(n =>
+            filteredNodes.some(fn => fn.id === n.id)
+          );
+          const isExpanded = expandedBoundaries.has(boundary.id);
+
+          return (
+            <div key={boundary.id} className="border border-indigo-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleBoundary(boundary.id)}
+                className="w-full flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 transition"
+              >
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">🛡️</span>
+                  <span className="font-medium text-indigo-900">{boundary.name || boundary.id}</span>
+                  <span className="px-2 py-0.5 bg-indigo-200 text-indigo-800 text-xs rounded-full">
+                    {boundaryNodes.length} components
+                  </span>
+                </div>
+                <svg className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {isExpanded && (
+                <div className="p-3 space-y-2 bg-white">
+                  {boundaryNodes.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-2">No matching components</p>
+                  ) : (
+                    boundaryNodes.map(node => {
+                      const connections = getConnections(node.id);
+                      return (
+                        <div
+                          key={node.id}
+                          onClick={() => onComponentClick?.(node)}
+                          className="p-3 border border-gray-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 cursor-pointer transition"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xl">{getComponentIcon(node.type)}</span>
+                              <div>
+                                <div className="font-medium text-gray-900">{node.label || node.id}</div>
+                                <div className="text-xs text-gray-500">{node.technology || node.type}</div>
+                              </div>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded border ${getTypeColor(node.type)}`}>
+                              {node.type}
+                            </span>
+                          </div>
+                          {(connections.incoming.length > 0 || connections.outgoing.length > 0) && (
+                            <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                              <span>⬅️ {connections.incoming.length} in</span>
+                              <span>➡️ {connections.outgoing.length} out</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* External Components (outside trust boundaries) */}
+        {(() => {
+          const externalNodes = getNodesOutsideBoundaries().filter(n =>
+            filteredNodes.some(fn => fn.id === n.id)
+          );
+          if (externalNodes.length === 0) return null;
+
+          const isExpanded = expandedBoundaries.has('external');
+          return (
+            <div className="border border-orange-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleBoundary('external')}
+                className="w-full flex items-center justify-between p-3 bg-orange-50 hover:bg-orange-100 transition"
+              >
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">🌐</span>
+                  <span className="font-medium text-orange-900">External Entities</span>
+                  <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded-full">
+                    {externalNodes.length} components
+                  </span>
+                </div>
+                <svg className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {isExpanded && (
+                <div className="p-3 space-y-2 bg-white">
+                  {externalNodes.map(node => {
+                    const connections = getConnections(node.id);
+                    return (
+                      <div
+                        key={node.id}
+                        onClick={() => onComponentClick?.(node)}
+                        className="p-3 border border-gray-200 rounded-lg hover:border-orange-400 hover:bg-orange-50 cursor-pointer transition"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xl">{getComponentIcon(node.type)}</span>
+                            <div>
+                              <div className="font-medium text-gray-900">{node.label || node.id}</div>
+                              <div className="text-xs text-gray-500">{node.technology || node.type}</div>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-1 text-xs rounded border ${getTypeColor(node.type)}`}>
+                            {node.type}
+                          </span>
+                        </div>
+                        {(connections.incoming.length > 0 || connections.outgoing.length > 0) && (
+                          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                            <span>⬅️ {connections.incoming.length} in</span>
+                            <span>➡️ {connections.outgoing.length} out</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      <p className="text-xs text-gray-500 text-center">
+        Click on any component to view its security details and associated threats.
+      </p>
+    </div>
+  );
 }
 
 // Component Details Panel - Shows when a component is clicked in the diagram
