@@ -5,7 +5,7 @@ import {
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
   RefreshCw, Layers, FileText, GitBranch, Clock, Upload,
-  FileImage, File, X, Eye, Info, Trash2
+  FileImage, File, X, Eye, Info, Trash2, ChevronDown, Sparkles
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
@@ -235,7 +235,7 @@ export default function ThreatModelPage() {
     setTimeout(poll, 2000)
   }
 
-  const regenerateThreatModel = async () => {
+  const regenerateThreatModel = async (incremental: boolean = false) => {
     setRegenerating(true)
     setGenerationComplete(false)
     setCurrentStep(1)
@@ -243,9 +243,21 @@ export default function ThreatModelPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+
+      if (incremental) {
+        // For incremental, we need to pass the current architecture
+        const architectureData = threatModel.dfd_data || threatModel.architecture || {}
+        const response = await axios.post(
+          `/api/projects/${id}/threat-model/incremental`,
+          architectureData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      } else {
+        // Full regeneration
+        const response = await axios.post(`/api/projects/${id}/threat-model/regenerate`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
 
       // Start polling for status
       pollGenerationStatus()
@@ -258,6 +270,8 @@ export default function ThreatModelPage() {
       setCurrentStep(0)
     }
   }
+
+  const [showRegenerateMenu, setShowRegenerateMenu] = useState(false)
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -861,15 +875,47 @@ export default function ThreatModelPage() {
           <p className="text-gray-600 mt-1">AI-Powered Threat Modeling with STRIDE & MITRE ATT&CK</p>
         </div>
         <div className="flex items-center space-x-3">
-          <button
-            onClick={regenerateThreatModel}
-            disabled={regenerating}
-            className="btn btn-secondary inline-flex items-center space-x-2"
-            title="Regenerate threat model with latest analysis"
-          >
-            <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-            <span>{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
-          </button>
+          <div className="relative">
+            <div className="flex">
+              <button
+                onClick={() => regenerateThreatModel(false)}
+                disabled={regenerating}
+                className="btn btn-secondary inline-flex items-center space-x-2 rounded-r-none border-r-0"
+                title="Full regeneration - reanalyze entire architecture"
+              >
+                <RefreshCw className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                <span>{regenerating ? 'Regenerating...' : 'Regenerate'}</span>
+              </button>
+              <button
+                onClick={() => setShowRegenerateMenu(!showRegenerateMenu)}
+                disabled={regenerating}
+                className="btn btn-secondary px-2 rounded-l-none"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            </div>
+            {showRegenerateMenu && (
+              <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <button
+                  onClick={() => { regenerateThreatModel(false); setShowRegenerateMenu(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-t-lg border-b border-gray-100"
+                >
+                  <div className="font-medium text-gray-900">Full Regenerate</div>
+                  <div className="text-xs text-gray-500">Reanalyze entire architecture from scratch</div>
+                </button>
+                <button
+                  onClick={() => { regenerateThreatModel(true); setShowRegenerateMenu(false); }}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-b-lg"
+                >
+                  <div className="font-medium text-gray-900 flex items-center">
+                    <Sparkles className="w-4 h-4 mr-2 text-purple-500" />
+                    Incremental Update
+                  </div>
+                  <div className="text-xs text-gray-500">Only analyze changes, track threat lifecycle</div>
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setShowDeleteConfirm(true)}
             disabled={regenerating || deleting}
