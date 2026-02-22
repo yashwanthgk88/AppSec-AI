@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp, GitMerge, Package, Database, Github, Globe } from 'lucide-react'
+import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp, GitMerge, Package, Database, Github, Globe, Play, Lock } from 'lucide-react'
 import axios from 'axios'
 import TaintFlowVisualization from '../components/TaintFlowVisualization'
 import DependencyTreeVisualization, { buildDependencyTree } from '../components/DependencyTreeVisualization'
+import EmptyState from '../components/EmptyState'
 
 // Helper function to parse SCA source from file_path or code_snippet
 function parseScaSource(vulnerability: any): { source: string; package: string; version: string } | null {
@@ -851,15 +852,29 @@ export default function VulnerabilitiesPage() {
       {/* Vulnerabilities List */}
       <div className="space-y-4">
         {filteredVulnerabilities.length === 0 ? (
-          <div className="card p-12 text-center">
-            <Bug className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No vulnerabilities found</h3>
-            <p className="text-gray-600">
-              {selectedSeverity === 'all' && selectedScanType === 'all' && !searchQuery
-                ? 'Run a security scan to see results'
-                : 'No matching vulnerabilities found with current filters'}
-            </p>
-          </div>
+          vulnerabilities.length === 0 ? (
+            // No vulnerabilities at all - prompt to run scan
+            <EmptyState
+              type="scan-prompt"
+              title="🔍 Run a Security Scan"
+              description="No security scans have been performed yet. Run a comprehensive scan to detect SAST, SCA, and Secret vulnerabilities in your codebase."
+              actionLabel="Go to Project"
+              actionLink={`/projects/${id}`}
+            />
+          ) : (
+            // Vulnerabilities exist but filtered out
+            <EmptyState
+              type="filtered-empty"
+              title="No Matching Vulnerabilities"
+              description={`No vulnerabilities match your current filters. Try adjusting the severity (${selectedSeverity}), scan type (${selectedScanType}), or search query.`}
+              actionLabel="Clear Filters"
+              onAction={() => {
+                setSelectedSeverity('all')
+                setSelectedScanType('all')
+                setSearchQuery('')
+              }}
+            />
+          )
         ) : groupBy === 'none' ? (
           // No grouping - render flat list
           filteredVulnerabilities.map((vuln) => (
