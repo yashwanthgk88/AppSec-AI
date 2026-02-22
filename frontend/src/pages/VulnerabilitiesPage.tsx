@@ -45,6 +45,33 @@ function parseScaDependencyType(vulnerability: any): { isTransitive: boolean; in
   return { isTransitive, introducedBy, dependencyChain }
 }
 
+// Helper function to extract CVE IDs from SCA vulnerability
+function parseScaCveIds(vulnerability: any): string[] {
+  if (vulnerability.scan_type !== 'sca') return []
+
+  const codeSnippet = vulnerability.code_snippet || ''
+  const title = vulnerability.title || ''
+  const description = vulnerability.description || ''
+
+  // Extract CVE from code_snippet: "CVE: CVE-2021-3749" or "CVE: CVE-2020-8203, CVE-2019-10744"
+  const cveMatch = codeSnippet.match(/CVE:\s*([^\n]+)/i)
+  if (cveMatch) {
+    const cveStr = cveMatch[1]
+    // Parse comma-separated CVEs
+    const cves = cveStr.split(/[,\s]+/).filter((s: string) => s.startsWith('CVE-'))
+    if (cves.length > 0) return cves
+  }
+
+  // Also check title and description for CVE patterns
+  const allText = `${title} ${description}`
+  const cvePatterns = allText.match(/CVE-\d{4}-\d{4,}/g)
+  if (cvePatterns) {
+    return [...new Set(cvePatterns)]
+  }
+
+  return []
+}
+
 // Dependency Type Badge component
 function DependencyTypeBadge({ isTransitive, introducedBy }: { isTransitive: boolean; introducedBy: string | null }) {
   if (isTransitive) {
@@ -252,12 +279,13 @@ export default function VulnerabilitiesPage() {
     const scanTypeMatch = selectedScanType === 'all' || v.scan_type === selectedScanType
     const statusMatch = v.status === selectedStatusView || (!v.status && selectedStatusView === 'active')
 
-    // Search filter
+    // Search filter - includes CVE search for SCA vulnerabilities
     const searchMatch = !searchQuery ||
       v.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.file_path?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      v.cwe_id?.toLowerCase().includes(searchQuery.toLowerCase())
+      v.cwe_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.code_snippet?.toLowerCase().includes(searchQuery.toLowerCase()) // Search CVE in code_snippet for SCA
 
     return severityMatch && scanTypeMatch && statusMatch && searchMatch
   })
@@ -514,7 +542,7 @@ export default function VulnerabilitiesPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search vulnerabilities by title, description, file path, or CWE..."
+              placeholder="Search vulnerabilities by title, description, file path, CVE, or CWE..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -762,7 +790,13 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
   const [remediationResult, setRemediationResult] = useState<any>(null)
   const [showGitPanel, setShowGitPanel] = useState(false)
   const [gitBranch, setGitBranch] = useState('security-fix-' + vulnerability.id)
-  const [commitMessage, setCommitMessage] = useState(`Fix: ${vulnerability.title}\n\nResolves ${vulnerability.cwe_id || 'security vulnerability'}\nSeverity: ${vulnerability.severity}`)
+
+  // For SCA vulnerabilities, show CVE in commit message; for others show CWE
+  const vulnerabilityId = vulnerability.scan_type === 'sca'
+    ? parseScaCveIds(vulnerability).join(', ') || 'security vulnerability'
+    : vulnerability.cwe_id || 'security vulnerability'
+  const [commitMessage, setCommitMessage] = useState(`Fix: ${vulnerability.title}\n\nResolves ${vulnerabilityId}\nSeverity: ${vulnerability.severity}`)
+
   const [committing, setCommitting] = useState(false)
   const [commitSuccess, setCommitSuccess] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
@@ -1068,8 +1102,36 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
             )}
 
             <div className="flex items-center space-x-6 text-sm flex-wrap gap-2">
-              {vulnerability.cwe_id && (
-                <span className="badge badge-info">{vulnerability.cwe_id}</span>
+              {/* Show CVE for SCA, CWE for SAST/Secret */}
+              {vulnerability.scan_type === 'sca' ? (
+                (() => {
+                  const cves = parseScaCveIds(vulnerability)
+                  return cves.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {cves.slice(0, 3).map((cve, idx) => (
+                        <a
+                          key={idx}
+                          href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 border border-red-300"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Shield className="w-3 h-3 mr-1" />
+                          {cve}
+                          <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      ))}
+                      {cves.length > 3 && (
+                        <span className="text-xs text-gray-500">+{cves.length - 3} more</span>
+                      )}
+                    </div>
+                  ) : null
+                })()
+              ) : (
+                vulnerability.cwe_id && (
+                  <span className="badge badge-info">{vulnerability.cwe_id}</span>
+                )
               )}
               {vulnerability.cvss_score && (
                 <span className="text-gray-500">CVSS: {vulnerability.cvss_score}</span>
@@ -1183,15 +1245,37 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                   </div>
                 </div>
 
-                {/* CVE Information if available */}
-                {vulnerability.code_snippet?.includes('CVE-') && (
-                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                    <p className="text-xs text-red-600 font-medium mb-1">Associated CVE</p>
-                    <p className="text-sm font-semibold text-red-900 font-mono">
-                      {vulnerability.code_snippet.match(/CVE-\d{4}-\d+/)?.[0] || 'N/A'}
-                    </p>
-                  </div>
-                )}
+                {/* CVE Information - Prominently displayed for SCA */}
+                {(() => {
+                  const cves = parseScaCveIds(vulnerability)
+                  if (cves.length === 0) return null
+                  return (
+                    <div className="bg-red-50 rounded-lg p-4 border border-red-200 mt-4">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <Shield className="w-5 h-5 text-red-600" />
+                        <p className="text-sm text-red-800 font-semibold">Associated CVE Identifiers</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {cves.map((cve, idx) => (
+                          <a
+                            key={idx}
+                            href={`https://nvd.nist.gov/vuln/detail/${cve}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-100 text-red-800 hover:bg-red-200 border border-red-300 transition-colors"
+                          >
+                            <Shield className="w-4 h-4 mr-2" />
+                            {cve}
+                            <ExternalLink className="w-4 h-4 ml-2" />
+                          </a>
+                        ))}
+                      </div>
+                      <p className="text-xs text-red-600 mt-2">
+                        Click to view full vulnerability details on NVD (National Vulnerability Database)
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })()}
@@ -1554,7 +1638,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
             </button>
 
             <Link
-              to={`/chat?context=vulnerability&id=${vulnerability.id}&project=${projectId}&title=${encodeURIComponent(vulnerability.title)}&severity=${vulnerability.severity}&cwe=${vulnerability.cwe_id || ''}&description=${encodeURIComponent(vulnerability.description || '')}&file=${encodeURIComponent(vulnerability.file_path || '')}&line=${vulnerability.line_number || ''}&code=${encodeURIComponent(vulnerability.code_snippet || '')}`}
+              to={`/chat?context=vulnerability&id=${vulnerability.id}&project=${projectId}&title=${encodeURIComponent(vulnerability.title)}&severity=${vulnerability.severity}&cwe=${vulnerability.scan_type === 'sca' ? parseScaCveIds(vulnerability).join(',') || '' : vulnerability.cwe_id || ''}&description=${encodeURIComponent(vulnerability.description || '')}&file=${encodeURIComponent(vulnerability.file_path || '')}&line=${vulnerability.line_number || ''}&code=${encodeURIComponent(vulnerability.code_snippet || '')}&scanType=${vulnerability.scan_type || ''}`}
               className="btn btn-secondary inline-flex items-center space-x-2"
             >
               <MessageSquare className="w-4 h-4" />
