@@ -75,14 +75,51 @@ class AIConfig:
     @classmethod
     def from_env(cls) -> 'AIConfig':
         """Create config from environment variables (fallback)"""
-        # Check which API keys are available
-        openai_key = os.getenv("OPENAI_API_KEY", "")
-        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+        # Check for explicit AI provider selection
+        ai_provider = os.getenv("AI_PROVIDER", "").lower()
 
-        if anthropic_key:
+        # Azure OpenAI configuration
+        azure_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "")
+        azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+        azure_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+
+        # Other provider keys
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+        openai_key = os.getenv("OPENAI_API_KEY", "")
+        gemini_key = os.getenv("GEMINI_API_KEY", "")
+
+        # If explicit provider is set, use it
+        if ai_provider == "azure" and azure_key and azure_endpoint:
+            return cls(
+                provider="azure",
+                api_key=azure_key,
+                base_url=azure_endpoint,
+                model=azure_deployment,
+                api_version=azure_version
+            )
+        elif ai_provider == "anthropic" and anthropic_key:
+            return cls(provider="anthropic", api_key=anthropic_key)
+        elif ai_provider == "openai" and openai_key:
+            return cls(provider="openai", api_key=openai_key)
+        elif ai_provider == "google" and gemini_key:
+            return cls(provider="google", api_key=gemini_key)
+
+        # Auto-detect based on available keys (priority order)
+        if azure_key and azure_endpoint:
+            return cls(
+                provider="azure",
+                api_key=azure_key,
+                base_url=azure_endpoint,
+                model=azure_deployment,
+                api_version=azure_version
+            )
+        elif anthropic_key:
             return cls(provider="anthropic", api_key=anthropic_key)
         elif openai_key:
             return cls(provider="openai", api_key=openai_key)
+        elif gemini_key:
+            return cls(provider="google", api_key=gemini_key)
         else:
             return cls(provider="openai", api_key="")
 

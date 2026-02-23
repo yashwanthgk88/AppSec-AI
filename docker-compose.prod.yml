@@ -37,7 +37,14 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-appsec}:${POSTGRES_PASSWORD:-appsec_secure_password}@postgres:5432/${POSTGRES_DB:-appsec_db}
       # Security
       - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-random-string-in-production}
-      # AI Provider Keys
+      # AI Provider Selection
+      - AI_PROVIDER=${AI_PROVIDER:-azure}
+      # Azure OpenAI Configuration (Recommended for Enterprise)
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      # Alternative AI Provider Keys
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
