@@ -1,0 +1,47 @@
+# Build stage - install dependencies
+# Production Dockerfile for PostgreSQL deployment
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies including PostgreSQL dev libraries
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libffi-dev \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir --user -r requirements.txt
+
+# Production stage - minimal runtime
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime dependencies (curl for health checks, git for repo cloning, libpq for psycopg2)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy application code
+COPY . .
+
+# Create directories for uploads and temp files
+RUN mkdir -p /app/uploads /app/temp /app/data
+
+# Production uses port 8000
+ENV PORT=8000
+EXPOSE 8000
+
+# Production startup - uses SQLAlchemy for PostgreSQL (no SQLite init scripts)
+# Database tables are created via SQL init scripts in docker-entrypoint-initdb.d
+CMD ["sh", "-c", "python3 -c 'from models.database import init_db; init_db()' && python3 migrate_db.py 2>/dev/null || true && gunicorn main:app -w 2 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120"]

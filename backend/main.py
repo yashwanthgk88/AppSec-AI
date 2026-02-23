@@ -337,7 +337,10 @@ async def startup_event():
     init_db()
     # Create default admin user
     db = next(get_db())
-    admin = db.query(User).filter(User.email == "admin@example.com").first()
+    # Check for existing admin by email OR username to avoid duplicate key errors
+    admin = db.query(User).filter(
+        (User.email == "admin@example.com") | (User.username == "admin")
+    ).first()
     if not admin:
         admin = User(
             email="admin@example.com",
