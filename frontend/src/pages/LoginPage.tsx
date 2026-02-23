@@ -8,8 +8,8 @@ interface LoginPageProps {
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
-  const [email, setEmail] = useState('admin@example.com')
-  const [password, setPassword] = useState('admin123')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -85,17 +85,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           )}
 
-          {/* Demo Credentials Notice */}
-          <div className="bg-blue-50 border border-blue-200 px-4 py-3 rounded mb-6">
-            <p className="text-sm text-blue-800">
-              <strong>Demo Credentials:</strong>
-              <br />
-              Email: admin@example.com
-              <br />
-              Password: admin123
-            </p>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="label">Email</label>
@@ -104,7 +93,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <input
                   type="email"
                   className="input pl-10"
-                  placeholder="admin@example.com"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
