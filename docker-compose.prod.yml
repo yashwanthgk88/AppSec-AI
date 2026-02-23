@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: appsec-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-appsec}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-appsec_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-appsec_db}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    networks:
+      - appsec-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appsec} -d ${POSTGRES_DB:-appsec_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Backend API Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: appsec-backend
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      # PostgreSQL connection
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-appsec}:${POSTGRES_PASSWORD:-appsec_secure_password}@postgres:5432/${POSTGRES_DB:-appsec_db}
+      # Security
+      - SECRET_KEY=${SECRET_KEY:-change-this-to-a-secure-random-string-in-production}
+      # AI Provider Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      # CORS (comma-separated origins)
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173,https://yourdomain.com}
+      # Environment
+      - ENVIRONMENT=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - PORT=8000
+    volumes:
+      - appsec-uploads:/app/uploads
+      - appsec-temp:/app/temp
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - appsec-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:8000}
+    container_name: appsec-frontend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    environment:
+      - PORT=80
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - appsec-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy (for production with SSL)
+  nginx:
+    image: nginx:alpine
+    container_name: appsec-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped
+    networks:
+      - appsec-network
+    profiles:
+      - production
+
+networks:
+  appsec-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+    driver: local
+  appsec-uploads:
+    driver: local
+  appsec-temp:
+    driver: local

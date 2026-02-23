@@ -65,12 +65,26 @@ check_secret_key() {
 MODE=${1:-dev}
 
 if [ "$MODE" == "production" ] || [ "$MODE" == "prod" ]; then
-    echo -e "${GREEN}Deploying in PRODUCTION mode with Nginx${NC}"
+    echo -e "${GREEN}Deploying in PRODUCTION mode with PostgreSQL${NC}"
     check_secret_key
-    COMPOSE_PROFILES=production $DOCKER_COMPOSE up -d --build
+    # Check PostgreSQL password
+    if grep -q "change_this_to_secure_password" .env; then
+        echo -e "${RED}Error: Please change POSTGRES_PASSWORD in .env file${NC}"
+        exit 1
+    fi
+    $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --build
+
+elif [ "$MODE" == "production-nginx" ] || [ "$MODE" == "prod-nginx" ]; then
+    echo -e "${GREEN}Deploying in PRODUCTION mode with PostgreSQL + Nginx${NC}"
+    check_secret_key
+    if grep -q "change_this_to_secure_password" .env; then
+        echo -e "${RED}Error: Please change POSTGRES_PASSWORD in .env file${NC}"
+        exit 1
+    fi
+    COMPOSE_PROFILES=production $DOCKER_COMPOSE -f docker-compose.prod.yml up -d --build
 
 elif [ "$MODE" == "dev" ] || [ "$MODE" == "development" ]; then
-    echo -e "${GREEN}Deploying in DEVELOPMENT mode${NC}"
+    echo -e "${GREEN}Deploying in DEVELOPMENT mode (SQLite)${NC}"
     $DOCKER_COMPOSE up -d --build
 
 elif [ "$MODE" == "stop" ]; then
@@ -108,12 +122,13 @@ else
     echo "Usage: ./deploy.sh [mode]"
     echo ""
     echo "Available modes:"
-    echo "  dev          - Start in development mode (default)"
-    echo "  production   - Start in production mode with Nginx"
-    echo "  stop         - Stop all containers"
-    echo "  restart      - Restart all containers"
-    echo "  logs         - Show container logs"
-    echo "  clean        - Remove all containers, images, and volumes"
+    echo "  dev              - Start in development mode with SQLite (default)"
+    echo "  production       - Start in production mode with PostgreSQL"
+    echo "  production-nginx - Start in production mode with PostgreSQL + Nginx"
+    echo "  stop             - Stop all containers"
+    echo "  restart          - Restart all containers"
+    echo "  logs             - Show container logs"
+    echo "  clean            - Remove all containers, images, and volumes"
     echo ""
     exit 1
 fi
@@ -144,9 +159,9 @@ if $DOCKER_COMPOSE ps | grep -q "Up"; then
     echo ""
     echo "VS Code Extension v1.4.0 is available at:"
     if [ "$MODE" == "production" ] || [ "$MODE" == "prod" ]; then
-        echo "  http://localhost:80/downloads/appsec-ai-scanner-1.4.0.vsix"
+        echo "  http://localhost:80/downloads/appsec-ai-scanner-2.0.0.vsix"
     else
-        echo "  http://localhost:3000/downloads/appsec-ai-scanner-1.4.0.vsix"
+        echo "  http://localhost:3000/downloads/appsec-ai-scanner-2.0.0.vsix"
     fi
     echo ""
     echo -e "${YELLOW}View logs with: ./deploy.sh logs${NC}"
