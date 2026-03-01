@@ -2,7 +2,7 @@
 
 A comprehensive application security platform featuring threat modeling, vulnerability scanning, custom security rules, rule performance tracking, AI chatbot, and detailed reporting.
 
-## Features
+### Features
 
 ### Core Capabilities
 - **Threat Modeling:** Auto-generate DFD diagrams with STRIDE and MITRE ATT&CK mapping
