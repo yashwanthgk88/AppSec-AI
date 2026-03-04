@@ -88,6 +88,10 @@ class ComplianceMappingResponse(BaseModel):
         from_attributes = True
 
 
+class AnalyzeRequest(BaseModel):
+    insider_threat: bool = False
+
+
 class ProjectStorySummary(BaseModel):
     project_id: int
     project_name: str
@@ -290,6 +294,7 @@ def create_feedback_fetcher(db: Session):
 @router.post("/stories/{story_id}/analyze", response_model=AnalysisResponse)
 async def analyze_story(
     story_id: int,
+    request: AnalyzeRequest = AnalyzeRequest(),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
@@ -331,12 +336,12 @@ async def analyze_story(
     )
 
     # Run analysis
-    print(f"[ANALYZE] Running analysis for story: {story.title}")
+    print(f"[ANALYZE] Running analysis for story: {story.title}, insider_threat={request.insider_threat}")
     result = analyzer.analyze_story({
         "title": story.title,
         "description": story.description,
         "acceptance_criteria": story.acceptance_criteria
-    })
+    }, insider_threat=request.insider_threat)
     print(f"[ANALYZE] Analysis complete. Got {len(result.get('abuse_cases', []))} abuse cases, {len(result.get('security_requirements', []))} requirements")
 
     # Count threats - handle both dict and list formats

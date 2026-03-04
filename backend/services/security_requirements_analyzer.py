@@ -28,6 +28,36 @@ class SecurityRequirementsAnalyzer:
     """Analyzes user stories to generate security requirements using AI"""
 
     # Default prompt instructions that can be customized via settings
+    INSIDER_THREAT_ABUSE_CASE_PROMPT = """Generate 5-7 realistic INSIDER THREAT abuse cases focused on privileged users, employees, contractors, and trusted insiders. Each abuse case must have:
+- id: Unique identifier (AC-001, AC-002, etc.)
+- threat: Clear title of the insider abuse scenario
+- actor: Who would do this (Disgruntled Employee, Privileged Admin, Contractor, Departing Employee, Malicious Insider, Negligent Insider)
+- description: Realistic scenario describing how this insider abuse would occur using legitimate access and credentials
+- impact: Critical/High/Medium/Low
+- likelihood: High/Medium/Low
+- attack_vector: How the insider carries out the abuse using their privileged access
+- stride_category: Spoofing/Tampering/Repudiation/Information Disclosure/Denial of Service/Elevation of Privilege
+
+Focus on INSIDER-SPECIFIC scenarios. Examples:
+- Privileged admin accessing customer financial data outside their role
+- Departing employee exfiltrating sensitive data before resignation
+- Developer embedding backdoor logic in production code
+- IT staff tampering with audit logs to cover unauthorized access
+- Contractor abusing temporary elevated permissions beyond scope
+- Insider selling customer PII to competitors
+- Employee bypassing approval workflows for unauthorized transactions"""
+
+    INSIDER_THREAT_SECURITY_REQ_PROMPT = """Generate 10-15 actionable security requirements specifically addressing insider threat risks. Each requirement must have:
+- id: Unique identifier (SR-001, SR-002, etc.)
+- requirement: Clear, actionable security control to prevent or detect insider threats
+- priority: Critical/High/Medium
+- category: Access Control/Audit Logging/Data Loss Prevention/Privileged Access Management/Separation of Duties/Behavioral Analytics/Data Classification/Session Management/Monitoring/Cryptography
+- rationale: Why this control is critical for insider threat prevention and how it detects or limits insider abuse
+- acceptance_criteria: Bullet-pointed testable criteria (use \\n for line breaks, start each with •)
+
+Requirements must address: least-privilege access, comprehensive audit trails, anomaly detection, data exfiltration prevention, privileged access governance, and separation of duties.
+Map requirements to relevant compliance standards (NIST SP 800-53, ISO 27001, SOC2, PCI-DSS) where applicable."""
+
     DEFAULT_ABUSE_CASE_PROMPT = """Generate 5-7 realistic abuse cases. Each abuse case must have:
 - id: Unique identifier (AC-001, AC-002, etc.)
 - threat: Clear title of the abuse scenario
@@ -166,12 +196,13 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         if self.client is None:
             print(f"[SecurityAnalyzer] No AI provider available, will use template analysis")
 
-    def analyze_story(self, story: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze_story(self, story: Dict[str, Any], insider_threat: bool = False) -> Dict[str, Any]:
         """
         Analyze a user story for security concerns
 
         Args:
             story: Dict with title, description, acceptance_criteria
+            insider_threat: If True, generates insider-threat focused abuse cases and requirements
 
         Returns:
             Dict with abuse_cases, stride_threats, security_requirements, risk_score
@@ -182,13 +213,16 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         description = story.get("description", "")
         acceptance_criteria = story.get("acceptance_criteria", "")
 
+        if insider_threat:
+            print(f"[SecurityAnalyzer] Insider threat mode ENABLED")
+
         # Try AI analysis first with retries
         if self.client:
             print(f"[SecurityAnalyzer] Using AI analysis with {self.provider}/{self.model}")
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    result = self._ai_analyze(title, description, acceptance_criteria)
+                    result = self._ai_analyze(title, description, acceptance_criteria, insider_threat=insider_threat)
                     result["analysis_duration_ms"] = int((time.time() - start_time) * 1000)
                     result["ai_model_used"] = self.model
                     print(f"[SecurityAnalyzer] AI analysis completed: {len(result.get('abuse_cases', []))} abuse cases, {len(result.get('security_requirements', []))} requirements")
@@ -208,15 +242,15 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
             print(f"[SecurityAnalyzer] No AI client available, using template analysis")
 
         # Fallback to template-based analysis
-        result = self._template_analyze(title, description, acceptance_criteria)
+        result = self._template_analyze(title, description, acceptance_criteria, insider_threat=insider_threat)
         result["analysis_duration_ms"] = int((time.time() - start_time) * 1000)
         result["ai_model_used"] = "template"
         print(f"[SecurityAnalyzer] Template analysis completed: {len(result.get('abuse_cases', []))} abuse cases, {len(result.get('security_requirements', []))} requirements")
         return result
 
-    def _ai_analyze(self, title: str, description: str, acceptance_criteria: str) -> Dict[str, Any]:
+    def _ai_analyze(self, title: str, description: str, acceptance_criteria: str, insider_threat: bool = False) -> Dict[str, Any]:
         """Use AI to analyze the user story"""
-        prompt = self._build_analysis_prompt(title, description, acceptance_criteria)
+        prompt = self._build_analysis_prompt(title, description, acceptance_criteria, insider_threat=insider_threat)
 
         if self.provider == "anthropic":
             # Use non-streaming API call (more stable than streaming)
@@ -252,7 +286,7 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         # If JSON parsing fails, return template analysis
         return self._template_analyze(title, description, acceptance_criteria)
 
-    def _build_analysis_prompt(self, title: str, description: str, acceptance_criteria: str) -> str:
+    def _build_analysis_prompt(self, title: str, description: str, acceptance_criteria: str, insider_threat: bool = False) -> str:
         """Build the prompt for AI analysis - generates clean, structured security analysis
         Includes feedback examples for in-context learning when available."""
         ac_section = f"\nAcceptance Criteria: {acceptance_criteria}" if acceptance_criteria else ""
@@ -260,25 +294,48 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
         # Build feedback examples section if feedback is available
         feedback_section = self._build_feedback_section()
 
-        return f"""You are an expert application security analyst. Analyze the following user story for security threats, abuse cases, and generate security requirements.
+        # Build prompts — append insider threat cases on top of regular ones when mode is enabled
+        if insider_threat:
+            abuse_prompt = (
+                self.abuse_case_prompt
+                + "\n\nADDITIONALLY, generate insider threat abuse cases:\n"
+                + self.INSIDER_THREAT_ABUSE_CASE_PROMPT
+            )
+            req_prompt = (
+                self.security_req_prompt
+                + "\n\nADDITIONALLY, generate insider threat security requirements:\n"
+                + self.INSIDER_THREAT_SECURITY_REQ_PROMPT
+            )
+            insider_context = (
+                "\n⚠️ INSIDER THREAT MODE ENABLED: Generate BOTH regular abuse cases AND insider threat abuse cases. "
+                "For each item, set \"insider_threat\": true for insider-threat-specific items, and \"insider_threat\": false for regular items.\n"
+            )
+        else:
+            abuse_prompt = self.abuse_case_prompt
+            req_prompt = self.security_req_prompt
+            insider_context = ""
 
+        return f"""You are an expert application security analyst. Analyze the following user story for security threats, abuse cases, and generate security requirements.
+{insider_context}
 **User Story Title:** {title}
 **Description:** {description}{ac_section}
 
-{self.abuse_case_prompt}
+{abuse_prompt}
 
-{self.security_req_prompt}
+{req_prompt}
 {feedback_section}
 Return ONLY valid JSON with this exact structure:
 {{
   "abuse_cases": [
-    {{"id": "AC-001", "threat": "Abuse scenario title", "actor": "Who does this", "description": "How the abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "How it's carried out", "stride_category": "Information Disclosure"}}
+    {{"id": "AC-001", "threat": "Abuse scenario title", "actor": "Who does this", "description": "How the abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "How it's carried out", "stride_category": "Information Disclosure", "insider_threat": false}},
+    {{"id": "AC-006", "threat": "Insider abuse scenario", "actor": "Privileged Employee", "description": "How the insider abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "Legitimate access misused", "stride_category": "Information Disclosure", "insider_threat": true}}
   ],
   "stride_threats": [
     {{"category": "Spoofing", "threat": "Threat name", "description": "Detailed description", "risk_level": "High"}}
   ],
   "security_requirements": [
-    {{"id": "SR-001", "requirement": "Actionable requirement statement", "priority": "Critical", "category": "Authentication", "rationale": "Why this is needed", "acceptance_criteria": "• Specific testable criterion 1\\n• Specific testable criterion 2\\n• Specific testable criterion 3"}}
+    {{"id": "SR-001", "requirement": "Actionable requirement statement", "priority": "Critical", "category": "Authentication", "rationale": "Why this is needed", "acceptance_criteria": "• Specific testable criterion 1\\n• Specific testable criterion 2\\n• Specific testable criterion 3", "insider_threat": false}},
+    {{"id": "SR-011", "requirement": "Insider threat specific requirement", "priority": "High", "category": "Access Control", "rationale": "Prevent insider misuse", "acceptance_criteria": "• Insider-specific criterion 1\\n• Insider-specific criterion 2", "insider_threat": true}}
   ],
   "risk_score": 65
 }}
@@ -363,7 +420,7 @@ Anti-Example {i} (👎 Avoid):
 
         return ""
 
-    def _template_analyze(self, title: str, description: str, acceptance_criteria: str) -> Dict[str, Any]:
+    def _template_analyze(self, title: str, description: str, acceptance_criteria: str, insider_threat: bool = False) -> Dict[str, Any]:
         """Fallback when AI is not available - returns minimal placeholder data"""
         # Return minimal data indicating AI is required for proper analysis
         return {

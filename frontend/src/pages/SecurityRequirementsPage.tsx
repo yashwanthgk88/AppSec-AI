@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import {
   Shield, Plus, Play, ArrowLeft, FileText, AlertTriangle,
   CheckCircle, Trash2, ChevronDown, ChevronUp,
-  Target, Lock, RefreshCw, ExternalLink, Download, Upload, Cloud
+  Target, Lock, RefreshCw, ExternalLink, Download, Cloud, UserX
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -49,6 +49,7 @@ export default function SecurityRequirementsPage() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [analyzingAll, setAnalyzingAll] = useState(false)
   const [analyzingStory, setAnalyzingStory] = useState<number | null>(null)
+  const [insiderThreatMode, setInsiderThreatMode] = useState(false)
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [syncSource, setSyncSource] = useState<'jira' | 'ado' | 'snow'>('jira')
   const [syncProjectId, setSyncProjectId] = useState('')
@@ -157,7 +158,7 @@ export default function SecurityRequirementsPage() {
     setAnalyzingStory(storyId)
     try {
       const token = localStorage.getItem('token')
-      await axios.post(`/api/securereq/stories/${storyId}/analyze`, {}, {
+      await axios.post(`/api/securereq/stories/${storyId}/analyze`, { insider_threat: insiderThreatMode }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchData()
@@ -172,7 +173,7 @@ export default function SecurityRequirementsPage() {
     setAnalyzingAll(true)
     try {
       const token = localStorage.getItem('token')
-      await axios.post(`/api/securereq/projects/${id}/analyze-all`, {}, {
+      await axios.post(`/api/securereq/projects/${id}/analyze-all`, { insider_threat: insiderThreatMode }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchData()
@@ -239,6 +240,23 @@ export default function SecurityRequirementsPage() {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Insider Threat Toggle */}
+          <button
+            onClick={() => setInsiderThreatMode(!insiderThreatMode)}
+            className={`inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+              insiderThreatMode
+                ? 'bg-red-600 text-white border-red-600 shadow-md'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-red-400 hover:text-red-600'
+            }`}
+            title="Toggle insider threat analysis mode"
+          >
+            <UserX className="w-4 h-4 mr-2" />
+            Insider Threat
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {insiderThreatMode ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
           <button
             onClick={() => setShowSyncModal(true)}
             className="btn btn-secondary inline-flex items-center"
@@ -273,6 +291,17 @@ export default function SecurityRequirementsPage() {
           </button>
         </div>
       </div>
+
+      {/* Insider Threat Mode Banner */}
+      {insiderThreatMode && (
+        <div className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg">
+          <UserX className="w-5 h-5 text-red-600 mr-2 flex-shrink-0" />
+          <div>
+            <span className="text-sm font-semibold text-red-800">Insider Threat Mode Active — </span>
+            <span className="text-sm text-red-700">Analysis will focus on privileged user abuse, data exfiltration by insiders, audit evasion, and access control bypass scenarios.</span>
+          </div>
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (

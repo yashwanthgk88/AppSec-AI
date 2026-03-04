@@ -4,7 +4,7 @@ import {
   Shield, ArrowLeft, AlertTriangle, CheckCircle, Target,
   RefreshCw, Clock, FileText, Upload,
   Lock, Zap, Eye, EyeOff, User, Database, Server,
-  ThumbsUp, ThumbsDown
+  ThumbsUp, ThumbsDown, UserX
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -29,6 +29,7 @@ interface AbuseCase {
   impact: string
   likelihood: string
   mitigations?: string[]
+  insider_threat?: boolean
 }
 
 // Helper function to format text as bullet points
@@ -87,6 +88,7 @@ interface SecurityRequirement {
   priority: string
   rationale: string
   acceptance_criteria: string
+  insider_threat?: boolean
 }
 
 interface RiskFactor {
@@ -135,6 +137,7 @@ export default function StoryAnalysisPage() {
   const [compliance, setCompliance] = useState<ComplianceMapping[]>([])
   const [loading, setLoading] = useState(true)
   const [reanalyzing, setReanalyzing] = useState(false)
+  const [insiderThreatMode, setInsiderThreatMode] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishMessage, setPublishMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [activeTab, setActiveTab] = useState<'threats' | 'requirements' | 'compliance'>('threats')
@@ -204,7 +207,7 @@ export default function StoryAnalysisPage() {
     setReanalyzing(true)
     try {
       const token = localStorage.getItem('token')
-      await axios.post(`/api/securereq/stories/${storyId}/analyze`, {}, {
+      await axios.post(`/api/securereq/stories/${storyId}/analyze`, { insider_threat: insiderThreatMode }, {
         headers: { Authorization: `Bearer ${token}` }
       })
       fetchData()
@@ -292,6 +295,23 @@ export default function StoryAnalysisPage() {
         </div>
 
         <div className="flex items-center space-x-3">
+          {/* Insider Threat Toggle */}
+          <button
+            onClick={() => setInsiderThreatMode(!insiderThreatMode)}
+            className={`inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+              insiderThreatMode
+                ? 'bg-red-600 text-white border-red-600 shadow-md'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-red-400 hover:text-red-600'
+            }`}
+            title="Toggle insider threat analysis mode for reanalysis"
+          >
+            <UserX className="w-4 h-4 mr-2" />
+            Insider Threat
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {insiderThreatMode ? 'ON' : 'OFF'}
+            </span>
+          </button>
+
           <button
             onClick={handlePublish}
             disabled={publishing || !story?.external_id}
@@ -462,11 +482,17 @@ export default function StoryAnalysisPage() {
             </div>
             <div className="divide-y divide-gray-100">
               {analysis.abuse_cases.map((abuse, index) => (
-                <div key={`abuse-${index}-${abuse.id}`} className="p-4 hover:bg-gray-50">
+                <div key={`abuse-${index}-${abuse.id}`} className={`p-4 hover:bg-gray-50 ${abuse.insider_threat ? 'border-l-4 border-red-400 bg-red-50/30' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
                         <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{abuse.id}</span>
+                        {abuse.insider_threat && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+                            <UserX className="w-3 h-3 mr-1" />
+                            Insider Threat
+                          </span>
+                        )}
                         <h4 className="font-semibold text-gray-900">{abuse.title}</h4>
                       </div>
 
@@ -603,7 +629,7 @@ export default function StoryAnalysisPage() {
           </div>
           <div className="divide-y divide-gray-100">
             {analysis.security_requirements.map((req) => (
-              <div key={req.id} className="p-4 hover:bg-gray-50">
+              <div key={req.id} className={`p-4 hover:bg-gray-50 ${req.insider_threat ? 'border-l-4 border-red-400 bg-red-50/30' : ''}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center flex-wrap gap-2 mb-3">
@@ -614,6 +640,12 @@ export default function StoryAnalysisPage() {
                       <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
                         {req.category}
                       </span>
+                      {req.insider_threat && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+                          <UserX className="w-3 h-3 mr-1" />
+                          Insider Threat
+                        </span>
+                      )}
                     </div>
 
                     {/* Requirement Title */}
