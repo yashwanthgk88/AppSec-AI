@@ -1,5 +1,5 @@
 # Build stage - install dependencies
-# Cache bust: 2026-02-21-v2
+# Cache bust: 2026-03-04
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
