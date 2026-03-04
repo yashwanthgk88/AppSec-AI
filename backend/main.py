@@ -620,6 +620,515 @@ def _migrate_and_seed_insider_threat_rules():
             "Audit all dynamic imports. All imports should be static and present at the top of source files.",
             "insider_threat"
         ),
+
+        # =====================================================================
+        # EXPANDED RULES — BACKDOORS & HIDDEN ENDPOINTS
+        # =====================================================================
+        (
+            "IT: Backdoor - Reverse Shell Socket Connection",
+            r"socket\.(socket|AF_INET)\s*\(.*?\)\s*\n.*?\.connect\s*\(\s*\(['\"]?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}",
+            "critical",
+            "Detects raw socket connections to hardcoded IP addresses — pattern used in reverse shells planted by insiders for persistent remote access.",
+            "*", "CWE-306", "A01:2021 - Broken Access Control",
+            "Audit all raw socket usage. Network connections should use named service endpoints, not hardcoded IPs.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Subprocess Reverse Shell Command",
+            r"subprocess\.(Popen|call|run)\s*\([^)]*?(bash\s+-i|/bin/sh\s+-i|cmd\.exe\s+/c|nc\s+-e|netcat\s+-e|ncat\s+-e)",
+            "critical",
+            "Detects subprocess calls that spawn interactive shells — the hallmark of reverse shell payloads inserted by malicious insiders.",
+            "*", "CWE-78", "A03:2021 - Injection",
+            "Interactive shell spawning via subprocess is never legitimate in application code. Remove immediately and investigate.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Conditional Route Registration by Flag",
+            r"if\s+.{0,50}(DEBUG|MAINTENANCE|ADMIN_FLAG|BACKDOOR_ENABLED).{0,50}\n.{0,50}(app\.(add_url_rule|route)|router\.(get|post|add_api_route))",
+            "high",
+            "Detects application routes conditionally registered based on debug or maintenance flags — insiders may activate hidden endpoints via environment.",
+            "*", "CWE-288", "A01:2021 - Broken Access Control",
+            "All application routes must be registered unconditionally and protected by explicit authorization. Flag-gated routes bypass security review.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Hardcoded External Webhook/Callback URL",
+            r"(webhook_url|callback_url|notify_url|exfil_url)\s*=\s*['\"]https?://(?!localhost|127\.0\.0\.1|10\.|192\.168\.|172\.)[^'\"\\s]+['\"]",
+            "high",
+            "Detects hardcoded external webhook or callback URLs — insiders may use these to exfiltrate data or receive command-and-control instructions.",
+            "*", "CWE-610", "A01:2021 - Broken Access Control",
+            "Webhook URLs must be configurable via environment variables and validated against an allowlist of trusted domains.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Java Spring Hidden Controller Mapping",
+            r"@(RequestMapping|GetMapping|PostMapping)\s*\([^)]*?(backdoor|debug_rpc|hidden|secret_api|admin_bypass)",
+            "high",
+            "Detects Spring MVC controller mappings with suspicious path names — potential insider-added backdoor endpoints in Java applications.",
+            "java", "CWE-288", "A01:2021 - Broken Access Control",
+            "Audit all Spring controller mappings. Paths must follow naming conventions and be registered in API documentation.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Express.js Hidden Route Registration",
+            r"(app|router)\.(get|post|put|delete|all)\s*\(\s*['\"]/(admin|debug|backdoor|__hidden|_internal|shadow)",
+            "high",
+            "Detects Express.js routes with hidden or admin-sounding paths — insiders may plant unauthorized endpoints in Node.js applications.",
+            "javascript", "CWE-288", "A01:2021 - Broken Access Control",
+            "All Express routes must be documented and gated by authentication middleware. Route paths must follow project naming standards.",
+            "insider_threat"
+        ),
+        (
+            "IT: Backdoor - Suspicious Outbound TCP Port Binding",
+            r"(socket\.bind|ServerSocket\s*\(\s*\d{4,5})\s*.*?\n.{0,200}(accept|listen)\s*\(",
+            "high",
+            "Detects application code that opens a listening TCP socket on an arbitrary port — could be an insider-planted command listener.",
+            "*", "CWE-319", "A02:2021 - Security Misconfiguration",
+            "Applications must not open arbitrary listening sockets. All network listeners must be documented, reviewed, and necessary.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — HARDCODED CREDENTIALS & SECRETS
+        # =====================================================================
+        (
+            "IT: Credential - RSA/EC/OpenSSH Private Key Embedded in Source",
+            r"-----BEGIN (RSA|EC|OPENSSH|DSA|PGP|PRIVATE) (PRIVATE )?KEY-----",
+            "critical",
+            "Detects PEM-encoded private keys embedded directly in source code — complete cryptographic compromise if the repository is accessible to attackers.",
+            "*", "CWE-321", "A02:2021 - Cryptographic Failures",
+            "Remove the key immediately and rotate it. Store private keys in HSMs, secrets managers, or encrypted vaults — never in source.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - JWT Signing Secret Hardcoded",
+            r"(JWT_SECRET|JWT_KEY|jwt_secret|jwt_signing_key|TOKEN_SECRET)\s*=\s*['\"][^'\"\\s]{8,}['\"]",
+            "critical",
+            "Detects hardcoded JWT signing secrets — allows any party with source access to forge valid authentication tokens.",
+            "*", "CWE-321", "A02:2021 - Cryptographic Failures",
+            "Rotate the JWT secret immediately. Use a secrets manager and inject via environment variable at runtime.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - OAuth Client Secret in Source",
+            r"(CLIENT_SECRET|client_secret|OAUTH_SECRET|OAUTH_CLIENT_SECRET|consumer_secret)\s*=\s*['\"][A-Za-z0-9\\-_]{16,}['\"]",
+            "critical",
+            "Detects hardcoded OAuth client secrets — enables impersonation of the application and unauthorized access to third-party APIs.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Rotate the OAuth client secret and store in a secrets manager. Never commit OAuth credentials to version control.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - AWS Session Token or Temporary Credential",
+            r"(AWS_SESSION_TOKEN|aws_session_token|X-Amz-Security-Token)\s*=\s*['\"][A-Za-z0-9/+=]{50,}['\"]",
+            "critical",
+            "Detects hardcoded AWS session tokens — even temporary credentials can provide significant AWS access if not expired.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Use IAM roles and instance profiles. Never hardcode AWS credentials or session tokens in source code.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - Azure Storage Account Key",
+            r"AccountKey\s*=\s*[A-Za-z0-9+/=]{40,}",
+            "critical",
+            "Detects Azure Storage Account keys embedded in code — grants full read/write access to all blobs and tables in the storage account.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Rotate the storage account key. Use Azure Managed Identity or Key Vault references instead of connection strings with keys.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - SMTP Email Account Password",
+            r"(smtp_password|email_password|mail_password|SMTP_PASS|EMAIL_PASS|MAIL_PASSWORD)\s*=\s*['\"][^'\"\\s]{4,}['\"]",
+            "critical",
+            "Detects hardcoded SMTP email passwords — enables unauthorized email sending and potential account takeover of the mail account.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Use app-specific passwords or OAuth for SMTP authentication. Store credentials in environment variables.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - GCP Service Account Key JSON",
+            r"['\"]private_key['\"]:\s*['\"]-----BEGIN RSA PRIVATE KEY",
+            "critical",
+            "Detects Google Cloud Platform service account private key JSON embedded in source — provides full API access under the service account identity.",
+            "*", "CWE-321", "A02:2021 - Cryptographic Failures",
+            "Revoke the service account key and create a new one. Use Workload Identity Federation instead of key files.",
+            "insider_threat"
+        ),
+        (
+            "IT: Credential - Slack or Teams Webhook Token",
+            r"(SLACK_WEBHOOK|slack_webhook|TEAMS_WEBHOOK|teams_webhook)\s*=\s*['\"]https://hooks\.(slack\.com|office\.com)/[^'\"\\s]+['\"]",
+            "high",
+            "Detects hardcoded Slack or Teams webhook URLs — allows insider to send unauthorized messages or monitor alerts without traceability.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Store webhook URLs in environment variables. Rotate the webhook if committed to version control.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — UNAUTHORIZED DATA EXFILTRATION
+        # =====================================================================
+        (
+            "IT: Exfil - FTP Upload of Application Data",
+            r"(ftplib\.FTP|FTP\s*\(|ftp\.storbinary|ftp\.storlines)\s*\(",
+            "high",
+            "Detects FTP operations in application code — insiders may use FTP to exfiltrate data to external servers without leaving HTTP traces.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "FTP is inherently insecure and unexpected in application code. Audit all FTP usage and replace with authorized, monitored file transfer mechanisms.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - Cloud Storage Upload with Sensitive Data Reference",
+            r"(s3\.upload_file|client\.put_object|blob\.upload_blob|storage\.upload)\s*\([^)]*?(password|credential|backup|dump|pii|ssn|private_key|\.env)",
+            "high",
+            "Detects cloud storage uploads referencing sensitive data — insiders may upload credential files, database dumps, or PII to unauthorized buckets.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Audit all cloud storage operations. Enforce bucket policies and DLP controls. Sensitive data uploads must require explicit authorization.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - DNS-Based Data Tunneling Pattern",
+            r"(socket\.gethostbyname|dns\.resolver\.resolve|resolver\.query)\s*\(\s*\w*\s*\+",
+            "high",
+            "Detects DNS lookups where the hostname is built with string concatenation — a classic indicator of DNS-based data tunneling used to bypass firewall egress controls.",
+            "*", "CWE-201", "A01:2021 - Broken Access Control",
+            "Audit all dynamic DNS lookups. Implement DNS monitoring and block lookups to uncategorized domains from production systems.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - Database Dump via Subprocess",
+            r"subprocess\.(Popen|call|run)\s*\([^)]*?(mysqldump|pg_dump|pg_dumpall|exp\s+userid|sqlite3.*\.dump|mongodump)",
+            "critical",
+            "Detects subprocess execution of database dump utilities — insiders may script full database exports for exfiltration.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Database dumps must require DBA approval and be conducted through monitored, authorized tooling with output in controlled locations.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - Archive of Sensitive Files for Transfer",
+            r"(zipfile\.ZipFile|tarfile\.open|shutil\.make_archive)\s*\([^)]+\)\s*[\s\S]{0,200}?\.(write|add|addfile)\s*\([^)]*?(\.key|\.pem|\.env|password|credential|backup|\.p12|\.pfx)",
+            "high",
+            "Detects creation of archive files containing sensitive files (keys, certs, .env) — a staging step for data exfiltration.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Audit all archive operations involving key material or credential files. Implement file integrity monitoring for sensitive paths.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - Clipboard or Screenshot Data Capture",
+            r"(pynput\.(keyboard|mouse)|pyscreenshot|pyautogui\.screenshot|win32clipboard|ImageGrab\.grab|keylogger|keyboard\.on_press)",
+            "critical",
+            "Detects use of screen capture, clipboard access, or keylogging libraries — strongly indicative of insider surveillance or credential harvesting.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "These libraries have no place in application code. Investigate any occurrence immediately and treat as a critical security incident.",
+            "insider_threat"
+        ),
+        (
+            "IT: Exfil - Email Exfiltration via SMTP",
+            r"(smtplib\.SMTP|sendmail|send_message|MIMEMultipart)\s*\([\s\S]{0,400}?(password|credential|database|backup|\.env|private_key|ssn|pii)",
+            "high",
+            "Detects SMTP email sending containing references to sensitive data — insiders may email-exfiltrate credentials or PII to personal accounts.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Audit all email-sending code. Implement DLP controls on outbound email. Email addresses must be validated against an allowlist.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — AUDIT LOG TAMPERING
+        # =====================================================================
+        (
+            "IT: Log Tamper - SQL DELETE on Audit/Log Table",
+            r"DELETE\s+FROM\s+\w*(log|audit|event|trail|history|access_log|security_log)\w*",
+            "critical",
+            "Detects SQL DELETE operations targeting audit, log, or event tables — a direct attempt by an insider to erase evidence of unauthorized activity.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Audit tables must be append-only. Implement database-level restrictions to prevent DELETE/TRUNCATE on audit tables.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log Tamper - SQL TRUNCATE on Audit Table",
+            r"TRUNCATE\s+(TABLE\s+)?\w*(log|audit|event|trail|history)\w*",
+            "critical",
+            "Detects SQL TRUNCATE operations on audit or log tables — wipes the entire audit trail, destroying all evidence of insider actions.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "TRUNCATE on audit tables must be blocked at the database level. Implement WORM (Write Once Read Many) storage for audit logs.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log Tamper - Log Handler List Cleared",
+            r"(logger\.handlers|logging\.root\.handlers|log\.handlers)\s*[\.\s]*(\.clear\s*\(\)|=\s*\[\])",
+            "high",
+            "Detects code that programmatically removes all log handlers — effectively silences all logging output to cover insider tracks.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Log handler configuration must be set at startup and never modified at runtime. Alert on any handler list modification.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log Tamper - Database Audit Trigger Disabled",
+            r"(DISABLE\s+TRIGGER|ALTER\s+TABLE\s+\w+\s+DISABLE\s+TRIGGER|SET\s+session_replication_role\s*=\s*['\"]replica['\"])",
+            "high",
+            "Detects SQL statements that disable database audit triggers — allows DML operations to proceed without audit trail generation.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Audit triggers must only be managed by DBAs through controlled change management processes, never via application code.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log Tamper - Forged Log Record Timestamp",
+            r"(LogRecord|log_record|logging\.LogRecord)\s*.*?\bcreated\s*=\s*\d",
+            "high",
+            "Detects modification of log record timestamps — used by insiders to disguise when malicious actions occurred in audit trails.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Log record timestamps must be set by the logging framework. Application code must never modify LogRecord.created.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log Tamper - UPDATE on Audit Record Timestamps",
+            r"UPDATE\s+\w*(log|audit|event)\w*\s+SET\s+[^;]*(timestamp|created_at|logged_at|event_time)",
+            "high",
+            "Detects SQL UPDATE operations that modify timestamp fields in audit tables — alters the recorded time of audited events to obscure insider activity.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Audit table columns must be protected from UPDATE via column-level permissions. Use insert-only audit patterns.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — LOGIC BOMBS & TIME BOMBS
+        # =====================================================================
+        (
+            "IT: Logic Bomb - Specific IP Address Trigger",
+            r"(request\.remote_addr|REMOTE_ADDR|client_ip|X-Forwarded-For)\s*==\s*['\"][0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}['\"]",
+            "high",
+            "Detects code paths gated by a hardcoded source IP — insiders may plant logic that only activates when accessed from their machine or a C2 server.",
+            "*", "CWE-506", "A01:2021 - Broken Access Control",
+            "Application behavior must not vary by hardcoded IP addresses. All access control must use authenticated identities.",
+            "insider_threat"
+        ),
+        (
+            "IT: Logic Bomb - Counter or Iteration Based Destructive Action",
+            r"(count|counter|run_count|iteration)\s*(>=|>|==)\s*\d+[\s\S]{0,100}?(os\.(remove|unlink|rmdir)|shutil\.rmtree|DROP TABLE|DELETE FROM|format\s*\(|wipe)",
+            "high",
+            "Detects code where a counter reaching a threshold triggers destructive operations — the counter-based time bomb pattern used by insiders.",
+            "*", "CWE-506", "A06:2021 - Vulnerable and Outdated Components",
+            "Review all counter-triggered code branches. Destructive operations should never be triggered automatically by iteration counters.",
+            "insider_threat"
+        ),
+        (
+            "IT: Logic Bomb - Environment Variable Armed Detonation",
+            r"os\.(getenv|environ\.get)\s*\(\s*['\"]?(TRIGGER|DETONATE|DESTROY|WIPE|KILL_SWITCH|NUKE)['\"]?\s*\)",
+            "critical",
+            "Detects environment variable checks for names associated with destructive triggers — an insider-planted kill-switch awaiting remote activation.",
+            "*", "CWE-506", "A06:2021 - Vulnerable and Outdated Components",
+            "Investigate immediately. This is a strong indicator of a planted kill switch or logic bomb awaiting remote triggering via environment variable.",
+            "insider_threat"
+        ),
+        (
+            "IT: Logic Bomb - File Existence Used as Trigger",
+            r"os\.path\.(exists|isfile)\s*\(\s*[^)]*?(trigger|signal|flag|marker|\.bomb|activate)",
+            "medium",
+            "Detects code that checks for the existence of a trigger file before executing logic — insiders can activate dormant code by placing a file.",
+            "*", "CWE-506", "A06:2021 - Vulnerable and Outdated Components",
+            "Audit all file-existence checks. Application behavior must not depend on files placed externally as activation signals.",
+            "insider_threat"
+        ),
+        (
+            "IT: Logic Bomb - Locale or Timezone Conditional",
+            r"(time\.timezone|datetime\.timezone|pytz\.|locale\.getlocale)\s*.*?(==|in)\s*['\"][A-Z_/]+['\"][\s\S]{0,100}?(delete|drop|destroy|wipe|disable)",
+            "high",
+            "Detects destructive code conditioned on system locale or timezone — insiders may configure triggers to activate only in specific geographic deployments.",
+            "*", "CWE-506", "A06:2021 - Vulnerable and Outdated Components",
+            "Application logic must not vary destructively by locale or timezone. Review all locale-based conditionals.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — PRIVILEGE ESCALATION
+        # =====================================================================
+        (
+            "IT: PrivEsc - Setting SUID Bit on Executable",
+            r"(os\.chmod|Path\(\w+\)\.chmod)\s*\([^)]*?(0o4755|0o6755|4755|6755|04755|S_ISUID|SETUID)",
+            "critical",
+            "Detects code setting the SUID bit on files — allows any user to execute the binary with owner privileges, creating a privilege escalation vector.",
+            "*", "CWE-732", "A01:2021 - Broken Access Control",
+            "SUID binaries must never be created by application code. Remove SUID bits and use sudo with explicit command allowlists instead.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - Writing to /etc/sudoers for NOPASSWD",
+            r"(open\s*\([^)]*?/etc/sudoers|subprocess.*?(visudo|echo.*?NOPASSWD.*?>>.*?sudoers|tee.*?sudoers\.d))",
+            "critical",
+            "Detects modification of the sudoers file to grant passwordless sudo — the most direct path to root access an insider can plant.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "sudoers modifications must require MFA and change management approval. Monitor /etc/sudoers and /etc/sudoers.d with file integrity monitoring.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - Writing to /etc/passwd or /etc/shadow",
+            r"open\s*\(\s*['\"]?/etc/(passwd|shadow|group)['\"]?\s*,\s*['\"]w",
+            "critical",
+            "Detects attempts to write to system user/password files — direct modification to add backdoor accounts or change password hashes.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "Application processes must never have write access to /etc/passwd or /etc/shadow. Alert on any write attempt to these files.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - setuid(0) Call to Gain Root",
+            r"(os\.setuid|os\.setreuid|os\.seteuid|os\.setresuid)\s*\(\s*0\s*[,)]",
+            "critical",
+            "Detects explicit setuid(0) calls to gain root privileges — a direct privilege escalation to root identity within the process.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "Application code must never call setuid(0). Run services as dedicated low-privilege users. Investigate any occurrence as a critical incident.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - JWT Payload with Admin Claims Hardcoded",
+            r"jwt\.(encode|sign)\s*\(\s*\{[^}]*(is_admin\s*:\s*True|role\s*:\s*['\"]admin['\"]|superuser\s*:\s*True|['\"]sub['\"]:\s*['\"]admin['\"])",
+            "high",
+            "Detects JWT tokens being signed with hardcoded admin claims — insider creates permanently valid admin tokens outside the normal auth flow.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "JWT claims must be derived from authenticated user context only, never hardcoded. Rotate the JWT signing secret if this is found.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - Direct SQL GRANT of Elevated Privileges",
+            r"GRANT\s+(ALL\s+PRIVILEGES|ALL|SUPERUSER|DBA|CREATE USER|EXECUTE|ALTER SYSTEM)\s+.*?\bTO\b",
+            "high",
+            "Detects SQL GRANT statements assigning broad or administrative privileges — insiders may execute these through application-level DB connections.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "GRANT statements for elevated roles must only be executed by DBAs through controlled change management. Application accounts must have least-privilege access.",
+            "insider_threat"
+        ),
+        (
+            "IT: PrivEsc - Direct Modification of RBAC Permission Tables",
+            r"(UPDATE|INSERT\s+INTO)\s+\w*(roles|permissions|acl|access_control|user_roles|role_assignments)\w*\s+[^;]*(admin|superuser|root|ALL)",
+            "high",
+            "Detects direct DML on permission or RBAC tables to assign elevated roles — bypasses the application's privilege management workflow.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "Permission table modifications must go through the application's role management APIs with proper audit logging. Direct DML should be blocked.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — SENSITIVE DATA LEAKAGE
+        # =====================================================================
+        (
+            "IT: Data Leak - Environment Variables Returned in API Response",
+            r"(os\.environ|os\.environ\.copy\(\)|dict\(os\.environ\))\s*[\s\S]{0,300}?(return|jsonify|Response|json\.dumps)",
+            "critical",
+            "Detects API responses that include the full OS environment — dumps all environment variables including secrets to the API caller.",
+            "*", "CWE-200", "A02:2021 - Cryptographic Failures",
+            "Never return os.environ in API responses. If environment info is needed, allowlist specific non-sensitive keys explicitly.",
+            "insider_threat"
+        ),
+        (
+            "IT: Data Leak - Private Key Material in Exception Message",
+            r"(raise\s+\w*Exception|HTTPException|ValueError|RuntimeError)\s*\([^)]*?(private_key|BEGIN RSA|BEGIN EC|BEGIN OPENSSH|client_secret)",
+            "high",
+            "Detects exception messages that embed private key material — causes key material to appear in error logs and error API responses.",
+            "*", "CWE-209", "A02:2021 - Cryptographic Failures",
+            "Never include cryptographic material in exception messages. Use generic error codes and log details server-side only.",
+            "insider_threat"
+        ),
+        (
+            "IT: Data Leak - PII Written to Browser localStorage",
+            r"localStorage\.setItem\s*\(\s*[^,]+,\s*[^)]*?(ssn|social_security|credit_card|password|private_key|account_number)",
+            "high",
+            "Detects PII or credentials being written to browser localStorage — persists sensitive data in the browser accessible to any JS on the page.",
+            "javascript", "CWE-312", "A02:2021 - Cryptographic Failures",
+            "Never store PII, credentials, or sensitive identifiers in localStorage. Use short-lived httpOnly cookies with Secure and SameSite flags.",
+            "insider_threat"
+        ),
+        (
+            "IT: Data Leak - Database Connection URL in API Response",
+            r"(jsonify|Response|return\s*\{)\s*[^}]*(db_url|database_url|connection_string|DATABASE_URL|db_password|db_host)",
+            "critical",
+            "Detects API responses containing database connection strings or credentials — complete database access compromise if leaked externally.",
+            "*", "CWE-200", "A02:2021 - Cryptographic Failures",
+            "Database connection details must never appear in API responses. Audit all response serializers for sensitive configuration fields.",
+            "insider_threat"
+        ),
+        (
+            "IT: Data Leak - Sensitive Data in Cookie Without Secure Flags",
+            r"(response\.set_cookie|cookies\.set|res\.cookie)\s*\([^)]*?(password|token|secret|api_key|session_key)[^)]*?\)",
+            "high",
+            "Detects sensitive values being set in cookies — compounded if Secure, HttpOnly, and SameSite flags are absent.",
+            "*", "CWE-614", "A02:2021 - Cryptographic Failures",
+            "Never store raw credentials in cookies. Use opaque session tokens. Always set Secure, HttpOnly, and SameSite=Strict flags.",
+            "insider_threat"
+        ),
+        (
+            "IT: Data Leak - Credit Card or SSN Pattern in Debug Output",
+            r"(print|logger\.\w+|console\.log)\s*\([^)]*?(\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b|\b\d{3}-\d{2}-\d{4}\b)",
+            "high",
+            "Detects credit card numbers or Social Security Numbers being printed or logged — direct PCI-DSS and HIPAA compliance violation.",
+            "*", "CWE-532", "A09:2021 - Security Logging and Monitoring Failures",
+            "Implement log scrubbing middleware to detect and redact PAN/SSN patterns before they reach log storage.",
+            "insider_threat"
+        ),
+
+        # =====================================================================
+        # EXPANDED RULES — OBFUSCATED CODE
+        # =====================================================================
+        (
+            "IT: Obfuscated - ROT13 or Caesar Cipher Decode and Execute",
+            r"(codecs\.decode|str\.maketrans|str\.translate)\s*\([^)]*?(rot.13|rot_13|caesar)",
+            "high",
+            "Detects ROT13 or Caesar cipher decoding used before code execution — obfuscation technique to bypass simple static analysis pattern matching.",
+            "*", "CWE-506", "A03:2021 - Injection",
+            "Decoding + exec is never legitimate in production code. Investigate and treat as potential malware insertion.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - Hex String Decode and Execute",
+            r"(exec|eval)\s*\(\s*(bytes\.fromhex|bytearray\.fromhex|binascii\.a2b_hex|bytes\.decode)\s*\(",
+            "critical",
+            "Detects execution of hex-decoded byte strings — a common obfuscation technique to hide malicious payloads from code review and basic SAST tools.",
+            "*", "CWE-506", "A03:2021 - Injection",
+            "Hex-decoded exec is never legitimate. Remove immediately and investigate all recent committers to the affected file.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - String Reversal Execution",
+            r"(exec|eval)\s*\(\s*['\"][^'\"]{6,}['\"\s]*\[::-1\]\s*\)",
+            "critical",
+            "Detects execution of reversed strings — trivial obfuscation that bypasses naive string-based detection while hiding the actual command.",
+            "*", "CWE-506", "A03:2021 - Injection",
+            "No legitimate code requires string reversal before execution. Treat as confirmed malicious insider code.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - Character Code Assembly for Execution",
+            r"(exec|eval)\s*\(\s*(''.join\s*\(\s*(map\s*\(chr|chr\s*\()|chr\s*\(\d+\)\s*\+\s*chr\s*\(\d+\))",
+            "critical",
+            "Detects payloads assembled character-by-character from chr() calls before execution — evades string-based pattern detection while building executable code.",
+            "*", "CWE-506", "A03:2021 - Injection",
+            "chr()-based code assembly before exec is a confirmed obfuscation technique. Investigate as potential insider malware.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - Python Marshal Bytecode Deserialization",
+            r"marshal\.loads\s*\(|marshal\.load\s*\(\s*open",
+            "high",
+            "Detects deserialization of Python marshal bytecode — can execute arbitrary compiled Python without the source being visible to reviewers.",
+            "*", "CWE-502", "A08:2021 - Software and Data Integrity Failures",
+            "Marshal deserialization of untrusted bytecode is never legitimate. All code must be distributed as inspectable source, not compiled bytecode.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - Lambda Chain Obfuscation",
+            r"\(lambda\s+\w+\s*:\s*\w+\s*\)\s*\(\s*(lambda\s+\w+\s*:|exec|eval|\(__import__)",
+            "high",
+            "Detects nested lambda expressions used to obscure eval or exec calls — a technique used to execute code while making it harder for reviewers to spot.",
+            "*", "CWE-94", "A03:2021 - Injection",
+            "Nested lambda chains involving exec/eval are used solely for obfuscation. No legitimate use case exists in production code.",
+            "insider_threat"
+        ),
+        (
+            "IT: Obfuscated - Dynamic Attribute Access for Exec",
+            r"getattr\s*\(\s*__builtins__\s*,\s*['\"]exec['\"]|vars\s*\(\s*\)\s*\[['\"]exec['\"]",
+            "critical",
+            "Detects dynamic access to the exec builtin via getattr or vars — bypasses naive SAST rules that look for literal 'exec(' patterns.",
+            "*", "CWE-94", "A03:2021 - Injection",
+            "Accessing builtins dynamically to call exec is confirmed obfuscation. No legitimate production code requires this pattern.",
+            "insider_threat"
+        ),
     ]
 
     seeded = 0

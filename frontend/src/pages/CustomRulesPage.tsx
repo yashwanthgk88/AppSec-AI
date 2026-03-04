@@ -87,26 +87,72 @@ interface GeneratedRules {
   rules: Record<string, GeneratedRule | { error: string }>;
 }
 
-const INSIDER_THREAT_CATEGORIES: Record<string, { label: string; color: string }> = {
-  'IT: Backdoors & Hidden Endpoints': { label: 'Backdoors & Hidden Endpoints', color: 'bg-red-100 text-red-800 border-red-300' },
-  'IT: Hardcoded Credentials & Secrets': { label: 'Hardcoded Credentials', color: 'bg-orange-100 text-orange-800 border-orange-300' },
-  'IT: Unauthorized Data Exfiltration': { label: 'Data Exfiltration', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-  'IT: Audit Log Tampering': { label: 'Audit Log Tampering', color: 'bg-purple-100 text-purple-800 border-purple-300' },
-  'IT: Logic Bombs & Time Bombs': { label: 'Logic / Time Bombs', color: 'bg-pink-100 text-pink-800 border-pink-300' },
-  'IT: Privilege Escalation': { label: 'Privilege Escalation', color: 'bg-red-100 text-red-800 border-red-300' },
-  'IT: Sensitive Data Leakage': { label: 'Data Leakage', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
-  'IT: Obfuscated Code': { label: 'Obfuscated Code', color: 'bg-gray-100 text-gray-800 border-gray-300' },
-};
-
+// Keyword-based grouping — first matching group wins. New rules auto-group by name keywords.
 const INSIDER_THREAT_SUBCATEGORIES = [
-  { key: 'backdoors', label: 'Backdoors & Hidden Endpoints', rules: ['IT: Hardcoded Auth Bypass Condition', 'IT: Hidden Admin/Debug Route', 'IT: Debug/Security Bypass Flag Enabled'] },
-  { key: 'credentials', label: 'Hardcoded Credentials & Secrets', rules: ['IT: Hardcoded Password in Source', 'IT: Hardcoded API Token or Secret Key', 'IT: Hardcoded Database Connection with Credentials'] },
-  { key: 'exfiltration', label: 'Unauthorized Data Exfiltration', rules: ['IT: HTTP POST Sending Environment Variables', 'IT: Unrestricted Bulk Data Read', 'IT: Writing Credentials to External File'] },
-  { key: 'logtampering', label: 'Audit Log Tampering', rules: ['IT: Security Logging Disabled', 'IT: Silent Exception Swallowing', 'IT: Log File Deletion'] },
-  { key: 'logicbombs', label: 'Logic Bombs & Time Bombs', rules: ['IT: Date-Triggered Logic Bomb', 'IT: Username/Email-Specific Trigger'] },
-  { key: 'privesc', label: 'Privilege Escalation', rules: ['IT: Hardcoded Admin Role Assignment', 'IT: Authorization Check Bypass'] },
-  { key: 'dataleakage', label: 'Sensitive Data Leakage', rules: ['IT: Credentials Logged to Output', 'IT: PII or Secrets in HTTP Response'] },
-  { key: 'obfuscated', label: 'Obfuscated Code Execution', rules: ['IT: Obfuscated Payload Execution (Base64/Zlib)', 'IT: Dynamic Code Execution from Environment', 'IT: Dynamic Module Import and Execute'] },
+  {
+    key: 'backdoors',
+    label: 'Backdoors & Hidden Endpoints',
+    icon: '🚪',
+    headerColor: 'bg-red-50 border-red-200',
+    keywords: ['Backdoor', 'Hidden', 'Auth Bypass', 'Bypass Flag', 'Bypass Condition', 'Reverse Shell', 'TCP Port', 'Socket Listener', 'Debug Route', 'Conditional Route'],
+    description: 'Planted backdoors, hidden API routes, auth bypass flags, and reverse shell connections.',
+  },
+  {
+    key: 'credentials',
+    label: 'Hardcoded Credentials & Secrets',
+    icon: '🔑',
+    headerColor: 'bg-orange-50 border-orange-200',
+    keywords: ['Credential', 'Private Key', 'JWT', 'OAuth', 'SMTP', 'AWS Session', 'Azure Storage', 'GCP Service', 'Slack', 'Teams', 'Webhook Token', 'API Token', 'Secret Key', 'Database Connection', 'Hardcoded Password'],
+    description: 'Passwords, API keys, private keys, cloud credentials, and OAuth secrets embedded in source.',
+  },
+  {
+    key: 'exfiltration',
+    label: 'Unauthorized Data Exfiltration',
+    icon: '📤',
+    headerColor: 'bg-yellow-50 border-yellow-200',
+    keywords: ['Exfil', 'FTP Upload', 'Cloud Storage Upload', 'DNS-Based', 'Database Dump', 'Archive of', 'Clipboard', 'Screenshot', 'Email Exfil', 'HTTP POST Sending', 'Bulk Data', 'Writing Credentials to External'],
+    description: 'Bulk data reads, cloud/FTP uploads, DNS tunneling, clipboard capture, and SMTP exfiltration.',
+  },
+  {
+    key: 'logtampering',
+    label: 'Audit Log Tampering',
+    icon: '🗑️',
+    headerColor: 'bg-purple-50 border-purple-200',
+    keywords: ['Log Tamper', 'Logging Disabled', 'Exception Swallowing', 'Log File Deletion', 'Log Handler', 'Audit Trigger', 'Log Record', 'Audit Record', 'Security Logging'],
+    description: 'Disabling loggers, clearing handlers, deleting log files, and tampering with audit DB tables.',
+  },
+  {
+    key: 'logicbombs',
+    label: 'Logic Bombs & Time Bombs',
+    icon: '💣',
+    headerColor: 'bg-pink-50 border-pink-200',
+    keywords: ['Logic Bomb', 'Time Bomb', 'Date-Triggered', 'Username/Email', 'IP Address Trigger', 'Counter', 'Environment Variable Armed', 'File Existence', 'Locale or Timezone'],
+    description: 'Date/counter/IP/username-triggered destructive logic and environment-armed kill-switches.',
+  },
+  {
+    key: 'privesc',
+    label: 'Privilege Escalation',
+    icon: '⬆️',
+    headerColor: 'bg-red-50 border-red-200',
+    keywords: ['PrivEsc', 'SUID', 'sudoers', '/etc/passwd', 'setuid', 'JWT Payload', 'SQL GRANT', 'RBAC', 'Admin Role', 'Authorization Check Bypass', 'Hardcoded Admin Role'],
+    description: 'SUID bits, sudoers modification, root escalation, JWT forgery, and RBAC table manipulation.',
+  },
+  {
+    key: 'dataleakage',
+    label: 'Sensitive Data Leakage',
+    icon: '🔓',
+    headerColor: 'bg-amber-50 border-amber-200',
+    keywords: ['Data Leak', 'Credentials Logged', 'PII', 'Environment Variables Returned', 'Private Key Material', 'localStorage', 'Database Credentials in HTTP', 'Cookie Without', 'Credit Card', 'SSN Pattern', 'Secrets in HTTP'],
+    description: 'Credentials in logs, PII in responses, env dumps via API, and sensitive data in cookies/localStorage.',
+  },
+  {
+    key: 'obfuscated',
+    label: 'Obfuscated Code Execution',
+    icon: '🎭',
+    headerColor: 'bg-gray-50 border-gray-200',
+    keywords: ['Obfuscated', 'ROT13', 'Hex String', 'String Reversal', 'Character Code', 'Marshal', 'Lambda Chain', 'Dynamic Attribute', 'Dynamic Module', 'Dynamic Code', 'Base64', 'Zlib'],
+    description: 'Base64/hex/ROT13-encoded payloads, bytecode execution, lambda obfuscation, and dynamic builtins.',
+  },
 ];
 
 const CustomRulesPage: React.FC = () => {
@@ -864,35 +910,27 @@ const CustomRulesPage: React.FC = () => {
           <div className="space-y-6">
             {INSIDER_THREAT_SUBCATEGORIES.map((subcategory) => {
               const subcategoryRules = insiderThreatRules.filter(r =>
-                subcategory.rules.includes(r.name)
+                subcategory.keywords.some(kw => r.name.toLowerCase().includes(kw.toLowerCase()))
               );
               if (subcategoryRules.length === 0) return null;
-
-              const subcategoryIcons: Record<string, string> = {
-                backdoors: '🚪',
-                credentials: '🔑',
-                exfiltration: '📤',
-                logtampering: '🗑️',
-                logicbombs: '💣',
-                privesc: '⬆️',
-                dataleakage: '🔓',
-                obfuscated: '🎭',
-              };
 
               return (
                 <div key={subcategory.key} className="bg-white rounded-lg shadow-sm overflow-hidden">
                   {/* Subcategory Header */}
-                  <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{subcategoryIcons[subcategory.key]}</span>
-                      <h3 className="font-semibold text-gray-900">{subcategory.label}</h3>
-                      <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded-full">
-                        {subcategoryRules.length} rule{subcategoryRules.length !== 1 ? 's' : ''}
+                  <div className={`border-b px-6 py-4 ${subcategory.headerColor}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-lg">{subcategory.icon}</span>
+                        <h3 className="font-semibold text-gray-900">{subcategory.label}</h3>
+                        <span className="px-2 py-0.5 text-xs bg-white/70 text-gray-700 rounded-full border border-gray-200">
+                          {subcategoryRules.length} rule{subcategoryRules.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <span className="text-xs font-medium text-gray-500">
+                        {subcategoryRules.filter(r => r.enabled).length}/{subcategoryRules.length} enabled
                       </span>
                     </div>
-                    <span className="text-xs text-gray-500">
-                      {subcategoryRules.filter(r => r.enabled).length}/{subcategoryRules.length} enabled
-                    </span>
+                    <p className="text-xs text-gray-500 mt-1 ml-7">{subcategory.description}</p>
                   </div>
 
                   {/* Rules in subcategory */}
@@ -903,7 +941,7 @@ const CustomRulesPage: React.FC = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="font-medium text-gray-900 text-sm">
-                                {rule.name.replace('IT: ', '')}
+                                {rule.name.replace(/^IT:\s*(Backdoor|Credential|Exfil|Log Tamper|Logic Bomb|PrivEsc|Data Leak|Obfuscated)\s*-\s*/i, '').replace(/^IT:\s*/i, '')}
                               </span>
                               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getSeverityColor(rule.severity)}`}>
                                 {rule.severity.toUpperCase()}
