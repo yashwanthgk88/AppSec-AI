@@ -33,7 +33,8 @@ def get_db():
 async def get_all_rules(
     enabled_only: bool = False,
     severity: Optional[str] = None,
-    language: Optional[str] = None
+    language: Optional[str] = None,
+    category: Optional[str] = None
 ):
     """Get all custom rules with optional filters"""
     conn = get_db()
@@ -50,6 +51,9 @@ async def get_all_rules(
     if language:
         query += " AND (language = ? OR language = '*')"
         params.append(language)
+    if category:
+        query += " AND category = ?"
+        params.append(category)
 
     query += " ORDER BY severity DESC, total_detections DESC"
 

@@ -13,6 +13,7 @@ import re
 import shutil
 import logging
 import sys
+import sqlite3
 from dotenv import load_dotenv
 
 # Configure logging to output to stdout for Railway
@@ -360,6 +361,284 @@ async def startup_event():
             print(f"Loaded {key} from database")
 
     db.close()
+
+    # Migrate and seed custom rules
+    _migrate_and_seed_insider_threat_rules()
+
+
+def _migrate_and_seed_insider_threat_rules():
+    """Add category column if missing and seed insider threat detection rules."""
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    # Ensure custom_rules table exists (it may be created by init_rules_db.py or lazily)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS custom_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            pattern TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            description TEXT NOT NULL,
+            language TEXT DEFAULT '*',
+            cwe TEXT,
+            owasp TEXT,
+            remediation TEXT,
+            remediation_code TEXT,
+            enabled INTEGER DEFAULT 1,
+            created_by TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            generated_by TEXT,
+            source TEXT,
+            confidence TEXT,
+            total_detections INTEGER DEFAULT 0,
+            false_positives INTEGER DEFAULT 0,
+            true_positives INTEGER DEFAULT 0,
+            precision REAL,
+            UNIQUE(name, language)
+        )
+    """)
+
+    # Also ensure rule_enhancement_logs table exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS rule_enhancement_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            old_pattern TEXT,
+            new_pattern TEXT,
+            reason TEXT NOT NULL,
+            performed_by TEXT NOT NULL,
+            timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+            ai_generated INTEGER DEFAULT 0
+        )
+    """)
+
+    # Add category column if it doesn't exist
+    cursor.execute("PRAGMA table_info(custom_rules)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if 'category' not in columns:
+        cursor.execute("ALTER TABLE custom_rules ADD COLUMN category TEXT DEFAULT 'general'")
+        print("[MIGRATION] Added 'category' column to custom_rules table")
+
+    # Insider threat rules to seed
+    insider_threat_rules = [
+        # --- Backdoors & Hidden Endpoints ---
+        (
+            "IT: Hardcoded Auth Bypass Condition",
+            r"(if|elif)\s+.{0,60}(backdoor|bypass_auth|skip_auth|debug_admin)\s*(==\s*True|is\s+True)",
+            "critical",
+            "Detects hardcoded bypass conditions that disable authentication or authorization checks — a common insider sabotage pattern.",
+            "*", "CWE-287", "A07:2021 - Identification and Authentication Failures",
+            "Remove all hardcoded bypass conditions. Use proper role-based access control enforced at runtime.",
+            "insider_threat"
+        ),
+        (
+            "IT: Hidden Admin/Debug Route",
+            r"(route|@app\.\w+|@router\.\w+)\s*\(['\"/]{0,2}(admin|debug|backdoor|hidden_api|secret_endpoint)",
+            "high",
+            "Detects undocumented or hidden admin/debug routes added to the application — potential insider-planted backdoor endpoints.",
+            "*", "CWE-288", "A01:2021 - Broken Access Control",
+            "Ensure all routes are documented, reviewed, and protected by proper authentication and authorization.",
+            "insider_threat"
+        ),
+        (
+            "IT: Debug/Security Bypass Flag Enabled",
+            r"(DEBUG_MODE|BYPASS_AUTH|SKIP_SECURITY|ADMIN_OVERRIDE|DISABLE_AUTH)\s*=\s*(True|1|['\"]true['\"])",
+            "high",
+            "Detects security-disabling flags set to active — commonly used by insiders to weaken security controls.",
+            "*", "CWE-693", "A02:2021 - Cryptographic Failures",
+            "Security control flags must default to False and never be hardcoded as True in committed code.",
+            "insider_threat"
+        ),
+        # --- Hardcoded Credentials & Secrets ---
+        (
+            "IT: Hardcoded Password in Source",
+            r"(password|passwd|pwd)\s*=\s*['\"][^'\"\s]{4,}['\"]",
+            "critical",
+            "Detects hardcoded passwords embedded directly in source code — enables unauthorized access if code is exposed.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Use environment variables or a secrets manager (e.g., AWS Secrets Manager, Vault) for all credentials.",
+            "insider_threat"
+        ),
+        (
+            "IT: Hardcoded API Token or Secret Key",
+            r"(api_key|apikey|access_token|auth_token|secret_key|client_secret)\s*=\s*['\"][A-Za-z0-9+/=_\-]{16,}['\"]",
+            "critical",
+            "Detects hardcoded API tokens, secret keys, or client secrets in source — a data exfiltration or account takeover risk.",
+            "*", "CWE-321", "A02:2021 - Cryptographic Failures",
+            "Rotate exposed credentials immediately. Store secrets in environment variables or a secrets manager.",
+            "insider_threat"
+        ),
+        (
+            "IT: Hardcoded Database Connection with Credentials",
+            r"(postgres|mysql|mongodb|jdbc|mssql)://[^@\s]{2,}:[^@\s]{2,}@",
+            "critical",
+            "Detects database connection strings with embedded usernames and passwords — exposes full database access credentials.",
+            "*", "CWE-798", "A07:2021 - Identification and Authentication Failures",
+            "Move all database credentials to environment variables. Use IAM authentication where available.",
+            "insider_threat"
+        ),
+        # --- Unauthorized Data Exfiltration ---
+        (
+            "IT: HTTP POST Sending Environment Variables",
+            r"(requests\.post|urllib.*?urlopen|http\.request|fetch\s*\(|axios\.post)\s*\([^)]*os\.environ",
+            "high",
+            "Detects code that sends environment variables (which often contain secrets) over HTTP — a data exfiltration indicator.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Audit all outbound HTTP calls. Never send environment variables or credential stores to external endpoints.",
+            "insider_threat"
+        ),
+        (
+            "IT: Unrestricted Bulk Data Read",
+            r"SELECT\s+\*\s+FROM\s+\w+\s*(?:;|WHERE\s+1\s*=\s*1)",
+            "medium",
+            "Detects unbounded SELECT * queries or WHERE 1=1 patterns that read entire tables — potential bulk data exfiltration setup.",
+            "*", "CWE-200", "A01:2021 - Broken Access Control",
+            "Always apply appropriate WHERE filters and pagination. Log and alert on large dataset reads.",
+            "insider_threat"
+        ),
+        (
+            "IT: Writing Credentials to External File",
+            r"(open\s*\([^)]*,\s*['\"]w['\"]|write\s*\()[^)]*?(password|token|credential|secret|api_key)",
+            "high",
+            "Detects code writing sensitive credentials or secrets to external files — potential credential harvesting by insider.",
+            "*", "CWE-312", "A02:2021 - Cryptographic Failures",
+            "Never write credentials to files. Use secure vaults or environment variables for secret storage.",
+            "insider_threat"
+        ),
+        # --- Audit Log Tampering ---
+        (
+            "IT: Security Logging Disabled",
+            r"logging\.disable\s*\(\s*(logging\.CRITICAL|50)",
+            "high",
+            "Detects deliberate disabling of security logging — commonly used by insiders to cover their tracks.",
+            "*", "CWE-778", "A09:2021 - Security Logging and Monitoring Failures",
+            "Never disable logging in production. Security-relevant events must always be logged.",
+            "insider_threat"
+        ),
+        (
+            "IT: Silent Exception Swallowing",
+            r"except\s+(Exception|BaseException)\s*(\s+as\s+\w+)?\s*:\s*\n\s*pass",
+            "medium",
+            "Detects bare exception handlers that silently swallow all errors — prevents security events from being logged or surfaced.",
+            "*", "CWE-390", "A09:2021 - Security Logging and Monitoring Failures",
+            "Log all caught exceptions. Use specific exception types and always record security-relevant failures.",
+            "insider_threat"
+        ),
+        (
+            "IT: Log File Deletion",
+            r"(os\.remove|os\.unlink|shutil\.rmtree)\s*\([^)]*?(log|audit|trail|event)",
+            "high",
+            "Detects deletion of log or audit trail files — a strong indicator of insider activity cover-up.",
+            "*", "CWE-669", "A09:2021 - Security Logging and Monitoring Failures",
+            "Protect log files with write-only permissions. Use centralized log management that cannot be modified by app processes.",
+            "insider_threat"
+        ),
+        # --- Logic Bombs & Time Bombs ---
+        (
+            "IT: Date-Triggered Logic Bomb",
+            r"(datetime\.now|date\.today)\(\)\s*.{0,30}(==|>|<)\s*datetime\.(datetime|date)\s*\(",
+            "high",
+            "Detects date-based conditional logic that may trigger destructive or unauthorized actions at a specific time — classic time bomb pattern.",
+            "*", "CWE-506", "A06:2021 - Vulnerable and Outdated Components",
+            "Review all date-based conditionals. Time-gated behavior in production code should be documented, reviewed, and monitored.",
+            "insider_threat"
+        ),
+        (
+            "IT: Username/Email-Specific Trigger",
+            r"(username|user\.email|current_user\.\w+|getenv\s*\(\s*['\"]USER['\"])\s*==\s*['\"][^'\"\s@]+['\"]",
+            "high",
+            "Detects code that triggers specific behavior for a hardcoded username or email — potential insider backdoor triggered by identity.",
+            "*", "CWE-506", "A01:2021 - Broken Access Control",
+            "Remove all identity-specific hardcoded branches. Application behavior must not vary based on hardcoded user identities.",
+            "insider_threat"
+        ),
+        # --- Privilege Escalation ---
+        (
+            "IT: Hardcoded Admin Role Assignment",
+            r"(user\.role|user\.is_admin|\.is_superuser|\.permissions)\s*=\s*(True|1|['\"]admin['\"]|['\"]superuser['\"]|['\"]root['\"])",
+            "critical",
+            "Detects code that hardcodes admin/superuser role assignment — allows insiders to grant themselves elevated privileges.",
+            "*", "CWE-269", "A01:2021 - Broken Access Control",
+            "Role assignments must go through a validated, audited privilege management system. Never hardcode privileged roles in code.",
+            "insider_threat"
+        ),
+        (
+            "IT: Authorization Check Bypass",
+            r"(is_admin|has_permission|check_role|is_authorized|require_auth)\s*=\s*(True|1|['\"]true['\"])",
+            "critical",
+            "Detects hardcoded overrides of authorization checks — effectively grants any user elevated access.",
+            "*", "CWE-863", "A01:2021 - Broken Access Control",
+            "Authorization checks must be enforced dynamically from the user context, never overridden with hardcoded values.",
+            "insider_threat"
+        ),
+        # --- Sensitive Data Leakage ---
+        (
+            "IT: Credentials Logged to Output",
+            r"(print|logging\.\w+|logger\.\w+|console\.log|System\.out\.print)\s*\([^)]*?(password|passwd|secret|token|api_key|private_key)",
+            "high",
+            "Detects logging statements that include credentials, tokens, or secrets — exposes sensitive data in log files and monitoring systems.",
+            "*", "CWE-532", "A09:2021 - Security Logging and Monitoring Failures",
+            "Never log credentials or secrets. Mask or redact sensitive fields before logging.",
+            "insider_threat"
+        ),
+        (
+            "IT: PII or Secrets in HTTP Response",
+            r"(return\s+\{|jsonify\s*\(|Response\s*\()[^)]*?(ssn|social_security|credit_card|password|private_key|secret)",
+            "high",
+            "Detects API responses that may include PII or credentials — potential insider data exposure through API endpoints.",
+            "*", "CWE-200", "A02:2021 - Cryptographic Failures",
+            "Audit all API response serializers. Explicitly exclude sensitive fields using allowlists, not denylists.",
+            "insider_threat"
+        ),
+        # --- Obfuscated Code ---
+        (
+            "IT: Obfuscated Payload Execution (Base64/Zlib)",
+            r"(exec|eval)\s*\(\s*(base64\.b64decode|zlib\.decompress|codecs\.decode|binascii\.unhexlify)",
+            "critical",
+            "Detects execution of Base64/compressed/encoded payloads — classic obfuscation technique used to hide malicious code from reviewers.",
+            "*", "CWE-506", "A03:2021 - Injection",
+            "Never execute encoded or obfuscated payloads. All executed code must be static, reviewed, and version-controlled.",
+            "insider_threat"
+        ),
+        (
+            "IT: Dynamic Code Execution from Environment",
+            r"(exec|eval)\s*\(\s*os\.environ",
+            "critical",
+            "Detects execution of code strings sourced from environment variables — allows arbitrary code injection via environment manipulation.",
+            "*", "CWE-78", "A03:2021 - Injection",
+            "Never exec or eval content from environment variables. If dynamic configuration is needed, use safe structured formats (JSON, YAML).",
+            "insider_threat"
+        ),
+        (
+            "IT: Dynamic Module Import and Execute",
+            r"__import__\s*\(\s*['\"]base64['\"]|importlib\.import_module\s*\(\s*['\"]base64['\"]",
+            "high",
+            "Detects dynamic base64 module import patterns often used in obfuscated payloads to evade static analysis.",
+            "*", "CWE-94", "A03:2021 - Injection",
+            "Audit all dynamic imports. All imports should be static and present at the top of source files.",
+            "insider_threat"
+        ),
+    ]
+
+    seeded = 0
+    for rule in insider_threat_rules:
+        name, pattern, severity, description, language, cwe, owasp, remediation, category = rule
+        cursor.execute("SELECT id FROM custom_rules WHERE name = ? AND language = ?", (name, language))
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO custom_rules
+                    (name, pattern, severity, description, language, cwe, owasp, remediation,
+                     enabled, created_by, generated_by, confidence, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'system', 'threat_intel', 'high', ?)
+            """, (name, pattern, severity, description, language, cwe, owasp, remediation, category))
+            seeded += 1
+
+    conn.commit()
+    conn.close()
+    if seeded:
+        print(f"[INSIDER THREAT RULES] Seeded {seeded} new insider threat detection rules")
 
 # Health check
 @app.get("/health")

@@ -21,6 +21,7 @@ interface CustomRule {
   false_positives: number;
   true_positives: number;
   precision?: number;
+  category?: string;
 }
 
 interface EnhancementJob {
@@ -86,12 +87,35 @@ interface GeneratedRules {
   rules: Record<string, GeneratedRule | { error: string }>;
 }
 
+const INSIDER_THREAT_CATEGORIES: Record<string, { label: string; color: string }> = {
+  'IT: Backdoors & Hidden Endpoints': { label: 'Backdoors & Hidden Endpoints', color: 'bg-red-100 text-red-800 border-red-300' },
+  'IT: Hardcoded Credentials & Secrets': { label: 'Hardcoded Credentials', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+  'IT: Unauthorized Data Exfiltration': { label: 'Data Exfiltration', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  'IT: Audit Log Tampering': { label: 'Audit Log Tampering', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  'IT: Logic Bombs & Time Bombs': { label: 'Logic / Time Bombs', color: 'bg-pink-100 text-pink-800 border-pink-300' },
+  'IT: Privilege Escalation': { label: 'Privilege Escalation', color: 'bg-red-100 text-red-800 border-red-300' },
+  'IT: Sensitive Data Leakage': { label: 'Data Leakage', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  'IT: Obfuscated Code': { label: 'Obfuscated Code', color: 'bg-gray-100 text-gray-800 border-gray-300' },
+};
+
+const INSIDER_THREAT_SUBCATEGORIES = [
+  { key: 'backdoors', label: 'Backdoors & Hidden Endpoints', rules: ['IT: Hardcoded Auth Bypass Condition', 'IT: Hidden Admin/Debug Route', 'IT: Debug/Security Bypass Flag Enabled'] },
+  { key: 'credentials', label: 'Hardcoded Credentials & Secrets', rules: ['IT: Hardcoded Password in Source', 'IT: Hardcoded API Token or Secret Key', 'IT: Hardcoded Database Connection with Credentials'] },
+  { key: 'exfiltration', label: 'Unauthorized Data Exfiltration', rules: ['IT: HTTP POST Sending Environment Variables', 'IT: Unrestricted Bulk Data Read', 'IT: Writing Credentials to External File'] },
+  { key: 'logtampering', label: 'Audit Log Tampering', rules: ['IT: Security Logging Disabled', 'IT: Silent Exception Swallowing', 'IT: Log File Deletion'] },
+  { key: 'logicbombs', label: 'Logic Bombs & Time Bombs', rules: ['IT: Date-Triggered Logic Bomb', 'IT: Username/Email-Specific Trigger'] },
+  { key: 'privesc', label: 'Privilege Escalation', rules: ['IT: Hardcoded Admin Role Assignment', 'IT: Authorization Check Bypass'] },
+  { key: 'dataleakage', label: 'Sensitive Data Leakage', rules: ['IT: Credentials Logged to Output', 'IT: PII or Secrets in HTTP Response'] },
+  { key: 'obfuscated', label: 'Obfuscated Code Execution', rules: ['IT: Obfuscated Payload Execution (Base64/Zlib)', 'IT: Dynamic Code Execution from Environment', 'IT: Dynamic Module Import and Execute'] },
+];
+
 const CustomRulesPage: React.FC = () => {
   // Main tab state
-  const [mainTab, setMainTab] = useState<'custom' | 'enterprise'>('custom');
+  const [mainTab, setMainTab] = useState<'custom' | 'enterprise' | 'insider_threat'>('custom');
 
   // Custom Rules State
   const [rules, setRules] = useState<CustomRule[]>([]);
+  const [insiderThreatRules, setInsiderThreatRules] = useState<CustomRule[]>([]);
   const [jobs, setJobs] = useState<EnhancementJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -151,6 +175,7 @@ const CustomRulesPage: React.FC = () => {
     loadRules();
     loadJobs();
     loadEnterpriseData();
+    loadInsiderThreatRules();
     const interval = setInterval(loadJobs, 5000);
     return () => clearInterval(interval);
   }, [filterSeverity, filterLanguage]);
@@ -168,6 +193,24 @@ const CustomRulesPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to load rules:', error);
       setLoading(false);
+    }
+  };
+
+  const loadInsiderThreatRules = async () => {
+    try {
+      const response = await axios.get('/api/rules?category=insider_threat', { headers });
+      setInsiderThreatRules(response.data);
+    } catch (error) {
+      console.error('Failed to load insider threat rules:', error);
+    }
+  };
+
+  const toggleInsiderRuleEnabled = async (ruleId: number, currentEnabled: number) => {
+    try {
+      await axios.put(`/api/rules/${ruleId}`, { enabled: !currentEnabled }, { headers });
+      loadInsiderThreatRules();
+    } catch (error) {
+      alert('Failed to update rule');
     }
   };
 
@@ -501,6 +544,19 @@ const CustomRulesPage: React.FC = () => {
           Custom Rules
         </button>
         <button
+          onClick={() => setMainTab('insider_threat')}
+          className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+            mainTab === 'insider_threat'
+              ? 'bg-white text-red-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <span>🔍</span> Insider Threat Patterns
+          <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-semibold">
+            {insiderThreatRules.length}
+          </span>
+        </button>
+        <button
           onClick={() => setMainTab('enterprise')}
           className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors ${
             mainTab === 'enterprise'
@@ -739,6 +795,165 @@ const CustomRulesPage: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </>
+      )}
+
+      {/* Insider Threat Patterns Tab Content */}
+      {mainTab === 'insider_threat' && (
+        <>
+          {/* Header Banner */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+            <div className="text-2xl">🔍</div>
+            <div>
+              <h2 className="text-lg font-bold text-red-800">Insider Threat Detection Rules</h2>
+              <p className="text-sm text-red-700 mt-1">
+                {insiderThreatRules.length} rules covering code-level insider threat patterns — backdoors, credential exfiltration,
+                audit log tampering, logic bombs, privilege escalation, and obfuscated payloads. Enable rules to activate detection during SAST scans.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-red-400">
+              <div className="text-2xl font-bold text-red-600">{insiderThreatRules.length}</div>
+              <div className="text-sm text-gray-600">Total Rules</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-400">
+              <div className="text-2xl font-bold text-green-600">{insiderThreatRules.filter(r => r.enabled).length}</div>
+              <div className="text-sm text-gray-600">Enabled</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-orange-400">
+              <div className="text-2xl font-bold text-orange-600">{insiderThreatRules.filter(r => r.severity === 'critical').length}</div>
+              <div className="text-sm text-gray-600">Critical Severity</div>
+            </div>
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-400">
+              <div className="text-2xl font-bold text-yellow-600">{insiderThreatRules.reduce((s, r) => s + r.total_detections, 0)}</div>
+              <div className="text-sm text-gray-600">Total Detections</div>
+            </div>
+          </div>
+
+          {/* Enable All / Disable All */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={async () => {
+                for (const r of insiderThreatRules.filter(r => !r.enabled)) {
+                  await axios.put(`/api/rules/${r.id}`, { enabled: true }, { headers });
+                }
+                loadInsiderThreatRules();
+              }}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+            >
+              Enable All Rules
+            </button>
+            <button
+              onClick={async () => {
+                for (const r of insiderThreatRules.filter(r => r.enabled)) {
+                  await axios.put(`/api/rules/${r.id}`, { enabled: false }, { headers });
+                }
+                loadInsiderThreatRules();
+              }}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
+            >
+              Disable All Rules
+            </button>
+          </div>
+
+          {/* Rules grouped by subcategory */}
+          <div className="space-y-6">
+            {INSIDER_THREAT_SUBCATEGORIES.map((subcategory) => {
+              const subcategoryRules = insiderThreatRules.filter(r =>
+                subcategory.rules.includes(r.name)
+              );
+              if (subcategoryRules.length === 0) return null;
+
+              const subcategoryIcons: Record<string, string> = {
+                backdoors: '🚪',
+                credentials: '🔑',
+                exfiltration: '📤',
+                logtampering: '🗑️',
+                logicbombs: '💣',
+                privesc: '⬆️',
+                dataleakage: '🔓',
+                obfuscated: '🎭',
+              };
+
+              return (
+                <div key={subcategory.key} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                  {/* Subcategory Header */}
+                  <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{subcategoryIcons[subcategory.key]}</span>
+                      <h3 className="font-semibold text-gray-900">{subcategory.label}</h3>
+                      <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-700 rounded-full">
+                        {subcategoryRules.length} rule{subcategoryRules.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {subcategoryRules.filter(r => r.enabled).length}/{subcategoryRules.length} enabled
+                    </span>
+                  </div>
+
+                  {/* Rules in subcategory */}
+                  <div className="divide-y divide-gray-100">
+                    {subcategoryRules.map((rule) => (
+                      <div key={rule.id} className={`px-6 py-4 hover:bg-gray-50 ${rule.enabled ? '' : 'opacity-60'}`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="font-medium text-gray-900 text-sm">
+                                {rule.name.replace('IT: ', '')}
+                              </span>
+                              <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getSeverityColor(rule.severity)}`}>
+                                {rule.severity.toUpperCase()}
+                              </span>
+                              {rule.cwe && (
+                                <span className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                                  {rule.cwe}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mb-2">{rule.description}</p>
+                            <div className="font-mono text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded border truncate max-w-2xl" title={rule.pattern}>
+                              {rule.pattern}
+                            </div>
+                            {rule.remediation && (
+                              <p className="text-xs text-green-700 mt-2">
+                                <span className="font-semibold">Fix:</span> {rule.remediation}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {rule.total_detections > 0 && (
+                              <span className="text-xs text-gray-500">{rule.total_detections} detections</span>
+                            )}
+                            <button
+                              onClick={() => toggleInsiderRuleEnabled(rule.id, rule.enabled)}
+                              className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                                rule.enabled
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                              }`}
+                            >
+                              {rule.enabled ? 'Enabled' : 'Disabled'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
+            {insiderThreatRules.length === 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <div className="text-4xl mb-3">🔍</div>
+                <p className="text-gray-500 text-lg font-medium">No insider threat rules found</p>
+                <p className="text-gray-400 text-sm mt-1">Rules will appear here after the application restarts and seeds the database.</p>
+              </div>
+            )}
           </div>
         </>
       )}
