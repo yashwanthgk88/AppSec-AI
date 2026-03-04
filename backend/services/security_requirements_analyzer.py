@@ -256,14 +256,14 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
             # Use non-streaming API call (more stable than streaming)
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=4096,  # Reduced for faster response
+                max_tokens=8192,
                 messages=[{"role": "user", "content": prompt}]
             )
             content = response.content[0].text
         else:  # OpenAI
             response = self.client.chat.completions.create(
                 model=self.model,
-                max_tokens=4096,  # Reduced for faster response
+                max_tokens=8192,
                 messages=[
                     {"role": "system", "content": "You are a security architect. Generate concise, actionable security analysis. Return only valid JSON."},
                     {"role": "user", "content": prompt}
@@ -315,6 +315,21 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
             req_prompt = self.security_req_prompt
             insider_context = ""
 
+        if insider_threat:
+            abuse_case_schema = (
+                '{{"id": "AC-001", "threat": "Regular abuse scenario", "actor": "External User", "description": "How it occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "How carried out", "stride_category": "Information Disclosure", "insider_threat": false}},\n'
+                '    {{"id": "AC-006", "threat": "Insider abuse scenario", "actor": "Privileged Employee", "description": "How insider abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "Legitimate access misused", "stride_category": "Information Disclosure", "insider_threat": true}}'
+            )
+            req_schema = (
+                '{{"id": "SR-001", "requirement": "Regular requirement", "priority": "Critical", "category": "Authentication", "rationale": "Why needed", "acceptance_criteria": "• Criterion 1\\n• Criterion 2", "insider_threat": false}},\n'
+                '    {{"id": "SR-011", "requirement": "Insider threat requirement", "priority": "High", "category": "Access Control", "rationale": "Prevent insider misuse", "acceptance_criteria": "• Insider criterion 1\\n• Insider criterion 2", "insider_threat": true}}'
+            )
+            count_instruction = "Generate at least 5 regular abuse cases + 5 insider threat abuse cases, 6 STRIDE threats, and 10 regular + 5 insider threat security requirements."
+        else:
+            abuse_case_schema = '{{"id": "AC-001", "threat": "Abuse scenario title", "actor": "Who does this", "description": "How the abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "How it\'s carried out", "stride_category": "Information Disclosure"}}'
+            req_schema = '{{"id": "SR-001", "requirement": "Actionable requirement statement", "priority": "Critical", "category": "Authentication", "rationale": "Why this is needed", "acceptance_criteria": "• Specific testable criterion 1\\n• Specific testable criterion 2\\n• Specific testable criterion 3"}}'
+            count_instruction = "Generate at least 5 abuse cases, 6 STRIDE threats, and 10 security requirements."
+
         return f"""You are an expert application security analyst. Analyze the following user story for security threats, abuse cases, and generate security requirements.
 {insider_context}
 **User Story Title:** {title}
@@ -327,20 +342,18 @@ Map requirements to relevant compliance standards (OWASP, CWE, PCI-DSS, GDPR) wh
 Return ONLY valid JSON with this exact structure:
 {{
   "abuse_cases": [
-    {{"id": "AC-001", "threat": "Abuse scenario title", "actor": "Who does this", "description": "How the abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "How it's carried out", "stride_category": "Information Disclosure", "insider_threat": false}},
-    {{"id": "AC-006", "threat": "Insider abuse scenario", "actor": "Privileged Employee", "description": "How the insider abuse occurs", "impact": "High", "likelihood": "Medium", "attack_vector": "Legitimate access misused", "stride_category": "Information Disclosure", "insider_threat": true}}
+    {abuse_case_schema}
   ],
   "stride_threats": [
     {{"category": "Spoofing", "threat": "Threat name", "description": "Detailed description", "risk_level": "High"}}
   ],
   "security_requirements": [
-    {{"id": "SR-001", "requirement": "Actionable requirement statement", "priority": "Critical", "category": "Authentication", "rationale": "Why this is needed", "acceptance_criteria": "• Specific testable criterion 1\\n• Specific testable criterion 2\\n• Specific testable criterion 3", "insider_threat": false}},
-    {{"id": "SR-011", "requirement": "Insider threat specific requirement", "priority": "High", "category": "Access Control", "rationale": "Prevent insider misuse", "acceptance_criteria": "• Insider-specific criterion 1\\n• Insider-specific criterion 2", "insider_threat": true}}
+    {req_schema}
   ],
   "risk_score": 65
 }}
 
-Generate at least 5 abuse cases, 6 STRIDE threats, and 10 security requirements. Be SPECIFIC to this user story, not generic."""
+{count_instruction} Be SPECIFIC to this user story, not generic."""
 
     def _build_feedback_section(self) -> str:
         """Build the feedback examples section for in-context learning.
