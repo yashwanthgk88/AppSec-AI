@@ -622,16 +622,23 @@ const THREAT_LEVEL_CONFIG: Record<string, { label: string; color: string; bg: st
 
 function CommitDetail({ scanId }: { scanId: number }) {
   const [detail, setDetail] = useState<any>(null)
+  const [loadError, setLoadError] = useState('')
   const [aiAnalysis, setAiAnalysis] = useState<CommitAIAnalysis | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null)
 
   useEffect(() => {
-    axios.get(`/api/github-monitor/commits/${scanId}`, { headers: apiHeaders() }).then(r => {
-      setDetail(r.data)
-      if (r.data.ai_analysis) setAiAnalysis(r.data.ai_analysis)
-    })
+    setLoadError('')
+    axios.get(`/api/github-monitor/commits/${scanId}`, { headers: apiHeaders() })
+      .then(r => {
+        setDetail(r.data)
+        if (r.data.ai_analysis) setAiAnalysis(r.data.ai_analysis)
+      })
+      .catch(e => {
+        setLoadError(e.response?.data?.detail || 'Failed to load commit details.')
+        setDetail({})
+      })
   }, [scanId])
 
   const runAiAnalysis = async () => {
@@ -647,7 +654,8 @@ function CommitDetail({ scanId }: { scanId: number }) {
     }
   }
 
-  if (!detail) return <div className="p-4 text-sm text-gray-400 animate-pulse">Loading commit details...</div>
+  if (!detail) return <div className="p-4 text-sm text-gray-400 animate-pulse flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading commit details...</div>
+  if (loadError) return <div className="p-4 text-sm text-red-500 flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5" /> {loadError}</div>
 
   const findings: CommitFinding[] = detail.findings || []
   const sensitiveFiles = detail.sensitive_file_alerts || []

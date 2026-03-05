@@ -509,18 +509,21 @@ async def get_commit_detail(
     cursor.execute("SELECT * FROM github_sensitive_file_alerts WHERE scan_id=?", (scan_id,))
     sensitive_files = [dict(r) for r in cursor.fetchall()]
 
-    # Fetch existing AI analysis if any
-    cursor.execute("SELECT * FROM github_commit_ai_analysis WHERE scan_id=?", (scan_id,))
-    ai_row = cursor.fetchone()
+    # Fetch existing AI analysis if any (table may not exist on older deployments)
     ai_analysis = None
-    if ai_row:
-        ai_analysis = dict(ai_row)
-        for field in ("key_indicators", "recommended_actions"):
-            if ai_analysis.get(field):
-                try:
-                    ai_analysis[field] = json.loads(ai_analysis[field])
-                except Exception:
-                    pass
+    try:
+        cursor.execute("SELECT * FROM github_commit_ai_analysis WHERE scan_id=?", (scan_id,))
+        ai_row = cursor.fetchone()
+        if ai_row:
+            ai_analysis = dict(ai_row)
+            for field in ("key_indicators", "recommended_actions"):
+                if ai_analysis.get(field):
+                    try:
+                        ai_analysis[field] = json.loads(ai_analysis[field])
+                    except Exception:
+                        pass
+    except Exception:
+        pass  # Table not yet created; migration will run on next restart
 
     conn.close()
     return {**scan, "findings": findings, "sensitive_file_alerts": sensitive_files, "ai_analysis": ai_analysis}
