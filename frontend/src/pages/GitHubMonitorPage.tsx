@@ -4,7 +4,8 @@ import {
   ChevronDown, ChevronRight, CheckCircle, Trash2, Plus,
   Activity, TrendingUp, TrendingDown, Minus, LayoutGrid,
   CalendarDays, Settings2, Zap, ShieldAlert, Eye,
-  Brain, Crosshair, ShieldCheck, BookOpen, ListChecks, Loader2
+  Brain, Crosshair, ShieldCheck, BookOpen, ListChecks, Loader2,
+  Clock, BarChart2
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -64,6 +65,24 @@ interface DeveloperProfile {
   risk_trend: string; last_commit_at?: string
 }
 
+interface DeveloperBaseline {
+  author_email: string; baseline_status: 'insufficient' | 'partial' | 'established'
+  typical_hour_start: number; typical_hour_end: number
+  mean_commit_hour: number; std_commit_hour: number
+  avg_additions: number; avg_deletions: number; avg_files_changed: number
+  p90_additions: number; p90_deletions: number
+  avg_risk_score: number; avg_commits_per_week: number; commit_count_used: number
+  computed_at: string
+}
+
+interface DeveloperAnomaly {
+  id: number; author_email: string; scan_id: number
+  anomaly_type: string; description: string
+  baseline_value?: number; observed_value?: number
+  severity: 'low' | 'medium' | 'high'; acknowledged: number; created_at: string
+  sha?: string; commit_message?: string; risk_level?: string; repo_full_name?: string
+}
+
 interface Summary {
   total_monitored_repos: number; total_commits_scanned: number
   high_risk_commits: number; total_findings: number
@@ -71,7 +90,7 @@ interface Summary {
   recent_high_risk_commits: CommitScan[]
 }
 
-type Tab = 'overview' | 'commits' | 'timeline' | 'developers' | 'alerts' | 'findings' | 'repos'
+type Tab = 'overview' | 'commits' | 'timeline' | 'developers' | 'anomalies' | 'alerts' | 'findings' | 'repos'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -500,7 +519,149 @@ function RiskTimelineHeatmap({ repos }: { repos: MonitoredRepo[] }) {
 // ---------------------------------------------------------------------------
 // Developer Risk Cards (replaces table)
 // ---------------------------------------------------------------------------
+const BASELINE_STATUS_META = {
+  established: { label: 'Established', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+  partial:     { label: 'Partial',     color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200' },
+  insufficient:{ label: 'Insufficient',color: 'text-gray-500',  bg: 'bg-gray-50 border-gray-200' },
+}
+
+const ANOMALY_TYPE_LABELS: Record<string, string> = {
+  off_hours_deviation:     '🕐 Off-Hours Commit',
+  large_commit_additions:  '📈 Large Addition Spike',
+  large_commit_deletions:  '📉 Large Deletion Spike',
+  risk_spike:              '⚡ Risk Score Spike',
+}
+
+function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDown: (e: string) => void }) {
+  const [baseline, setBaseline] = useState<DeveloperBaseline | null>(null)
+  const [anomalies, setAnomalies] = useState<DeveloperAnomaly[]>([])
+  const [loading, setLoading] = useState(true)
+  const [recomputing, setRecomputing] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      axios.get(`/api/github-monitor/developers/${encodeURIComponent(email)}/baseline`, { headers: apiHeaders() }).catch(() => null),
+      axios.get(`/api/github-monitor/developers/${encodeURIComponent(email)}/anomalies?limit=10`, { headers: apiHeaders() }).catch(() => ({ data: [] })),
+    ]).then(([bl, an]) => {
+      setBaseline(bl?.data ?? null)
+      setAnomalies(an?.data ?? [])
+    }).finally(() => setLoading(false))
+  }, [email])
+
+  const recompute = async () => {
+    setRecomputing(true)
+    try {
+      const r = await axios.post(`/api/github-monitor/developers/${encodeURIComponent(email)}/recompute-baseline`, {}, { headers: apiHeaders() })
+      setBaseline(r.data.baseline)
+    } catch (e) { console.error(e) }
+    finally { setRecomputing(false) }
+  }
+
+  if (loading) return <div className="p-4 text-center text-sm text-gray-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Loading baseline…</div>
+
+  const bl = baseline
+  const bMeta = bl ? (BASELINE_STATUS_META[bl.baseline_status] ?? BASELINE_STATUS_META.insufficient) : null
+
+  return (
+    <div className="p-4 bg-gray-50 border-t border-gray-100 space-y-4">
+      {/* Baseline stats */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+            <BarChart2 className="w-4 h-4 text-indigo-500" /> Behavioral Baseline
+          </h4>
+          <div className="flex items-center gap-2">
+            {bMeta && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${bMeta.bg} ${bMeta.color}`}>
+                {bMeta.label}{bl ? ` · ${bl.commit_count_used} commits` : ''}
+              </span>
+            )}
+            <button onClick={recompute} disabled={recomputing} className="text-xs text-indigo-600 hover:underline flex items-center gap-1 disabled:opacity-50">
+              <RefreshCw className={`w-3 h-3 ${recomputing ? 'animate-spin' : ''}`} /> Recompute
+            </button>
+          </div>
+        </div>
+
+        {!bl || bl.baseline_status === 'insufficient' ? (
+          <p className="text-sm text-gray-400 italic">
+            Not enough commits yet. Baseline activates after 5 commits (full confidence at 20+).
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Normal Work Hours</p>
+              <p className="font-semibold text-gray-800">
+                {String(bl.typical_hour_start).padStart(2,'0')}:00 – {String(bl.typical_hour_end).padStart(2,'0')}:00
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">mean {bl.mean_commit_hour.toFixed(0)}h ± {bl.std_commit_hour.toFixed(1)}h σ</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Activity className="w-3 h-3" /> Activity Rate</p>
+              <p className="font-semibold text-gray-800">{bl.avg_commits_per_week.toFixed(1)} commits/wk</p>
+              <p className="text-xs text-gray-400 mt-0.5">avg risk {bl.avg_risk_score.toFixed(1)}/10</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1">Avg Commit Size</p>
+              <p className="font-semibold text-gray-800">+{bl.avg_additions.toFixed(0)} / -{bl.avg_deletions.toFixed(0)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{bl.avg_files_changed.toFixed(1)} files avg</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-xs text-gray-400 mb-1">P90 Commit Size</p>
+              <p className="font-semibold text-gray-800">+{bl.p90_additions.toFixed(0)} / -{bl.p90_deletions.toFixed(0)}</p>
+              <p className="text-xs text-gray-400 mt-0.5">90th percentile</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recent anomalies */}
+      <div>
+        <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
+          <AlertTriangle className="w-4 h-4 text-orange-500" />
+          Recent Anomalies
+          {anomalies.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-100 text-red-700 rounded-full">{anomalies.length}</span>
+          )}
+        </h4>
+        {anomalies.length === 0 ? (
+          <p className="text-sm text-gray-400 italic">No anomalies detected yet.</p>
+        ) : (
+          <div className="space-y-1.5">
+            {anomalies.map(a => (
+              <div key={a.id} className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs ${
+                a.severity === 'high' ? 'bg-red-50 border-red-200' :
+                a.severity === 'medium' ? 'bg-orange-50 border-orange-200' :
+                'bg-yellow-50 border-yellow-200'
+              }`}>
+                <span className={`font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                  a.severity === 'high' ? 'bg-red-200 text-red-800' :
+                  a.severity === 'medium' ? 'bg-orange-200 text-orange-800' :
+                  'bg-yellow-200 text-yellow-800'
+                }`}>{a.severity.toUpperCase()}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</p>
+                  <p className="text-gray-600 mt-0.5">{a.description}</p>
+                  {a.sha && <p className="text-gray-400 font-mono mt-0.5">{a.sha.slice(0, 8)} · {timeAgo(a.created_at)}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button
+        onClick={() => onDrillDown(email)}
+        className="w-full text-xs text-indigo-600 hover:text-indigo-800 font-medium py-1.5 border border-indigo-100 hover:border-indigo-300 rounded-md bg-indigo-50 hover:bg-indigo-100 transition"
+      >
+        View Commits →
+      </button>
+    </div>
+  )
+}
+
 function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDown: (email: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
   const barWidth = Math.min((dev.avg_risk_score / 10) * 100, 100)
   const borderColor = dev.avg_risk_score >= 7 ? 'border-l-red-600'
     : dev.avg_risk_score >= 4 ? 'border-l-orange-500'
@@ -521,61 +682,205 @@ function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDow
   const initials = (dev.author_name || dev.author_email || '?').slice(0, 2).toUpperCase()
 
   return (
-    <div className={`bg-white border border-gray-200 border-l-4 ${borderColor} rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col gap-3`}>
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-          <span className="text-indigo-700 font-bold text-sm">{initials}</span>
+    <div className={`bg-white border border-gray-200 border-l-4 ${borderColor} rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
+      <div className="p-4 flex flex-col gap-3">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-indigo-700 font-bold text-sm">{initials}</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-gray-900 text-sm truncate">{dev.author_name || '(no name)'}</p>
+            <p className="text-xs text-gray-500 truncate">{dev.author_email}</p>
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="font-semibold text-gray-900 text-sm truncate">{dev.author_name || '(no name)'}</p>
-          <p className="text-xs text-gray-500 truncate">{dev.author_email}</p>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded-lg px-3 py-2">
+          <div className="text-center">
+            <p className="text-lg font-bold text-gray-800">{dev.total_commits}</p>
+            <p className="text-[10px] text-gray-400">Commits</p>
+          </div>
+          <div className="text-center">
+            <p className={`text-lg font-bold ${dev.high_risk_commits > 0 ? 'text-red-600' : 'text-gray-800'}`}>{dev.high_risk_commits}</p>
+            <p className="text-[10px] text-gray-400">High-Risk</p>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-bold text-gray-800">{dev.total_findings}</p>
+            <p className="text-[10px] text-gray-400">Findings</p>
+          </div>
         </div>
+
+        {/* Risk score bar */}
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs text-gray-500">Avg Risk Score</span>
+            <span className={`text-sm font-bold ${riskColor}`}>{dev.avg_risk_score.toFixed(1)}/10</span>
+          </div>
+          <div className="h-2 rounded-full bg-gray-200">
+            <div
+              className="h-2 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-600 transition-all"
+              style={{ width: `${barWidth}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Trend + last commit */}
+        <div className="flex justify-between items-center text-xs">
+          <TrendIcon />
+          <span className="text-gray-400">{timeAgo(dev.last_commit_at)}</span>
+        </div>
+
+        {/* Expand baseline button */}
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="w-full text-xs font-medium py-1.5 border rounded-md transition flex items-center justify-center gap-1.5 text-indigo-600 border-indigo-100 hover:border-indigo-300 bg-indigo-50 hover:bg-indigo-100"
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+          {expanded ? 'Hide Baseline' : 'Baseline & Anomalies'}
+          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded-lg px-3 py-2">
-        <div className="text-center">
-          <p className="text-lg font-bold text-gray-800">{dev.total_commits}</p>
-          <p className="text-[10px] text-gray-400">Commits</p>
-        </div>
-        <div className="text-center">
-          <p className={`text-lg font-bold ${dev.high_risk_commits > 0 ? 'text-red-600' : 'text-gray-800'}`}>{dev.high_risk_commits}</p>
-          <p className="text-[10px] text-gray-400">High-Risk</p>
-        </div>
-        <div className="text-center">
-          <p className="text-lg font-bold text-gray-800">{dev.total_findings}</p>
-          <p className="text-[10px] text-gray-400">Findings</p>
-        </div>
+      {/* Expandable detail panel */}
+      {expanded && <DeveloperDetailPanel email={dev.author_email} onDrillDown={onDrillDown} />}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Behavioral Anomalies Tab
+// ---------------------------------------------------------------------------
+function BehavioralAnomaliesTab() {
+  const [anomalies, setAnomalies] = useState<DeveloperAnomaly[]>([])
+  const [total, setTotal] = useState(0)
+  const [severityCounts, setSeverityCounts] = useState<Record<string, number>>({})
+  const [page, setPage] = useState(1)
+  const [severity, setSeverity] = useState('')
+  const [anomalyType, setAnomalyType] = useState('')
+  const [author, setAuthor] = useState('')
+  const [showAcked, setShowAcked] = useState(false)
+  const PAGE_SIZE = 25
+
+  const load = useCallback(async () => {
+    const params = new URLSearchParams()
+    if (severity) params.set('severity', severity)
+    if (anomalyType) params.set('anomaly_type', anomalyType)
+    if (author) params.set('author', author)
+    if (showAcked) params.set('acknowledged', 'true')
+    params.set('page', String(page))
+    params.set('page_size', String(PAGE_SIZE))
+    try {
+      const r = await axios.get(`/api/github-monitor/anomalies?${params}`, { headers: apiHeaders() })
+      setAnomalies(r.data.anomalies)
+      setTotal(r.data.total)
+      setSeverityCounts(r.data.severity_counts)
+    } catch (e) { console.error(e) }
+  }, [severity, anomalyType, author, showAcked, page])
+
+  useEffect(() => { load() }, [load])
+
+  const ack = async (id: number) => {
+    await axios.post(`/api/github-monitor/anomalies/${id}/acknowledge`, {}, { headers: apiHeaders() })
+    load()
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary chips */}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { label: 'High', key: 'high', color: 'bg-red-100 text-red-700 border-red-300' },
+          { label: 'Medium', key: 'medium', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+          { label: 'Low', key: 'low', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+        ].map(s => (
+          <button
+            key={s.key}
+            onClick={() => { setSeverity(severity === s.key ? '' : s.key); setPage(1) }}
+            className={`px-3 py-1 text-sm font-medium rounded-full border ${severity === s.key ? s.color : 'bg-white border-gray-200 text-gray-600'}`}
+          >
+            {s.label} <span className="font-bold">{severityCounts[s.key] ?? 0}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => { setAnomalyType(anomalyType === 'off_hours_deviation' ? '' : 'off_hours_deviation'); setPage(1) }}
+          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'off_hours_deviation' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-white border-gray-200 text-gray-600'}`}
+        >🕐 Off-Hours</button>
+        <button
+          onClick={() => { setAnomalyType(anomalyType === 'risk_spike' ? '' : 'risk_spike'); setPage(1) }}
+          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'risk_spike' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-white border-gray-200 text-gray-600'}`}
+        >⚡ Risk Spike</button>
       </div>
 
-      {/* Risk score bar */}
-      <div>
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-xs text-gray-500">Avg Risk Score</span>
-          <span className={`text-sm font-bold ${riskColor}`}>{dev.avg_risk_score.toFixed(1)}/10</span>
-        </div>
-        <div className="h-2 rounded-full bg-gray-200">
-          <div
-            className="h-2 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-600 transition-all"
-            style={{ width: `${barWidth}%` }}
-          />
-        </div>
+      {/* Filter bar */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <input value={author} onChange={e => { setAuthor(e.target.value); setPage(1) }}
+          placeholder="Filter by developer…"
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
+          <input type="checkbox" checked={showAcked} onChange={e => { setShowAcked(e.target.checked); setPage(1) }} />
+          Show acknowledged
+        </label>
+        <span className="text-sm text-gray-400 ml-auto">{total} anomalies</span>
       </div>
 
-      {/* Trend + last commit */}
-      <div className="flex justify-between items-center text-xs">
-        <TrendIcon />
-        <span className="text-gray-400">{timeAgo(dev.last_commit_at)}</span>
-      </div>
+      {/* Table */}
+      {anomalies.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <Activity className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>No behavioral anomalies yet.</p>
+          <p className="text-xs mt-1">Anomalies appear automatically after 5+ commits per developer.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {anomalies.map(a => (
+            <div key={a.id} className={`flex items-start gap-3 p-3 rounded-lg border ${
+              a.acknowledged ? 'bg-gray-50 border-gray-200 opacity-60' :
+              a.severity === 'high' ? 'bg-red-50 border-red-200' :
+              a.severity === 'medium' ? 'bg-orange-50 border-orange-200' :
+              'bg-yellow-50 border-yellow-200'
+            }`}>
+              <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
+                a.severity === 'high' ? 'bg-red-200 text-red-800' :
+                a.severity === 'medium' ? 'bg-orange-200 text-orange-800' :
+                'bg-yellow-200 text-yellow-800'
+              }`}>{a.severity.toUpperCase()}</span>
 
-      {/* Drill-down */}
-      <button
-        onClick={() => onDrillDown(dev.author_email)}
-        className="w-full text-xs text-indigo-600 hover:text-indigo-800 font-medium py-1.5 border border-indigo-100 hover:border-indigo-300 rounded-md bg-indigo-50 hover:bg-indigo-100 transition"
-      >
-        View Commits →
-      </button>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold text-gray-800">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</span>
+                  <span className="text-xs text-gray-500">{a.author_email}</span>
+                  {a.repo_full_name && <span className="text-xs text-gray-400">{a.repo_full_name}</span>}
+                </div>
+                <p className="text-xs text-gray-600 mt-0.5">{a.description}</p>
+                {a.sha && (
+                  <p className="text-xs text-gray-400 font-mono mt-0.5">
+                    {a.sha.slice(0,8)}
+                    {a.commit_message && ` · ${a.commit_message.slice(0,60)}${a.commit_message.length > 60 ? '…' : ''}`}
+                    {' · '}{timeAgo(a.created_at)}
+                  </p>
+                )}
+              </div>
+
+              {!a.acknowledged && (
+                <button onClick={() => ack(a.id)}
+                  className="shrink-0 text-xs px-2 py-1 border border-gray-300 rounded hover:bg-white text-gray-600">
+                  Ack
+                </button>
+              )}
+              {a.acknowledged && <CheckCircle className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {total > PAGE_SIZE && (
+        <div className="flex justify-center gap-2 mt-4">
+          <button disabled={page === 1} onClick={() => setPage(p => p-1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Prev</button>
+          <span className="px-3 py-1.5 text-sm text-gray-600">Page {page} of {Math.ceil(total/PAGE_SIZE)}</span>
+          <button disabled={page >= Math.ceil(total/PAGE_SIZE)} onClick={() => setPage(p => p+1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Next</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -1559,6 +1864,7 @@ export default function GitHubMonitorPage() {
     { id: 'commits',    label: 'Commit Feed',       icon: GitBranch,    badge: undefined },
     { id: 'timeline',   label: 'Risk Timeline',     icon: CalendarDays, badge: undefined },
     { id: 'developers', label: 'Developers',        icon: Users,        badge: atRiskDevs > 0 ? atRiskDevs : undefined, badgeColor: 'bg-orange-500' },
+    { id: 'anomalies',  label: 'Anomalies',         icon: Activity,     badge: undefined, badgeColor: 'bg-orange-500' },
     { id: 'findings',   label: 'All Findings',      icon: ShieldAlert,  badge: summary?.total_findings ? summary.total_findings : undefined, badgeColor: 'bg-red-500' },
     { id: 'alerts',     label: 'Sensitive Files',   icon: FileWarning,  badge: unackAlerts > 0 ? unackAlerts : undefined, badgeColor: 'bg-red-500' },
     { id: 'repos',      label: 'Repos',             icon: Settings2,    badge: undefined },
@@ -1712,6 +2018,7 @@ export default function GitHubMonitorPage() {
             </div>
           )}
 
+          {activeTab === 'anomalies' && <BehavioralAnomaliesTab />}
           {activeTab === 'findings' && <FindingsTab repoStats={repoStats} />}
           {activeTab === 'alerts' && <SensitiveFileAlertsTab onAckChange={loadSummary} />}
           {activeTab === 'repos' && <MonitoredReposTab onScanComplete={refreshAll} onRepoAdded={refreshAll} />}

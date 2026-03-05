@@ -1258,6 +1258,44 @@ def _migrate_github_monitor_tables():
         )
     """)
 
+    # Behavioral baseline tables
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_developer_baselines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_email TEXT UNIQUE NOT NULL,
+            typical_hour_start INTEGER DEFAULT 9,
+            typical_hour_end INTEGER DEFAULT 18,
+            mean_commit_hour REAL DEFAULT 12,
+            std_commit_hour REAL DEFAULT 4,
+            avg_additions REAL DEFAULT 0,
+            avg_deletions REAL DEFAULT 0,
+            avg_files_changed REAL DEFAULT 0,
+            p90_additions REAL DEFAULT 0,
+            p90_deletions REAL DEFAULT 0,
+            avg_risk_score REAL DEFAULT 0,
+            avg_commits_per_week REAL DEFAULT 0,
+            commit_count_used INTEGER DEFAULT 0,
+            baseline_status TEXT DEFAULT 'insufficient',
+            computed_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_developer_anomalies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_email TEXT NOT NULL,
+            scan_id INTEGER REFERENCES github_commit_scans(id),
+            anomaly_type TEXT NOT NULL,
+            description TEXT NOT NULL,
+            baseline_value REAL,
+            observed_value REAL,
+            severity TEXT DEFAULT 'medium',
+            acknowledged INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
     # Add false_positive columns if not present (must run BEFORE creating indexes on them)
     cursor.execute("PRAGMA table_info(github_commit_scans)")
     scan_cols = [r[1] for r in cursor.fetchall()]
@@ -1284,6 +1322,10 @@ def _migrate_github_monitor_tables():
         "CREATE INDEX IF NOT EXISTS idx_gcf_false_positive ON github_commit_findings(false_positive)",
         "CREATE INDEX IF NOT EXISTS idx_gcs_false_positive ON github_commit_scans(false_positive)",
         "CREATE INDEX IF NOT EXISTS idx_gcf_severity ON github_commit_findings(severity)",
+        "CREATE INDEX IF NOT EXISTS idx_gda_author ON github_developer_anomalies(author_email)",
+        "CREATE INDEX IF NOT EXISTS idx_gda_created ON github_developer_anomalies(created_at)",
+        "CREATE INDEX IF NOT EXISTS idx_gda_severity ON github_developer_anomalies(severity)",
+        "CREATE INDEX IF NOT EXISTS idx_gdb_author ON github_developer_baselines(author_email)",
     ]
     for idx_sql in indexes:
         cursor.execute(idx_sql)

@@ -329,6 +329,25 @@ async def _scan_repo(repo_id: int, db: Session):
                 )
 
         conn.commit()
+
+        # Behavioral baseline: detect anomalies (against OLD baseline), then recompute
+        if author_email:
+            try:
+                from services.baseline_engine import BaselineEngine
+                be = BaselineEngine(_get_db_path())
+                be.detect_and_store(
+                    scan_id=scan_id,
+                    author_email=author_email,
+                    committed_at=author_info.get("date", ""),
+                    additions=stats.get("additions", 0),
+                    deletions=stats.get("deletions", 0),
+                    files_changed=len(commit_detail.get("files", [])),
+                    risk_score=result.risk_score,
+                )
+                be.compute_and_store(author_email)
+            except Exception as be_err:
+                logger.warning(f"[Baseline] {author_email}: {be_err}")
+
         scanned += 1
 
     # Update last_scanned_at and total count
@@ -1309,3 +1328,117 @@ Respond ONLY with a valid JSON object (no markdown fences) matching this schema:
         "scan_id": scan_id,
     }
 
+
+
+# ---------------------------------------------------------------------------
+# Developer Behavioral Baseline endpoints
+# ---------------------------------------------------------------------------
+
+@router.get("/developers/{author_email:path}/baseline")
+async def get_developer_baseline(
+    author_email: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get the behavioral baseline for a developer."""
+    from services.baseline_engine import BaselineEngine
+    be = BaselineEngine(_get_db_path())
+    baseline = be.get_baseline(author_email)
+    if not baseline:
+        raise HTTPException(status_code=404, detail="No baseline found. Developer needs at least 5 commits.")
+    return baseline
+
+
+@router.post("/developers/{author_email:path}/recompute-baseline")
+async def recompute_developer_baseline(
+    author_email: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Force recompute the baseline for a developer from their full commit history."""
+    from services.baseline_engine import BaselineEngine
+    be = BaselineEngine(_get_db_path())
+    result = be.compute_and_store(author_email)
+    return {"message": "Baseline recomputed.", "baseline": result}
+
+
+@router.get("/developers/{author_email:path}/anomalies")
+async def get_developer_anomalies(
+    author_email: str,
+    limit: int = Query(default=50, le=200),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get behavioral anomalies for a developer."""
+    from services.baseline_engine import BaselineEngine
+    be = BaselineEngine(_get_db_path())
+    return be.get_anomalies(author_email, limit=limit)
+
+
+@router.get("/anomalies")
+async def list_all_anomalies(
+    severity: Optional[str] = None,
+    anomaly_type: Optional[str] = None,
+    author: Optional[str] = None,
+    acknowledged: Optional[bool] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, le=100),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Paginated feed of all behavioral anomalies across all developers."""
+    conn = _sqlite_conn()
+    cur = conn.cursor()
+
+    conditions, params = [], []
+    if severity:
+        conditions.append("da.severity = ?"); params.append(severity)
+    if anomaly_type:
+        conditions.append("da.anomaly_type = ?"); params.append(anomaly_type)
+    if author:
+        conditions.append("da.author_email LIKE ?"); params.append(f"%{author}%")
+    if acknowledged is not None:
+        conditions.append("da.acknowledged = ?"); params.append(1 if acknowledged else 0)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    offset = (page - 1) * page_size
+
+    cur.execute(
+        f"""SELECT da.*, gcs.sha, gcs.commit_message, gcs.risk_level,
+                   gmr.full_name as repo_full_name
+            FROM github_developer_anomalies da
+            LEFT JOIN github_commit_scans gcs ON da.scan_id = gcs.id
+            LEFT JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
+            {where}
+            ORDER BY da.created_at DESC LIMIT ? OFFSET ?""",
+        params + [page_size, offset],
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute(
+        f"SELECT COUNT(*) FROM github_developer_anomalies da {where}", params
+    )
+    total = cur.fetchone()[0]
+
+    # Severity counts
+    cur.execute(
+        """SELECT severity, COUNT(*) as cnt FROM github_developer_anomalies
+           GROUP BY severity"""
+    )
+    severity_counts = {r["severity"]: r["cnt"] for r in cur.fetchall()}
+
+    conn.close()
+    return {"anomalies": rows, "total": total, "severity_counts": severity_counts,
+            "page": page, "page_size": page_size}
+
+
+@router.post("/anomalies/{anomaly_id}/acknowledge")
+async def acknowledge_anomaly(
+    anomaly_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark a behavioral anomaly as acknowledged."""
+    conn = _sqlite_conn()
+    conn.execute(
+        "UPDATE github_developer_anomalies SET acknowledged=1 WHERE id=?",
+        (anomaly_id,),
+    )
+    conn.commit()
+    conn.close()
+    return {"message": "Anomaly acknowledged."}
