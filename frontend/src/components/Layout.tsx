@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Shield, LayoutDashboard, FolderKanban, MessageSquare, Settings, LogOut, Menu, X, FileCode, BarChart3, Activity, Zap, Brain } from 'lucide-react'
+import { Shield, LayoutDashboard, FolderKanban, MessageSquare, Settings, LogOut, Menu, X, FileCode, BarChart3, Activity, Zap, Brain, GitBranch } from 'lucide-react'
 import { useState } from 'react'
 
 interface LayoutProps {
@@ -19,6 +19,7 @@ export default function Layout({ children, onLogout }: LayoutProps) {
     { name: 'Custom Rules', href: '/custom-rules', icon: FileCode },
     { name: 'Rule Performance', href: '/rule-performance', icon: BarChart3 },
     { name: 'App Intelligence', href: '/application-intelligence', icon: Brain },
+    { name: 'GitHub Monitor', href: '/github-monitor', icon: GitBranch },
     { name: 'AI Assistant', href: '/chat', icon: MessageSquare },
     { name: 'Settings', href: '/settings', icon: Settings },
   ]

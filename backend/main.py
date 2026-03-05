@@ -58,6 +58,7 @@ from routers import application_intelligence
 from routers import enterprise_rules
 from routers import securereq
 from routers import integrations
+from routers import github_monitor
 
 # Pydantic schemas
 from pydantic import BaseModel, EmailStr
@@ -117,6 +118,7 @@ app.include_router(application_intelligence.router)
 app.include_router(enterprise_rules.router)
 app.include_router(securereq.router)
 app.include_router(integrations.router)
+app.include_router(github_monitor.router)
 
 # Initialize AI configuration from database at startup
 def load_ai_config_from_database():
@@ -364,6 +366,9 @@ async def startup_event():
 
     # Migrate and seed custom rules
     _migrate_and_seed_insider_threat_rules()
+
+    # Migrate GitHub monitor tables
+    _migrate_github_monitor_tables()
 
 
 def _migrate_and_seed_insider_threat_rules():
@@ -1148,6 +1153,111 @@ def _migrate_and_seed_insider_threat_rules():
     conn.close()
     if seeded:
         print(f"[INSIDER THREAT RULES] Seeded {seeded} new insider threat detection rules")
+
+def _migrate_github_monitor_tables():
+    """Create GitHub Monitor tables if they don't exist."""
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_monitored_repos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            repo TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            description TEXT,
+            default_branch TEXT DEFAULT 'main',
+            active INTEGER DEFAULT 1,
+            last_scanned_at TEXT,
+            total_commits_scanned INTEGER DEFAULT 0,
+            added_by TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(owner, repo)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_commit_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            repo_id INTEGER NOT NULL REFERENCES github_monitored_repos(id),
+            sha TEXT NOT NULL,
+            author_name TEXT,
+            author_email TEXT,
+            committer_name TEXT,
+            committer_email TEXT,
+            commit_message TEXT,
+            committed_at TEXT,
+            files_changed INTEGER DEFAULT 0,
+            additions INTEGER DEFAULT 0,
+            deletions INTEGER DEFAULT 0,
+            risk_score REAL DEFAULT 0,
+            risk_level TEXT DEFAULT 'clean',
+            signals TEXT,
+            scanned_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(repo_id, sha)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_commit_findings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL REFERENCES github_commit_scans(id),
+            rule_name TEXT NOT NULL,
+            rule_id INTEGER,
+            severity TEXT NOT NULL,
+            file_path TEXT,
+            line_number INTEGER,
+            matched_text TEXT,
+            category TEXT DEFAULT 'insider_threat',
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_developer_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            author_email TEXT UNIQUE NOT NULL,
+            author_name TEXT,
+            total_commits INTEGER DEFAULT 0,
+            high_risk_commits INTEGER DEFAULT 0,
+            total_findings INTEGER DEFAULT 0,
+            risk_trend TEXT DEFAULT 'stable',
+            last_commit_at TEXT,
+            avg_risk_score REAL DEFAULT 0,
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_sensitive_file_alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL REFERENCES github_commit_scans(id),
+            file_path TEXT NOT NULL,
+            pattern_matched TEXT NOT NULL,
+            author_email TEXT,
+            committed_at TEXT,
+            acknowledged INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Indexes for performance
+    indexes = [
+        "CREATE INDEX IF NOT EXISTS idx_gcs_risk_level ON github_commit_scans(risk_level)",
+        "CREATE INDEX IF NOT EXISTS idx_gcs_author_email ON github_commit_scans(author_email)",
+        "CREATE INDEX IF NOT EXISTS idx_gcs_committed_at ON github_commit_scans(committed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_gcs_repo_id ON github_commit_scans(repo_id)",
+        "CREATE INDEX IF NOT EXISTS idx_gcf_scan_id ON github_commit_findings(scan_id)",
+        "CREATE INDEX IF NOT EXISTS idx_gsfa_acknowledged ON github_sensitive_file_alerts(acknowledged)",
+        "CREATE INDEX IF NOT EXISTS idx_gdp_avg_risk ON github_developer_profiles(avg_risk_score)",
+    ]
+    for idx_sql in indexes:
+        cursor.execute(idx_sql)
+
+    conn.commit()
+    conn.close()
+    print("[MIGRATION] GitHub Monitor tables ready")
+
 
 # Health check
 @app.get("/health")

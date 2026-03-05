@@ -17,6 +17,7 @@ import ThreatIntelPage from './pages/ThreatIntelPage'
 import ApplicationIntelligencePage from './pages/ApplicationIntelligencePage'
 import SecurityRequirementsPage from './pages/SecurityRequirementsPage'
 import StoryAnalysisPage from './pages/StoryAnalysisPage'
+import GitHubMonitorPage from './pages/GitHubMonitorPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -66,6 +67,7 @@ function App() {
           <Route path="/rule-performance" element={<RulePerformancePage />} />
           <Route path="/scan-monitor" element={<ScanMonitorPage />} />
           <Route path="/application-intelligence" element={<ApplicationIntelligencePage />} />
+          <Route path="/github-monitor" element={<GitHubMonitorPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -135,6 +135,15 @@ export default function SettingsPage() {
   const [testingSnow, setTestingSnow] = useState(false)
   const [snowMessage, setSnowMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // GitHub Integration Settings
+  const [githubPat, setGithubPat] = useState('')
+  const [githubOrg, setGithubOrg] = useState('')
+  const [githubConfigured, setGithubConfigured] = useState(false)
+  const [githubPatMasked, setGithubPatMasked] = useState<string | null>(null)
+  const [savingGithub, setSavingGithub] = useState(false)
+  const [testingGithub, setTestingGithub] = useState(false)
+  const [githubMessage, setGithubMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
   // SecureReq Prompt Settings
   const [promptSettings, setPromptSettings] = useState<SecureReqPromptSettings | null>(null)
   const [useCustomPrompts, setUseCustomPrompts] = useState(false)
@@ -150,7 +159,61 @@ export default function SettingsPage() {
     loadScaFeedsSettings()
     loadIntegrationStatus()
     loadPromptSettings()
+    loadGithubSettings()
   }, [])
+
+  const loadGithubSettings = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get('/api/github-monitor/settings', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setGithubConfigured(response.data.configured)
+      setGithubPatMasked(response.data.pat_masked)
+      setGithubOrg(response.data.default_org || '')
+    } catch (error) {
+      console.error('Failed to load GitHub settings:', error)
+    }
+  }
+
+  const handleSaveGithubSettings = async () => {
+    if (!githubPat && !githubConfigured) {
+      setGithubMessage({ type: 'error', text: 'Please enter a GitHub PAT' })
+      return
+    }
+    setSavingGithub(true)
+    setGithubMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put('/api/github-monitor/settings', {
+        github_pat: githubPat,
+        default_org: githubOrg || null,
+      }, { headers: { Authorization: `Bearer ${token}` } })
+      setGithubMessage({ type: 'success', text: 'GitHub settings saved successfully' })
+      setGithubPat('')
+      await loadGithubSettings()
+    } catch (error: any) {
+      setGithubMessage({ type: 'error', text: error.response?.data?.detail || 'Failed to save GitHub settings' })
+    } finally {
+      setSavingGithub(false)
+    }
+  }
+
+  const handleTestGithubConnection = async () => {
+    setTestingGithub(true)
+    setGithubMessage(null)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.post('/api/github-monitor/settings/test', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setGithubMessage({ type: 'success', text: response.data.message })
+    } catch (error: any) {
+      setGithubMessage({ type: 'error', text: error.response?.data?.detail || 'GitHub connection test failed' })
+    } finally {
+      setTestingGithub(false)
+    }
+  }
 
   const loadIntegrationStatus = async () => {
     try {
@@ -1975,6 +2038,81 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* GitHub Integration Section */}
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <Globe className="h-6 w-6 text-gray-700 mr-2" />
+            <h2 className="text-xl font-semibold text-gray-900">GitHub Integration</h2>
+          </div>
+          {githubConfigured && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <CheckCircle className="w-3 h-3 mr-1" /> Connected
+            </span>
+          )}
+        </div>
+
+        <p className="text-gray-600 mb-4">
+          Configure a GitHub Personal Access Token (PAT) to enable commit monitoring and insider threat detection across your repositories.
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Personal Access Token (PAT)
+            </label>
+            <input
+              type="password"
+              value={githubPat}
+              onChange={(e) => setGithubPat(e.target.value)}
+              placeholder={githubPatMasked || 'ghp_xxxxxxxxxxxxxxxxxxxx'}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Required scopes: <code className="bg-gray-100 px-1 rounded">repo</code>, <code className="bg-gray-100 px-1 rounded">read:org</code>
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Default Organization (optional)
+            </label>
+            <input
+              type="text"
+              value={githubOrg}
+              onChange={(e) => setGithubOrg(e.target.value)}
+              placeholder="your-org-name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          {githubMessage && (
+            <div className={`p-3 rounded-md ${githubMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+              {githubMessage.text}
+            </div>
+          )}
+
+          <div className="flex space-x-3">
+            <button
+              onClick={handleSaveGithubSettings}
+              disabled={savingGithub}
+              className="btn btn-primary inline-flex items-center"
+            >
+              {savingGithub ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              Save GitHub Settings
+            </button>
+            <button
+              onClick={handleTestGithubConnection}
+              disabled={testingGithub}
+              className="btn btn-secondary inline-flex items-center"
+            >
+              {testingGithub ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+              Test Connection
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Information Section */}
