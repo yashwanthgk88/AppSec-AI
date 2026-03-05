@@ -39,7 +39,7 @@ interface CommitScan {
 interface CommitFinding {
   id: number; rule_name: string; severity: string; file_path?: string
   line_number?: number; matched_text?: string
-  rule_description?: string; cwe?: string; owasp?: string; remediation?: string; tags?: string
+  rule_description?: string; cwe?: string; owasp?: string; remediation?: string
 }
 
 interface CommitAIAnalysis {
@@ -720,14 +720,6 @@ function CommitDetail({ scanId }: { scanId: number }) {
                         <div>
                           <p className="text-xs font-medium text-green-700 mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Remediation</p>
                           <p className="text-xs text-gray-700">{f.remediation}</p>
-                        </div>
-                      )}
-                      {/* Tags */}
-                      {f.tags && (
-                        <div className="flex flex-wrap gap-1">
-                          {f.tags.split(',').map((tag, i) => (
-                            <span key={i} className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">{tag.trim()}</span>
-                          ))}
                         </div>
                       )}
                     </div>

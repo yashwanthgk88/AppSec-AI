@@ -496,8 +496,7 @@ async def get_commit_detail(
             cr.description AS rule_description,
             cr.cwe,
             cr.owasp,
-            cr.remediation,
-            cr.tags
+            cr.remediation
         FROM github_commit_findings gcf
         LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
         WHERE gcf.scan_id = ?
