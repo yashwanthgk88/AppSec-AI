@@ -488,14 +488,42 @@ async def get_commit_detail(
         except Exception:
             scan["signals"] = []
 
-    cursor.execute("SELECT * FROM github_commit_findings WHERE scan_id=? ORDER BY severity DESC", (scan_id,))
+    # JOIN findings with custom_rules to get description, cwe, owasp, remediation
+    cursor.execute("""
+        SELECT
+            gcf.id, gcf.scan_id, gcf.rule_name, gcf.rule_id, gcf.severity,
+            gcf.file_path, gcf.line_number, gcf.matched_text, gcf.category, gcf.created_at,
+            cr.description AS rule_description,
+            cr.cwe,
+            cr.owasp,
+            cr.remediation,
+            cr.tags
+        FROM github_commit_findings gcf
+        LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
+        WHERE gcf.scan_id = ?
+        ORDER BY
+            CASE gcf.severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END
+    """, (scan_id,))
     findings = [dict(r) for r in cursor.fetchall()]
 
     cursor.execute("SELECT * FROM github_sensitive_file_alerts WHERE scan_id=?", (scan_id,))
     sensitive_files = [dict(r) for r in cursor.fetchall()]
 
+    # Fetch existing AI analysis if any
+    cursor.execute("SELECT * FROM github_commit_ai_analysis WHERE scan_id=?", (scan_id,))
+    ai_row = cursor.fetchone()
+    ai_analysis = None
+    if ai_row:
+        ai_analysis = dict(ai_row)
+        for field in ("key_indicators", "recommended_actions"):
+            if ai_analysis.get(field):
+                try:
+                    ai_analysis[field] = json.loads(ai_analysis[field])
+                except Exception:
+                    pass
+
     conn.close()
-    return {**scan, "findings": findings, "sensitive_file_alerts": sensitive_files}
+    return {**scan, "findings": findings, "sensitive_file_alerts": sensitive_files, "ai_analysis": ai_analysis}
 
 
 # ---------------------------------------------------------------------------
@@ -840,3 +868,195 @@ async def get_developer_timeline(
     filled = [day_map.get(d, {"day": d, "commits": 0, "avg_score": 0, "peak_score": 0, "risky": 0}) for d in day_list]
 
     return {"days": day_list, "activity": filled}
+
+
+# ---------------------------------------------------------------------------
+# AI-powered commit analysis
+# ---------------------------------------------------------------------------
+@router.post("/commits/{scan_id}/ai-analyze")
+async def ai_analyze_commit(
+    scan_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Run AI analysis on a commit to determine impact and possible malicious intent."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    # Fetch commit scan
+    cursor.execute(
+        """SELECT gcs.*, gmr.full_name as repo_full_name
+           FROM github_commit_scans gcs
+           JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
+           WHERE gcs.id = ?""",
+        (scan_id,)
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Commit scan not found.")
+    scan = dict(row)
+
+    # Fetch findings with rule metadata
+    cursor.execute("""
+        SELECT gcf.*, cr.description AS rule_description, cr.cwe, cr.owasp
+        FROM github_commit_findings gcf
+        LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
+        WHERE gcf.scan_id = ?
+        ORDER BY CASE gcf.severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END
+    """, (scan_id,))
+    findings = [dict(r) for r in cursor.fetchall()]
+
+    # Fetch sensitive file alerts
+    cursor.execute("SELECT * FROM github_sensitive_file_alerts WHERE scan_id=?", (scan_id,))
+    sensitive_files = [dict(r) for r in cursor.fetchall()]
+
+    # Parse signals
+    signals = []
+    if scan.get("signals"):
+        try:
+            signals = json.loads(scan["signals"])
+        except Exception:
+            pass
+
+    conn.close()
+
+    # Build the analysis prompt
+    findings_text = ""
+    for f in findings:
+        findings_text += (
+            f"\n  - [{f['severity'].upper()}] {f['rule_name']}"
+            f" in {f.get('file_path','?')} line {f.get('line_number','?')}"
+        )
+        if f.get("matched_text"):
+            # Truncate matched text to avoid huge prompts
+            mtext = f["matched_text"][:300]
+            findings_text += f"\n    Code: `{mtext}`"
+        if f.get("rule_description"):
+            findings_text += f"\n    Rule: {f['rule_description']}"
+        if f.get("cwe"):
+            findings_text += f"  CWE: {f['cwe']}"
+        if f.get("owasp"):
+            findings_text += f"  OWASP: {f['owasp']}"
+
+    sensitive_text = ""
+    for s in sensitive_files:
+        sensitive_text += f"\n  - {s['file_path']} (matched pattern: {s['pattern_matched']})"
+
+    signal_text = ", ".join(signals) if signals else "none"
+
+    prompt = f"""You are a senior application security analyst specializing in insider threat detection.
+
+Analyze the following git commit and provide a structured threat assessment.
+
+## Commit Details
+- **Repository**: {scan.get('repo_full_name', 'unknown')}
+- **SHA**: {scan.get('sha', '')[:12]}
+- **Author**: {scan.get('author_name', 'unknown')} <{scan.get('author_email', '')}>
+- **Committer**: {scan.get('committer_name', 'unknown')} <{scan.get('committer_email', '')}>
+- **Message**: {scan.get('commit_message', '(no message)')}
+- **Committed at**: {scan.get('committed_at', 'unknown')}
+- **Risk Score**: {scan.get('risk_score', 0)}/10 ({scan.get('risk_level', 'unknown').upper()})
+- **Files changed**: {scan.get('files_changed', 0)} (+{scan.get('additions', 0)} / -{scan.get('deletions', 0)} lines)
+
+## Behavioral Signals
+{signal_text}
+
+## SAST Findings ({len(findings)} total)
+{findings_text if findings_text else '  None'}
+
+## Sensitive Files Touched ({len(sensitive_files)} total)
+{sensitive_text if sensitive_text else '  None'}
+
+---
+
+Respond ONLY with a valid JSON object (no markdown fences) matching this schema:
+{{
+  "threat_level": "intentional_insider" | "suspicious" | "negligent" | "false_positive",
+  "confidence": 0.0-1.0,
+  "impact_summary": "2-3 sentence description of the real-world security impact",
+  "intent_analysis": "2-3 sentence analysis of whether this looks intentional, accidental, or benign",
+  "malicious_scenario": "If this were malicious, describe the most likely attack scenario in 2-3 sentences. Write null if confidence < 0.3.",
+  "key_indicators": ["indicator 1", "indicator 2", ...],
+  "recommended_actions": ["action 1", "action 2", ...]
+}}"""
+
+    # Call AI
+    try:
+        from services.ai_client_factory import get_ai_client, AIConfig
+        ai_config = AIConfig.from_user(current_user)
+        factory = get_ai_client(ai_config)
+        result = factory.chat_completion(
+            messages=[
+                {"role": "system", "content": "You are a cybersecurity expert specializing in insider threat analysis. Respond only with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.3
+        )
+        raw_response = result.get("content", "")
+    except Exception as e:
+        logger.error(f"AI analysis failed for scan {scan_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
+
+    # Parse the JSON response
+    try:
+        # Strip markdown fences if model included them despite instructions
+        clean = raw_response.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        analysis = json.loads(clean.strip())
+    except Exception as e:
+        logger.error(f"Failed to parse AI response JSON: {e}\nRaw: {raw_response[:500]}")
+        raise HTTPException(status_code=500, detail="AI returned invalid JSON. Try again.")
+
+    # Normalize fields
+    threat_level = analysis.get("threat_level", "suspicious")
+    confidence = float(analysis.get("confidence", 0.5))
+    key_indicators = analysis.get("key_indicators", [])
+    recommended_actions = analysis.get("recommended_actions", [])
+
+    # Upsert into DB
+    conn2 = _sqlite_conn()
+    c2 = conn2.cursor()
+    c2.execute("""
+        INSERT INTO github_commit_ai_analysis
+            (scan_id, threat_level, confidence, impact_summary, intent_analysis,
+             malicious_scenario, key_indicators, recommended_actions, raw_response, model_used)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(scan_id) DO UPDATE SET
+            threat_level=excluded.threat_level,
+            confidence=excluded.confidence,
+            impact_summary=excluded.impact_summary,
+            intent_analysis=excluded.intent_analysis,
+            malicious_scenario=excluded.malicious_scenario,
+            key_indicators=excluded.key_indicators,
+            recommended_actions=excluded.recommended_actions,
+            raw_response=excluded.raw_response,
+            model_used=excluded.model_used,
+            analyzed_at=datetime('now')
+    """, (
+        scan_id,
+        threat_level,
+        confidence,
+        analysis.get("impact_summary"),
+        analysis.get("intent_analysis"),
+        analysis.get("malicious_scenario"),
+        json.dumps(key_indicators),
+        json.dumps(recommended_actions),
+        raw_response,
+        ai_config.model or ai_config.provider or "unknown"
+    ))
+    conn2.commit()
+    conn2.close()
+
+    return {
+        **analysis,
+        "threat_level": threat_level,
+        "confidence": confidence,
+        "key_indicators": key_indicators,
+        "recommended_actions": recommended_actions,
+        "scan_id": scan_id,
+    }

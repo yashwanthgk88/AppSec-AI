@@ -1241,6 +1241,23 @@ def _migrate_github_monitor_tables():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS github_commit_ai_analysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id INTEGER NOT NULL UNIQUE REFERENCES github_commit_scans(id),
+            threat_level TEXT NOT NULL,
+            confidence REAL DEFAULT 0,
+            impact_summary TEXT,
+            intent_analysis TEXT,
+            malicious_scenario TEXT,
+            key_indicators TEXT,
+            recommended_actions TEXT,
+            raw_response TEXT,
+            model_used TEXT,
+            analyzed_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
     # Indexes for performance
     indexes = [
         "CREATE INDEX IF NOT EXISTS idx_gcs_risk_level ON github_commit_scans(risk_level)",
@@ -1250,6 +1267,7 @@ def _migrate_github_monitor_tables():
         "CREATE INDEX IF NOT EXISTS idx_gcf_scan_id ON github_commit_findings(scan_id)",
         "CREATE INDEX IF NOT EXISTS idx_gsfa_acknowledged ON github_sensitive_file_alerts(acknowledged)",
         "CREATE INDEX IF NOT EXISTS idx_gdp_avg_risk ON github_developer_profiles(avg_risk_score)",
+        "CREATE INDEX IF NOT EXISTS idx_gcaa_scan_id ON github_commit_ai_analysis(scan_id)",
     ]
     for idx_sql in indexes:
         cursor.execute(idx_sql)

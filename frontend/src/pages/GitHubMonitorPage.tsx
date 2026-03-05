@@ -3,7 +3,8 @@ import {
   GitBranch, RefreshCw, AlertTriangle, Users, FileWarning,
   ChevronDown, ChevronRight, CheckCircle, Trash2, Plus,
   Activity, TrendingUp, TrendingDown, Minus, LayoutGrid,
-  CalendarDays, Settings2, Zap, ShieldAlert, Eye
+  CalendarDays, Settings2, Zap, ShieldAlert, Eye,
+  Brain, Crosshair, ShieldCheck, BookOpen, ListChecks, Loader2
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -38,6 +39,18 @@ interface CommitScan {
 interface CommitFinding {
   id: number; rule_name: string; severity: string; file_path?: string
   line_number?: number; matched_text?: string
+  rule_description?: string; cwe?: string; owasp?: string; remediation?: string; tags?: string
+}
+
+interface CommitAIAnalysis {
+  threat_level: 'intentional_insider' | 'suspicious' | 'negligent' | 'false_positive'
+  confidence: number
+  impact_summary: string
+  intent_analysis: string
+  malicious_scenario?: string
+  key_indicators: string[]
+  recommended_actions: string[]
+  analyzed_at?: string
 }
 
 interface SensitiveFileAlert {
@@ -600,46 +613,265 @@ function CommitRow({ commit, expanded, onExpand }: { commit: CommitScan; expande
   )
 }
 
+const THREAT_LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
+  intentional_insider: { label: 'Intentional Insider Threat', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: '🚨' },
+  suspicious:          { label: 'Suspicious Activity',        color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', icon: '⚠️' },
+  negligent:           { label: 'Negligent / Accidental',     color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-300', icon: '⚡' },
+  false_positive:      { label: 'Likely False Positive',      color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-300', icon: '✓' },
+}
+
 function CommitDetail({ scanId }: { scanId: number }) {
   const [detail, setDetail] = useState<any>(null)
+  const [aiAnalysis, setAiAnalysis] = useState<CommitAIAnalysis | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null)
+
   useEffect(() => {
-    axios.get(`/api/github-monitor/commits/${scanId}`, { headers: apiHeaders() }).then(r => setDetail(r.data))
+    axios.get(`/api/github-monitor/commits/${scanId}`, { headers: apiHeaders() }).then(r => {
+      setDetail(r.data)
+      if (r.data.ai_analysis) setAiAnalysis(r.data.ai_analysis)
+    })
   }, [scanId])
 
-  if (!detail) return <div className="p-4 text-sm text-gray-400">Loading...</div>
+  const runAiAnalysis = async () => {
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const r = await axios.post(`/api/github-monitor/commits/${scanId}/ai-analyze`, {}, { headers: apiHeaders() })
+      setAiAnalysis(r.data)
+    } catch (e: any) {
+      setAiError(e.response?.data?.detail || 'AI analysis failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  if (!detail) return <div className="p-4 text-sm text-gray-400 animate-pulse">Loading commit details...</div>
+
+  const findings: CommitFinding[] = detail.findings || []
+  const sensitiveFiles = detail.sensitive_file_alerts || []
+  const tl = aiAnalysis ? THREAT_LEVEL_CONFIG[aiAnalysis.threat_level] ?? THREAT_LEVEL_CONFIG.suspicious : null
+
   return (
-    <div className="border-t border-gray-200 bg-gray-50 p-4 space-y-3">
-      {detail.findings?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-gray-700 mb-2">SAST Findings ({detail.findings.length})</p>
-          <div className="space-y-1">
-            {detail.findings.map((f: CommitFinding) => (
-              <div key={f.id} className="flex items-start gap-2 text-xs">
-                <span className={`px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${SEVERITY_PILL[f.severity] ?? ''}`}>{f.severity}</span>
-                <span className="font-medium text-gray-700">{f.rule_name}</span>
-                {f.file_path && <span className="text-gray-400">{f.file_path}{f.line_number ? `:${f.line_number}` : ''}</span>}
-              </div>
-            ))}
+    <div className="border-t border-gray-200 bg-gray-50">
+      <div className="p-4 space-y-4">
+
+        {/* SAST Findings */}
+        {findings.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+              <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
+              SAST Findings ({findings.length})
+            </p>
+            <div className="space-y-2">
+              {findings.map((f) => (
+                <div key={f.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Finding header */}
+                  <div
+                    className="flex items-start gap-2 p-2.5 cursor-pointer hover:bg-gray-50"
+                    onClick={() => setExpandedFindingId(expandedFindingId === f.id ? null : f.id)}
+                  >
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0 ${SEVERITY_PILL[f.severity] ?? ''}`}>
+                      {f.severity.toUpperCase()}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-gray-800">{f.rule_name}</span>
+                      {f.file_path && (
+                        <span className="ml-2 text-xs text-gray-400 font-mono">
+                          {f.file_path}{f.line_number ? `:${f.line_number}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {f.cwe && <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono">{f.cwe}</span>}
+                      {f.owasp && <span className="text-xs px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded font-mono">{f.owasp}</span>}
+                      {expandedFindingId === f.id ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                    </div>
+                  </div>
+
+                  {/* Expanded finding detail */}
+                  {expandedFindingId === f.id && (
+                    <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-2.5">
+                      {/* Matched code */}
+                      {f.matched_text && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Matched Code</p>
+                          <pre className="text-xs bg-gray-900 text-red-300 p-2.5 rounded-md overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap break-all">{f.matched_text}</pre>
+                        </div>
+                      )}
+                      {/* Rule description */}
+                      {f.rule_description && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Description</p>
+                          <p className="text-xs text-gray-700">{f.rule_description}</p>
+                        </div>
+                      )}
+                      {/* Remediation */}
+                      {f.remediation && (
+                        <div>
+                          <p className="text-xs font-medium text-green-700 mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Remediation</p>
+                          <p className="text-xs text-gray-700">{f.remediation}</p>
+                        </div>
+                      )}
+                      {/* Tags */}
+                      {f.tags && (
+                        <div className="flex flex-wrap gap-1">
+                          {f.tags.split(',').map((tag, i) => (
+                            <span key={i} className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded">{tag.trim()}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
-      {detail.sensitive_file_alerts?.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-amber-700 mb-2">Sensitive Files ({detail.sensitive_file_alerts.length})</p>
-          <div className="space-y-1">
-            {detail.sensitive_file_alerts.map((a: any) => (
-              <div key={a.id} className="flex items-center gap-2 text-xs">
-                <FileWarning className="w-3 h-3 text-amber-500" />
-                <code className="text-amber-700">{a.file_path}</code>
-                <span className="text-gray-400">({a.pattern_matched})</span>
-              </div>
-            ))}
+        )}
+
+        {/* Sensitive Files */}
+        {sensitiveFiles.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1">
+              <FileWarning className="w-3.5 h-3.5" />
+              Sensitive Files Touched ({sensitiveFiles.length})
+            </p>
+            <div className="space-y-1">
+              {sensitiveFiles.map((a: any) => (
+                <div key={a.id} className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                  <FileWarning className="w-3 h-3 text-amber-500 flex-shrink-0" />
+                  <code className="text-amber-800 font-mono">{a.file_path}</code>
+                  <span className="text-amber-500 ml-auto">pattern: <span className="font-mono">{a.pattern_matched}</span></span>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
+
+        {!findings.length && !sensitiveFiles.length && (
+          <p className="text-xs text-gray-400 italic">Risk driven by metadata signals only — no code patterns matched.</p>
+        )}
+
+        {/* AI Analysis Section */}
+        <div className="border-t border-gray-200 pt-3">
+          {!aiAnalysis && !aiLoading && (
+            <button
+              onClick={runAiAnalysis}
+              className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm"
+            >
+              <Brain className="w-3.5 h-3.5" />
+              Analyze with AI — Assess Impact & Intent
+            </button>
+          )}
+          {aiLoading && (
+            <div className="flex items-center gap-2 text-xs text-indigo-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>AI is analyzing commit for malicious intent...</span>
+            </div>
+          )}
+          {aiError && (
+            <p className="text-xs text-red-500 mt-1">{aiError}</p>
+          )}
+          {aiAnalysis && tl && (
+            <div className={`rounded-xl border ${tl.border} ${tl.bg} p-4 space-y-3`}>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Brain className={`w-4 h-4 ${tl.color}`} />
+                  <span className={`text-sm font-bold ${tl.color}`}>
+                    {tl.icon} {tl.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">Confidence</span>
+                  <div className="flex items-center gap-1">
+                    <div className="w-20 h-1.5 bg-gray-200 rounded-full">
+                      <div
+                        className={`h-1.5 rounded-full ${aiAnalysis.confidence > 0.7 ? 'bg-red-500' : aiAnalysis.confidence > 0.4 ? 'bg-orange-400' : 'bg-green-500'}`}
+                        style={{ width: `${Math.round(aiAnalysis.confidence * 100)}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs font-bold ${tl.color}`}>{Math.round(aiAnalysis.confidence * 100)}%</span>
+                  </div>
+                  <button
+                    onClick={runAiAnalysis}
+                    disabled={aiLoading}
+                    className="ml-2 text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+                    title="Re-analyze"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Impact Summary */}
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                  <Crosshair className="w-3.5 h-3.5 text-red-500" /> Real-World Impact
+                </p>
+                <p className="text-xs text-gray-700 leading-relaxed">{aiAnalysis.impact_summary}</p>
+              </div>
+
+              {/* Intent Analysis */}
+              <div>
+                <p className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
+                  <Eye className="w-3.5 h-3.5 text-indigo-500" /> Intent Analysis
+                </p>
+                <p className="text-xs text-gray-700 leading-relaxed">{aiAnalysis.intent_analysis}</p>
+              </div>
+
+              {/* Malicious Scenario */}
+              {aiAnalysis.malicious_scenario && aiAnalysis.malicious_scenario !== 'null' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
+                  <p className="text-xs font-semibold text-red-700 mb-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" /> Possible Malicious Scenario
+                  </p>
+                  <p className="text-xs text-red-800 leading-relaxed">{aiAnalysis.malicious_scenario}</p>
+                </div>
+              )}
+
+              {/* Key Indicators + Recommended Actions side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                {aiAnalysis.key_indicators?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                      <Zap className="w-3.5 h-3.5 text-orange-500" /> Key Indicators
+                    </p>
+                    <ul className="space-y-1">
+                      {aiAnalysis.key_indicators.map((ind, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700">
+                          <span className="text-orange-500 font-bold flex-shrink-0">•</span>
+                          {ind}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiAnalysis.recommended_actions?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                      <ListChecks className="w-3.5 h-3.5 text-green-600" /> Recommended Actions
+                    </p>
+                    <ol className="space-y-1">
+                      {aiAnalysis.recommended_actions.map((action, i) => (
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700">
+                          <span className="text-green-600 font-bold flex-shrink-0">{i + 1}.</span>
+                          {action}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              {aiAnalysis.analyzed_at && (
+                <p className="text-xs text-gray-400 text-right">Analyzed {new Date(aiAnalysis.analyzed_at).toLocaleString()}</p>
+              )}
+            </div>
+          )}
         </div>
-      )}
-      {!detail.findings?.length && !detail.sensitive_file_alerts?.length && (
-        <p className="text-xs text-gray-400">Risk driven by metadata signals only.</p>
-      )}
+      </div>
     </div>
   )
 }
