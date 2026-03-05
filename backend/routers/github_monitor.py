@@ -650,3 +650,193 @@ async def get_summary(
         "at_risk_developers": at_risk_devs,
         "recent_high_risk_commits": recent_high_risk,
     }
+
+
+# ---------------------------------------------------------------------------
+# Per-repo risk stats (Overview tab)
+# ---------------------------------------------------------------------------
+@router.get("/repos/stats")
+async def get_repo_stats(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Per-repo risk distribution — powers the Overview tab repo cards."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT
+            gmr.id,
+            gmr.full_name,
+            gmr.owner,
+            gmr.repo,
+            gmr.last_scanned_at,
+            gmr.total_commits_scanned,
+            gmr.default_branch,
+            COUNT(gcs.id) as total_scanned,
+            COUNT(CASE WHEN gcs.risk_level='clean'    THEN 1 END) as clean_count,
+            COUNT(CASE WHEN gcs.risk_level='low'      THEN 1 END) as low_count,
+            COUNT(CASE WHEN gcs.risk_level='medium'   THEN 1 END) as medium_count,
+            COUNT(CASE WHEN gcs.risk_level='high'     THEN 1 END) as high_count,
+            COUNT(CASE WHEN gcs.risk_level='critical' THEN 1 END) as critical_count,
+            COALESCE(MAX(gcs.risk_score), 0)  as peak_risk_score,
+            COALESCE(AVG(gcs.risk_score), 0)  as avg_risk_score,
+            (SELECT COUNT(*) FROM github_sensitive_file_alerts gsfa
+             JOIN github_commit_scans gcs2 ON gsfa.scan_id=gcs2.id
+             WHERE gcs2.repo_id=gmr.id AND gsfa.acknowledged=0) as open_alerts
+        FROM github_monitored_repos gmr
+        LEFT JOIN github_commit_scans gcs ON gcs.repo_id = gmr.id
+        WHERE gmr.active=1
+        GROUP BY gmr.id
+        ORDER BY (COUNT(CASE WHEN gcs.risk_level='critical' THEN 1 END) +
+                  COUNT(CASE WHEN gcs.risk_level='high' THEN 1 END)) DESC
+    """)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# 14-day Risk Timeline (Timeline tab)
+# ---------------------------------------------------------------------------
+@router.get("/timeline")
+async def get_risk_timeline(
+    days: int = Query(default=14, le=30),
+    repo_id: Optional[int] = None,
+    current_user: User = Depends(get_current_active_user),
+):
+    """14-day commit risk heatmap data — powers the Timeline tab."""
+    from datetime import date, timedelta
+
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    params = []
+    repo_filter = ""
+    if repo_id is not None:
+        repo_filter = "AND gcs.repo_id = ?"
+        params.append(repo_id)
+
+    cursor.execute(f"""
+        SELECT
+            date(gcs.committed_at) as commit_date,
+            gcs.risk_level,
+            COUNT(*) as commit_count
+        FROM github_commit_scans gcs
+        WHERE gcs.committed_at >= date('now', '-{days} days')
+        {repo_filter}
+        GROUP BY commit_date, gcs.risk_level
+        ORDER BY commit_date ASC
+    """, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Build a full 14-day date range (fill gaps with zeros)
+    today = date.today()
+    day_list = [(today - timedelta(days=days - 1 - i)).isoformat() for i in range(days)]
+
+    empty = {"clean": 0, "low": 0, "medium": 0, "high": 0, "critical": 0}
+    totals_by_day = {d: dict(empty) for d in day_list}
+
+    for row in rows:
+        d = row[0]
+        level = row[1]
+        count = row[2]
+        if d in totals_by_day and level in totals_by_day[d]:
+            totals_by_day[d][level] += count
+
+    return {
+        "days": day_list,
+        "totals_by_day": totals_by_day,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Swimlane commit feed (grouped by repo)
+# ---------------------------------------------------------------------------
+@router.get("/commits/by-repo")
+async def get_commits_by_repo(
+    risk_level: Optional[str] = None,
+    limit_per_repo: int = Query(default=10, le=50),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Commits grouped by repo — powers swimlane view in Commit Feed tab."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    # Get active repos
+    cursor.execute("SELECT id, full_name FROM github_monitored_repos WHERE active=1 ORDER BY full_name")
+    repos = [dict(r) for r in cursor.fetchall()]
+
+    result = []
+    for repo in repos:
+        repo_id = repo["id"]
+        params = [repo_id]
+        risk_filter = ""
+        if risk_level:
+            risk_filter = "AND gcs.risk_level = ?"
+            params.append(risk_level)
+
+        cursor.execute(f"""
+            SELECT gcs.*,
+                   (SELECT COUNT(*) FROM github_commit_findings WHERE scan_id=gcs.id) as finding_count,
+                   (SELECT COUNT(*) FROM github_sensitive_file_alerts WHERE scan_id=gcs.id) as sensitive_file_count
+            FROM github_commit_scans gcs
+            WHERE gcs.repo_id=? {risk_filter}
+            ORDER BY gcs.committed_at DESC
+            LIMIT ?
+        """, params + [limit_per_repo])
+        commits = [dict(r) for r in cursor.fetchall()]
+        for c in commits:
+            c["repo_full_name"] = repo["full_name"]
+            if c.get("signals"):
+                try:
+                    c["signals"] = json.loads(c["signals"])
+                except Exception:
+                    c["signals"] = []
+
+        if commits:  # only include repos that have commits matching the filter
+            result.append({
+                "repo_id": repo_id,
+                "repo_full_name": repo["full_name"],
+                "commits": commits,
+            })
+
+    conn.close()
+    return {"repos": result}
+
+
+# ---------------------------------------------------------------------------
+# Developer timeline (for profile card sparkline)
+# ---------------------------------------------------------------------------
+@router.get("/developers/{author_email:path}/timeline")
+async def get_developer_timeline(
+    author_email: str,
+    days: int = Query(default=14, le=30),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Per-developer daily commit activity — backs developer card sparkline."""
+    from datetime import date, timedelta
+
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute(f"""
+        SELECT
+            date(committed_at) as day,
+            COUNT(*) as commits,
+            ROUND(AVG(risk_score), 2) as avg_score,
+            MAX(risk_score) as peak_score,
+            SUM(CASE WHEN risk_level IN ('high','critical') THEN 1 ELSE 0 END) as risky
+        FROM github_commit_scans
+        WHERE author_email=?
+          AND committed_at >= date('now', '-{days} days')
+        GROUP BY day
+        ORDER BY day ASC
+    """, (author_email,))
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    today = date.today()
+    day_list = [(today - timedelta(days=days - 1 - i)).isoformat() for i in range(days)]
+    day_map = {r["day"]: r for r in rows}
+    filled = [day_map.get(d, {"day": d, "commits": 0, "avg_score": 0, "peak_score": 0, "risky": 0}) for d in day_list]
+
+    return {"days": day_list, "activity": filled}
