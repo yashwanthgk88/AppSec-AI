@@ -71,7 +71,7 @@ interface Summary {
   recent_high_risk_commits: CommitScan[]
 }
 
-type Tab = 'overview' | 'commits' | 'timeline' | 'developers' | 'alerts' | 'repos'
+type Tab = 'overview' | 'commits' | 'timeline' | 'developers' | 'alerts' | 'findings' | 'repos'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -583,9 +583,27 @@ function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDow
 // ---------------------------------------------------------------------------
 // CommitRow with expand
 // ---------------------------------------------------------------------------
-function CommitRow({ commit, expanded, onExpand }: { commit: CommitScan; expanded: boolean; onExpand: () => void }) {
+function CommitRow({ commit, expanded, onExpand, onFpChange }: {
+  commit: CommitScan; expanded: boolean; onExpand: () => void
+  onFpChange?: (id: number, isFp: boolean) => void
+}) {
+  const [fpLoading, setFpLoading] = useState(false)
+  const isFp = (commit as any).false_positive === 1
+
+  const toggleFp = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setFpLoading(true)
+    try {
+      const endpoint = isFp
+        ? `/api/github-monitor/commits/${commit.id}/unmark-false-positive`
+        : `/api/github-monitor/commits/${commit.id}/mark-false-positive`
+      await axios.post(endpoint, {}, { headers: apiHeaders() })
+      onFpChange?.(commit.id, !isFp)
+    } finally { setFpLoading(false) }
+  }
+
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
+    <div className={`border rounded-lg overflow-hidden mb-2 ${isFp ? 'border-gray-200 opacity-60' : 'border-gray-200'}`}>
       <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50" onClick={onExpand}>
         <div className="flex items-center space-x-3 flex-1 min-w-0">
           {expanded ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
@@ -595,6 +613,7 @@ function CommitRow({ commit, expanded, onExpand }: { commit: CommitScan; expande
               <span className="text-xs text-gray-500">{commit.repo_full_name}</span>
               <RiskBadge level={commit.risk_level} />
               <span className="text-xs font-semibold text-gray-600">Score: {commit.risk_score.toFixed(1)}</span>
+              {isFp && <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded border">False Positive</span>}
             </div>
             <p className="text-sm text-gray-700 truncate">{commit.commit_message?.split('\n')[0]}</p>
             <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
@@ -604,8 +623,16 @@ function CommitRow({ commit, expanded, onExpand }: { commit: CommitScan; expande
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1 ml-3 flex-shrink-0">
+        <div className="flex items-center flex-wrap gap-1 ml-3 flex-shrink-0">
           {(commit.signals || []).map((s, i) => <SignalChip key={i} signal={s} />)}
+          <button
+            onClick={toggleFp}
+            disabled={fpLoading}
+            title={isFp ? 'Remove false positive flag' : 'Mark as false positive'}
+            className={`ml-1 text-xs px-2 py-1 rounded border transition ${isFp ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-white' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50 hover:text-gray-600'}`}
+          >
+            {fpLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className={`w-3 h-3 ${isFp ? 'text-green-500' : ''}`} />}
+          </button>
         </div>
       </div>
       {expanded && <CommitDetail scanId={commit.id} />}
@@ -673,18 +700,21 @@ function CommitDetail({ scanId }: { scanId: number }) {
               SAST Findings ({findings.length})
             </p>
             <div className="space-y-2">
-              {findings.map((f) => (
-                <div key={f.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              {findings.map((f) => {
+                const findingIsFp = (f as any).false_positive === 1
+                return (
+                <div key={f.id} className={`bg-white border rounded-lg overflow-hidden ${findingIsFp ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}>
                   {/* Finding header */}
                   <div
                     className="flex items-start gap-2 p-2.5 cursor-pointer hover:bg-gray-50"
                     onClick={() => setExpandedFindingId(expandedFindingId === f.id ? null : f.id)}
                   >
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0 ${SEVERITY_PILL[f.severity] ?? ''}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0 ${findingIsFp ? 'bg-gray-100 text-gray-400' : SEVERITY_PILL[f.severity] ?? ''}`}>
                       {f.severity.toUpperCase()}
                     </span>
                     <div className="flex-1 min-w-0">
                       <span className="text-xs font-semibold text-gray-800">{f.rule_name}</span>
+                      {findingIsFp && <span className="ml-2 text-xs text-gray-400 italic">false positive</span>}
                       {f.file_path && (
                         <span className="ml-2 text-xs text-gray-400 font-mono">
                           {f.file_path}{f.line_number ? `:${f.line_number}` : ''}
@@ -694,6 +724,21 @@ function CommitDetail({ scanId }: { scanId: number }) {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {f.cwe && <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono">{f.cwe}</span>}
                       {f.owasp && <span className="text-xs px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded font-mono">{f.owasp}</span>}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          const ep = findingIsFp
+                            ? `/api/github-monitor/findings/${f.id}/unmark-false-positive`
+                            : `/api/github-monitor/findings/${f.id}/mark-false-positive`
+                          await axios.post(ep, {}, { headers: apiHeaders() })
+                          ;(f as any).false_positive = findingIsFp ? 0 : 1
+                          setDetail({ ...detail })
+                        }}
+                        title={findingIsFp ? 'Restore finding' : 'Mark as false positive'}
+                        className={`text-xs px-1.5 py-0.5 rounded border transition ${findingIsFp ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}`}
+                      >
+                        {findingIsFp ? '✓ FP' : 'FP?'}
+                      </button>
                       {expandedFindingId === f.id ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
                     </div>
                   </div>
@@ -725,7 +770,8 @@ function CommitDetail({ scanId }: { scanId: number }) {
                     </div>
                   )}
                 </div>
-              ))}
+                )}
+              )}
             </div>
           </div>
         )}
@@ -896,18 +942,23 @@ function CommitFeedTab({
   const [filterRisk, setFilterRisk] = useState('')
   const [filterAuthor, setFilterAuthor] = useState(initialAuthor || '')
   const [filterRepo, setFilterRepo] = useState(initialRepoFilter || '')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [showFp, setShowFp] = useState(false)
 
   const loadFlat = useCallback(async () => {
     setLoading(true)
     try {
-      const params: any = { page, page_size: 20 }
+      const params: any = { page, page_size: 20, show_false_positives: showFp }
       if (filterRisk) params.risk_level = filterRisk
       if (filterAuthor) params.author = filterAuthor
       if (filterRepo) params.repo_id = parseInt(filterRepo)
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
       const r = await axios.get('/api/github-monitor/commits', { headers: apiHeaders(), params })
       setCommits(r.data.commits); setTotal(r.data.total)
     } finally { setLoading(false) }
-  }, [page, filterRisk, filterAuthor, filterRepo])
+  }, [page, filterRisk, filterAuthor, filterRepo, dateFrom, dateTo, showFp])
 
   const loadSwimlane = useCallback(async () => {
     setLoading(true)
@@ -924,33 +975,51 @@ function CommitFeedTab({
   }, [viewMode, loadFlat, loadSwimlane])
 
   const filterBar = (
-    <div className="flex flex-wrap gap-3 mb-4">
-      {/* Mode toggle */}
-      <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
-        <button onClick={() => setViewMode('flat')} className={`px-3 py-1.5 ${viewMode === 'flat' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Flat</button>
-        <button onClick={() => setViewMode('swimlane')} className={`px-3 py-1.5 ${viewMode === 'swimlane' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>By Repo</button>
+    <div className="space-y-2 mb-4">
+      <div className="flex flex-wrap gap-2">
+        {/* Mode toggle */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+          <button onClick={() => setViewMode('flat')} className={`px-3 py-1.5 ${viewMode === 'flat' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Flat</button>
+          <button onClick={() => setViewMode('swimlane')} className={`px-3 py-1.5 ${viewMode === 'swimlane' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>By Repo</button>
+        </div>
+        <select value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setPage(1) }}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <option value="">All Risk Levels</option>
+          {['critical','high','medium','low','clean'].map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>)}
+        </select>
+        {viewMode === 'flat' && (
+          <>
+            <select value={filterRepo} onChange={e => { setFilterRepo(e.target.value); setPage(1) }}
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">All Repos</option>
+              {repoStats.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+            </select>
+            <input type="text" value={filterAuthor} onChange={e => { setFilterAuthor(e.target.value); setPage(1) }}
+              placeholder="Filter by author..."
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-40" />
+          </>
+        )}
+        <button onClick={() => viewMode === 'flat' ? loadFlat() : loadSwimlane()}
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md">
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+        </button>
       </div>
-      <select value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setPage(1) }}
-        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-        <option value="">All Risk Levels</option>
-        {['critical','high','medium','low','clean'].map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>)}
-      </select>
-      {viewMode === 'flat' && (
-        <>
-          <select value={filterRepo} onChange={e => { setFilterRepo(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">All Repos</option>
-            {repoStats.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
-          </select>
-          <input type="text" value={filterAuthor} onChange={e => { setFilterAuthor(e.target.value); setPage(1) }}
-            placeholder="Filter by author..."
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        </>
-      )}
-      <button onClick={() => viewMode === 'flat' ? loadFlat() : loadSwimlane()}
-        className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md">
-        <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
-      </button>
+      {/* Date range + FP toggle */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-xs text-gray-500 font-medium">Date:</span>
+        <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        <span className="text-xs text-gray-400">→</span>
+        <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+        {(dateFrom || dateTo) && (
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+        )}
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer select-none">
+          <input type="checkbox" checked={showFp} onChange={e => { setShowFp(e.target.checked); setPage(1) }} className="rounded" />
+          Show false positives
+        </label>
+      </div>
     </div>
   )
 
@@ -1216,6 +1285,200 @@ function MonitoredReposTab({ onScanComplete, onRepoAdded }: { onScanComplete: ()
 }
 
 // ---------------------------------------------------------------------------
+// All Findings tab
+// ---------------------------------------------------------------------------
+function FindingsTab({ repoStats }: { repoStats: RepoStat[] }) {
+  const [findings, setFindings] = useState<any[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [filterSeverity, setFilterSeverity] = useState('')
+  const [filterRepo, setFilterRepo] = useState('')
+  const [filterRule, setFilterRule] = useState('')
+  const [filterAuthor, setFilterAuthor] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [showFp, setShowFp] = useState(false)
+  const [exporting, setExporting] = useState(false)
+
+  const PAGE_SIZE = 50
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params: any = { page, page_size: PAGE_SIZE, show_false_positives: showFp }
+      if (filterSeverity) params.severity = filterSeverity
+      if (filterRepo) params.repo_id = parseInt(filterRepo)
+      if (filterRule) params.rule_name = filterRule
+      if (filterAuthor) params.author = filterAuthor
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
+      const r = await axios.get('/api/github-monitor/findings', { headers: apiHeaders(), params })
+      setFindings(r.data.findings); setTotal(r.data.total)
+    } finally { setLoading(false) }
+  }, [page, filterSeverity, filterRepo, filterRule, filterAuthor, dateFrom, dateTo, showFp])
+
+  useEffect(() => { load() }, [load])
+
+  const handleExportCsv = async () => {
+    setExporting(true)
+    try {
+      const params: any = { show_false_positives: showFp }
+      if (filterSeverity) params.severity = filterSeverity
+      if (filterRepo) params.repo_id = filterRepo
+      if (filterRule) params.rule_name = filterRule
+      if (filterAuthor) params.author = filterAuthor
+      if (dateFrom) params.date_from = dateFrom
+      if (dateTo) params.date_to = dateTo
+      const qs = new URLSearchParams(params).toString()
+      const token = localStorage.getItem('token')
+      const resp = await fetch(`/api/github-monitor/findings/export-csv?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url
+      a.download = `findings_export_${new Date().toISOString().slice(0,10)}.csv`
+      a.click(); URL.revokeObjectURL(url)
+    } finally { setExporting(false) }
+  }
+
+  const toggleFindingFp = async (f: any) => {
+    const ep = f.false_positive
+      ? `/api/github-monitor/findings/${f.id}/unmark-false-positive`
+      : `/api/github-monitor/findings/${f.id}/mark-false-positive`
+    await axios.post(ep, {}, { headers: apiHeaders() })
+    setFindings(prev => prev.map(x => x.id === f.id ? {...x, false_positive: f.false_positive ? 0 : 1} : x))
+  }
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="space-y-2 mb-4">
+        <div className="flex flex-wrap gap-2">
+          <select value={filterSeverity} onChange={e => { setFilterSeverity(e.target.value); setPage(1) }}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">All Severities</option>
+            {['critical','high','medium','low'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+          </select>
+          <select value={filterRepo} onChange={e => { setFilterRepo(e.target.value); setPage(1) }}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">All Repos</option>
+            {repoStats.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+          </select>
+          <input value={filterRule} onChange={e => { setFilterRule(e.target.value); setPage(1) }}
+            placeholder="Rule name..." className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <input value={filterAuthor} onChange={e => { setFilterAuthor(e.target.value); setPage(1) }}
+            placeholder="Author..." className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-36 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button onClick={load} className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md">
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+          </button>
+          <button onClick={handleExportCsv} disabled={exporting}
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 rounded-md">
+            {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
+            Export CSV
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs text-gray-500 font-medium">Date:</span>
+          <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
+            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" />
+          <span className="text-xs text-gray-400">→</span>
+          <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
+            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" />
+          {(dateFrom || dateTo) && (
+            <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer">
+            <input type="checkbox" checked={showFp} onChange={e => { setShowFp(e.target.checked); setPage(1) }} className="rounded" />
+            Show false positives
+          </label>
+        </div>
+      </div>
+
+      <p className="text-sm text-gray-500 mb-3">{total.toLocaleString()} findings total</p>
+
+      {loading ? (
+        <div className="text-center py-12 text-gray-400 flex items-center justify-center gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading findings...
+        </div>
+      ) : findings.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <ShieldAlert className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>No findings match the current filters.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Severity</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Rule</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">File</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">CWE / OWASP</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Commit</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Author</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Date</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Repo</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {findings.map(f => (
+                <tr key={f.id} className={`hover:bg-gray-50 ${f.false_positive ? 'opacity-50' : ''}`}>
+                  <td className="px-3 py-2">
+                    <span className={`px-1.5 py-0.5 rounded font-bold ${SEVERITY_PILL[f.severity] ?? 'bg-gray-100 text-gray-600'}`}>{f.severity}</span>
+                  </td>
+                  <td className="px-3 py-2 max-w-xs">
+                    <p className="font-medium text-gray-800 truncate" title={f.rule_name}>{f.rule_name}</p>
+                    {f.rule_description && <p className="text-gray-400 truncate text-xs" title={f.rule_description}>{f.rule_description}</p>}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-gray-600 max-w-xs truncate" title={f.file_path}>
+                    {f.file_path || '—'}{f.line_number ? `:${f.line_number}` : ''}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex gap-1 flex-wrap">
+                      {f.cwe && <span className="px-1 py-0.5 bg-blue-50 text-blue-700 rounded font-mono text-xs">{f.cwe}</span>}
+                      {f.owasp && <span className="px-1 py-0.5 bg-purple-50 text-purple-700 rounded font-mono text-xs">{f.owasp}</span>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1">
+                      <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{f.sha?.slice(0,8)}</code>
+                      <RiskBadge level={f.risk_level} />
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-gray-600 max-w-xs truncate">{f.author_name || f.author_email}</td>
+                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{f.committed_at?.slice(0,10)}</td>
+                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate">{f.repo_full_name}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => toggleFindingFp(f)}
+                      className={`text-xs px-2 py-1 rounded border whitespace-nowrap ${f.false_positive ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}`}
+                    >
+                      {f.false_positive ? '✓ FP' : 'Mark FP'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {total > PAGE_SIZE && (
+        <div className="flex justify-center gap-2 mt-4">
+          <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Prev</button>
+          <span className="px-3 py-1.5 text-sm text-gray-600">Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+          <button disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Next</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main Page
 // ---------------------------------------------------------------------------
 export default function GitHubMonitorPage() {
@@ -1295,6 +1558,7 @@ export default function GitHubMonitorPage() {
     { id: 'commits',    label: 'Commit Feed',       icon: GitBranch,    badge: undefined },
     { id: 'timeline',   label: 'Risk Timeline',     icon: CalendarDays, badge: undefined },
     { id: 'developers', label: 'Developers',        icon: Users,        badge: atRiskDevs > 0 ? atRiskDevs : undefined, badgeColor: 'bg-orange-500' },
+    { id: 'findings',   label: 'All Findings',      icon: ShieldAlert,  badge: summary?.total_findings ? summary.total_findings : undefined, badgeColor: 'bg-red-500' },
     { id: 'alerts',     label: 'Sensitive Files',   icon: FileWarning,  badge: unackAlerts > 0 ? unackAlerts : undefined, badgeColor: 'bg-red-500' },
     { id: 'repos',      label: 'Repos',             icon: Settings2,    badge: undefined },
   ]
@@ -1447,6 +1711,7 @@ export default function GitHubMonitorPage() {
             </div>
           )}
 
+          {activeTab === 'findings' && <FindingsTab repoStats={repoStats} />}
           {activeTab === 'alerts' && <SensitiveFileAlertsTab onAckChange={loadSummary} />}
           {activeTab === 'repos' && <MonitoredReposTab onScanComplete={refreshAll} onRepoAdded={refreshAll} />}
         </div>

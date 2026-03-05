@@ -1268,9 +1268,25 @@ def _migrate_github_monitor_tables():
         "CREATE INDEX IF NOT EXISTS idx_gsfa_acknowledged ON github_sensitive_file_alerts(acknowledged)",
         "CREATE INDEX IF NOT EXISTS idx_gdp_avg_risk ON github_developer_profiles(avg_risk_score)",
         "CREATE INDEX IF NOT EXISTS idx_gcaa_scan_id ON github_commit_ai_analysis(scan_id)",
+        "CREATE INDEX IF NOT EXISTS idx_gcf_false_positive ON github_commit_findings(false_positive)",
+        "CREATE INDEX IF NOT EXISTS idx_gcs_false_positive ON github_commit_scans(false_positive)",
+        "CREATE INDEX IF NOT EXISTS idx_gcf_severity ON github_commit_findings(severity)",
     ]
     for idx_sql in indexes:
         cursor.execute(idx_sql)
+
+    # Add false_positive columns if not present (idempotent ALTER TABLE)
+    cursor.execute("PRAGMA table_info(github_commit_scans)")
+    scan_cols = [r[1] for r in cursor.fetchall()]
+    if "false_positive" not in scan_cols:
+        cursor.execute("ALTER TABLE github_commit_scans ADD COLUMN false_positive INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE github_commit_scans ADD COLUMN reviewed_by TEXT")
+        cursor.execute("ALTER TABLE github_commit_scans ADD COLUMN reviewed_at TEXT")
+
+    cursor.execute("PRAGMA table_info(github_commit_findings)")
+    finding_cols = [r[1] for r in cursor.fetchall()]
+    if "false_positive" not in finding_cols:
+        cursor.execute("ALTER TABLE github_commit_findings ADD COLUMN false_positive INTEGER DEFAULT 0")
 
     conn.commit()
     conn.close()

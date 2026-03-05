@@ -396,6 +396,9 @@ async def list_commits(
     repo_id: Optional[int] = None,
     risk_level: Optional[str] = None,
     author: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    show_false_positives: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=25, le=100),
     current_user: User = Depends(get_current_active_user),
@@ -416,13 +419,21 @@ async def list_commits(
     if author:
         conditions.append("(gcs.author_email LIKE ? OR gcs.author_name LIKE ?)")
         params.extend([f"%{author}%", f"%{author}%"])
+    if date_from:
+        conditions.append("date(gcs.committed_at) >= ?")
+        params.append(date_from)
+    if date_to:
+        conditions.append("date(gcs.committed_at) <= ?")
+        params.append(date_to)
+    if not show_false_positives:
+        conditions.append("(gcs.false_positive IS NULL OR gcs.false_positive = 0)")
 
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     offset = (page - 1) * page_size
 
     cursor.execute(
         f"""SELECT gcs.*, gmr.full_name as repo_full_name,
-               (SELECT COUNT(*) FROM github_commit_findings WHERE scan_id=gcs.id) as finding_count,
+               (SELECT COUNT(*) FROM github_commit_findings WHERE scan_id=gcs.id AND (false_positive IS NULL OR false_positive=0)) as finding_count,
                (SELECT COUNT(*) FROM github_sensitive_file_alerts WHERE scan_id=gcs.id) as sensitive_file_count
             FROM github_commit_scans gcs
             JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
@@ -526,6 +537,241 @@ async def get_commit_detail(
 
     conn.close()
     return {**scan, "findings": findings, "sensitive_file_alerts": sensitive_files, "ai_analysis": ai_analysis}
+
+
+# ---------------------------------------------------------------------------
+# False Positive management
+# ---------------------------------------------------------------------------
+@router.post("/commits/{scan_id}/mark-false-positive")
+async def mark_commit_false_positive(
+    scan_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark an entire commit scan as false positive (suppresses it from the feed)."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """UPDATE github_commit_scans
+           SET false_positive=1, reviewed_by=?, reviewed_at=datetime('now'), risk_level='false_positive'
+           WHERE id=?""",
+        (current_user.email, scan_id)
+    )
+    # Also mark all findings as FP
+    cursor.execute("UPDATE github_commit_findings SET false_positive=1 WHERE scan_id=?", (scan_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Commit marked as false positive."}
+
+
+@router.post("/commits/{scan_id}/unmark-false-positive")
+async def unmark_commit_false_positive(
+    scan_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Restore a commit scan from false positive status."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    # Recalculate risk_level from risk_score
+    cursor.execute("SELECT risk_score FROM github_commit_scans WHERE id=?", (scan_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Commit not found.")
+    score = row[0] or 0
+    if score >= 7.0:
+        level = "critical"
+    elif score >= 5.0:
+        level = "high"
+    elif score >= 3.0:
+        level = "medium"
+    elif score >= 1.0:
+        level = "low"
+    else:
+        level = "clean"
+    cursor.execute(
+        "UPDATE github_commit_scans SET false_positive=0, reviewed_by=NULL, reviewed_at=NULL, risk_level=? WHERE id=?",
+        (level, scan_id)
+    )
+    cursor.execute("UPDATE github_commit_findings SET false_positive=0 WHERE scan_id=?", (scan_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "False positive removed.", "risk_level": level}
+
+
+@router.post("/findings/{finding_id}/mark-false-positive")
+async def mark_finding_false_positive(
+    finding_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Mark a single finding as false positive."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE github_commit_findings SET false_positive=1 WHERE id=?", (finding_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Finding marked as false positive."}
+
+
+@router.post("/findings/{finding_id}/unmark-false-positive")
+async def unmark_finding_false_positive(
+    finding_id: int,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Remove false positive flag from a finding."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE github_commit_findings SET false_positive=0 WHERE id=?", (finding_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Finding restored."}
+
+
+# ---------------------------------------------------------------------------
+# All findings across commits (historical findings view)
+# ---------------------------------------------------------------------------
+@router.get("/findings")
+async def list_findings(
+    repo_id: Optional[int] = None,
+    severity: Optional[str] = None,
+    rule_name: Optional[str] = None,
+    author: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    show_false_positives: bool = Query(default=False),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, le=200),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Paginated all-findings view across all commits."""
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    conditions = ["1=1"]
+    params = []
+
+    if repo_id is not None:
+        conditions.append("gmr.id = ?")
+        params.append(repo_id)
+    if severity:
+        conditions.append("gcf.severity = ?")
+        params.append(severity)
+    if rule_name:
+        conditions.append("gcf.rule_name LIKE ?")
+        params.append(f"%{rule_name}%")
+    if author:
+        conditions.append("(gcs.author_email LIKE ? OR gcs.author_name LIKE ?)")
+        params.extend([f"%{author}%", f"%{author}%"])
+    if date_from:
+        conditions.append("date(gcs.committed_at) >= ?")
+        params.append(date_from)
+    if date_to:
+        conditions.append("date(gcs.committed_at) <= ?")
+        params.append(date_to)
+    if not show_false_positives:
+        conditions.append("(gcf.false_positive IS NULL OR gcf.false_positive = 0)")
+
+    where_clause = "WHERE " + " AND ".join(conditions)
+    offset = (page - 1) * page_size
+
+    cursor.execute(f"""
+        SELECT
+            gcf.id, gcf.scan_id, gcf.rule_name, gcf.rule_id, gcf.severity,
+            gcf.file_path, gcf.line_number, gcf.matched_text, gcf.category,
+            gcf.false_positive, gcf.created_at,
+            gcs.sha, gcs.author_name, gcs.author_email, gcs.committed_at,
+            gcs.risk_score, gcs.risk_level,
+            gmr.full_name as repo_full_name,
+            cr.description AS rule_description, cr.cwe, cr.owasp, cr.remediation
+        FROM github_commit_findings gcf
+        JOIN github_commit_scans gcs ON gcf.scan_id = gcs.id
+        JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
+        LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
+        {where_clause}
+        ORDER BY gcs.committed_at DESC, CASE gcf.severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END
+        LIMIT ? OFFSET ?
+    """, params + [page_size, offset])
+    rows = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute(f"""
+        SELECT COUNT(*) FROM github_commit_findings gcf
+        JOIN github_commit_scans gcs ON gcf.scan_id = gcs.id
+        JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
+        LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
+        {where_clause}
+    """, params)
+    total = cursor.fetchone()[0]
+
+    conn.close()
+    return {"findings": rows, "total": total, "page": page, "page_size": page_size,
+            "total_pages": (total + page_size - 1) // page_size}
+
+
+@router.get("/findings/export-csv")
+async def export_findings_csv(
+    repo_id: Optional[int] = None,
+    severity: Optional[str] = None,
+    rule_name: Optional[str] = None,
+    author: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    show_false_positives: bool = Query(default=False),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Export all findings as CSV."""
+    import io, csv
+    from fastapi.responses import StreamingResponse as SR
+
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    conditions = ["1=1"]
+    params = []
+    if repo_id is not None:
+        conditions.append("gmr.id = ?"); params.append(repo_id)
+    if severity:
+        conditions.append("gcf.severity = ?"); params.append(severity)
+    if rule_name:
+        conditions.append("gcf.rule_name LIKE ?"); params.append(f"%{rule_name}%")
+    if author:
+        conditions.append("(gcs.author_email LIKE ? OR gcs.author_name LIKE ?)")
+        params.extend([f"%{author}%", f"%{author}%"])
+    if date_from:
+        conditions.append("date(gcs.committed_at) >= ?"); params.append(date_from)
+    if date_to:
+        conditions.append("date(gcs.committed_at) <= ?"); params.append(date_to)
+    if not show_false_positives:
+        conditions.append("(gcf.false_positive IS NULL OR gcf.false_positive = 0)")
+
+    cursor.execute(f"""
+        SELECT gcf.severity, gcf.rule_name, gcf.file_path, gcf.line_number,
+               gcf.matched_text, gcf.false_positive, gcs.sha, gcs.author_name,
+               gcs.author_email, gcs.committed_at, gcs.risk_score, gcs.risk_level,
+               gmr.full_name as repo, cr.cwe, cr.owasp
+        FROM github_commit_findings gcf
+        JOIN github_commit_scans gcs ON gcf.scan_id = gcs.id
+        JOIN github_monitored_repos gmr ON gcs.repo_id = gmr.id
+        LEFT JOIN custom_rules cr ON gcf.rule_id = cr.id
+        WHERE {' AND '.join(conditions)}
+        ORDER BY gcs.committed_at DESC
+        LIMIT 10000
+    """, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["severity", "rule_name", "file_path", "line_number", "matched_text",
+                     "false_positive", "commit_sha", "author_name", "author_email",
+                     "committed_at", "risk_score", "risk_level", "repo", "cwe", "owasp"])
+    for r in rows:
+        writer.writerow(list(r))
+
+    output.seek(0)
+    return SR(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=findings_export.csv"}
+    )
 
 
 # ---------------------------------------------------------------------------
