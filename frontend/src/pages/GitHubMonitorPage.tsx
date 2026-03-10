@@ -5,7 +5,7 @@ import {
   Activity, TrendingUp, TrendingDown, Minus, LayoutGrid,
   CalendarDays, Settings2, Zap, ShieldAlert, Eye,
   Brain, Crosshair, ShieldCheck, BookOpen, ListChecks, Loader2,
-  Clock, BarChart2
+  Clock, BarChart2, Code, FileText
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -37,9 +37,13 @@ interface CommitScan {
   signals: string[]; repo_full_name: string; finding_count: number; sensitive_file_count: number
 }
 
+interface FileDetail {
+  filename: string; status: string; additions: number; deletions: number; changes: number
+}
+
 interface CommitFinding {
   id: number; rule_name: string; severity: string; file_path?: string
-  line_number?: number; matched_text?: string
+  line_number?: number; matched_text?: string; diff_snippet?: string
   rule_description?: string; cwe?: string; owasp?: string; remediation?: string
 }
 
@@ -1013,9 +1017,53 @@ function CommitDetail({ scanId }: { scanId: number }) {
   const sensitiveFiles = detail.sensitive_file_alerts || []
   const tl = aiAnalysis ? THREAT_LEVEL_CONFIG[aiAnalysis.threat_level] ?? THREAT_LEVEL_CONFIG.suspicious : null
 
+  const filesDetail: FileDetail[] = detail.files_detail || []
+  const FILE_STATUS_COLORS: Record<string, string> = {
+    added: 'bg-green-100 text-green-800',
+    modified: 'bg-blue-100 text-blue-800',
+    removed: 'bg-red-100 text-red-800',
+    renamed: 'bg-purple-100 text-purple-800',
+  }
+
   return (
     <div className="border-t border-gray-200 bg-gray-50">
       <div className="p-4 space-y-4">
+
+        {/* Files Changed Breakdown */}
+        {filesDetail.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+              <FileText className="w-3.5 h-3.5 text-blue-500" />
+              Files Changed ({filesDetail.length})
+            </p>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-3 py-1.5 font-medium text-gray-500">File</th>
+                    <th className="text-center px-2 py-1.5 font-medium text-gray-500 w-16">Status</th>
+                    <th className="text-right px-2 py-1.5 font-medium text-green-600 w-12">+</th>
+                    <th className="text-right px-3 py-1.5 font-medium text-red-600 w-12">−</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filesDetail.map((fd, idx) => (
+                    <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="px-3 py-1.5 font-mono text-gray-700 truncate max-w-[300px]" title={fd.filename}>{fd.filename}</td>
+                      <td className="text-center px-2 py-1.5">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${FILE_STATUS_COLORS[fd.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {fd.status}
+                        </span>
+                      </td>
+                      <td className="text-right px-2 py-1.5 text-green-600 font-mono">{fd.additions > 0 ? `+${fd.additions}` : ''}</td>
+                      <td className="text-right px-3 py-1.5 text-red-600 font-mono">{fd.deletions > 0 ? `-${fd.deletions}` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* SAST Findings */}
         {findings.length > 0 && (
@@ -1071,8 +1119,32 @@ function CommitDetail({ scanId }: { scanId: number }) {
                   {/* Expanded finding detail */}
                   {expandedFindingId === f.id && (
                     <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-2.5">
-                      {/* Matched code */}
-                      {f.matched_text && (
+                      {/* Diff context (±5 lines around match) */}
+                      {f.diff_snippet && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
+                            <Code className="w-3 h-3" /> Diff Context
+                            {f.file_path && <span className="font-mono text-gray-400 ml-1">— {f.file_path}</span>}
+                          </p>
+                          <pre className="text-xs bg-gray-900 p-2.5 rounded-md overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap break-all">
+                            {f.diff_snippet.split('\n').map((line: string, i: number) => {
+                              let color = 'text-gray-400'
+                              if (line.startsWith('+') && !line.startsWith('+++')) color = 'text-green-400'
+                              else if (line.startsWith('-') && !line.startsWith('---')) color = 'text-red-400'
+                              else if (line.startsWith('@@')) color = 'text-cyan-400'
+                              // Highlight the matched line
+                              const isMatch = f.matched_text && line.includes(f.matched_text.slice(0, 40))
+                              return (
+                                <span key={i} className={`${color} ${isMatch ? 'bg-red-900/40 block -mx-2.5 px-2.5' : ''}`}>
+                                  {line}{'\n'}
+                                </span>
+                              )
+                            })}
+                          </pre>
+                        </div>
+                      )}
+                      {/* Matched code (fallback if no diff_snippet) */}
+                      {!f.diff_snippet && f.matched_text && (
                         <div>
                           <p className="text-xs font-medium text-gray-500 mb-1">Matched Code</p>
                           <pre className="text-xs bg-gray-900 text-red-300 p-2.5 rounded-md overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap break-all">{f.matched_text}</pre>

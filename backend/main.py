@@ -1308,6 +1308,12 @@ def _migrate_github_monitor_tables():
     finding_cols = [r[1] for r in cursor.fetchall()]
     if "false_positive" not in finding_cols:
         cursor.execute("ALTER TABLE github_commit_findings ADD COLUMN false_positive INTEGER DEFAULT 0")
+    if "diff_snippet" not in finding_cols:
+        cursor.execute("ALTER TABLE github_commit_findings ADD COLUMN diff_snippet TEXT")
+
+    # Add files_detail to commit scans (JSON array of per-file stats)
+    if "files_detail" not in scan_cols:
+        cursor.execute("ALTER TABLE github_commit_scans ADD COLUMN files_detail TEXT")
 
     # Indexes for performance
     indexes = [

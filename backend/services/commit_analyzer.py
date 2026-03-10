@@ -229,6 +229,7 @@ class CommitFinding:
     line_number: Optional[int]
     matched_text: Optional[str]
     category: str = "insider_threat"
+    diff_snippet: Optional[str] = None  # surrounding diff context (±5 lines)
 
 
 @dataclass
@@ -300,6 +301,14 @@ class CommitAnalyzer:
                 try:
                     match = re.search(rule["pattern"], content)
                     if match:
+                        # Capture ±5 lines of diff context around the match
+                        ctx_start = max(0, line_idx - 5)
+                        ctx_end = min(len(lines), line_idx + 6)
+                        snippet_lines = lines[ctx_start:ctx_end]
+                        diff_snippet = "\n".join(snippet_lines)
+                        if len(diff_snippet) > 1500:
+                            diff_snippet = diff_snippet[:1500] + "\n... (truncated)"
+
                         findings.append(CommitFinding(
                             rule_name=rule["name"],
                             rule_id=rule["id"],
@@ -308,6 +317,7 @@ class CommitAnalyzer:
                             line_number=line_idx + 1,
                             matched_text=content[:200],
                             category=rule.get("category", "insider_threat"),
+                            diff_snippet=diff_snippet,
                         ))
                 except re.error:
                     pass

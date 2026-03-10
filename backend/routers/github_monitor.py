@@ -279,14 +279,33 @@ async def _scan_repo(repo_id: int, db: Session):
         scan_id = cursor.lastrowid
         conn.commit()
 
+        # Store per-file breakdown (filename, status, additions, deletions)
+        files_detail = []
+        for f in commit_detail.get("files", []):
+            files_detail.append({
+                "filename": f.get("filename", ""),
+                "status": f.get("status", ""),
+                "additions": f.get("additions", 0),
+                "deletions": f.get("deletions", 0),
+                "changes": f.get("changes", 0),
+            })
+        try:
+            cursor.execute(
+                "UPDATE github_commit_scans SET files_detail=? WHERE id=?",
+                (json.dumps(files_detail), scan_id)
+            )
+        except Exception:
+            pass  # column may not exist yet on older deployments
+
         # Store SAST findings
         for finding in result.findings:
             cursor.execute(
                 """INSERT INTO github_commit_findings
-                   (scan_id, rule_name, rule_id, severity, file_path, line_number, matched_text, category)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   (scan_id, rule_name, rule_id, severity, file_path, line_number, matched_text, category, diff_snippet)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (scan_id, finding.rule_name, finding.rule_id, finding.severity,
-                 finding.file_path, finding.line_number, finding.matched_text, finding.category)
+                 finding.file_path, finding.line_number, finding.matched_text, finding.category,
+                 finding.diff_snippet)
             )
 
         # Store sensitive file alerts
@@ -518,12 +537,19 @@ async def get_commit_detail(
             scan["signals"] = json.loads(scan["signals"])
         except Exception:
             scan["signals"] = []
+    # Parse files_detail JSON
+    if scan.get("files_detail"):
+        try:
+            scan["files_detail"] = json.loads(scan["files_detail"])
+        except Exception:
+            scan["files_detail"] = []
 
-    # JOIN findings with custom_rules to get description, cwe, owasp, remediation
+    # JOIN findings with custom_rules to get description, cwe, owasp, remediation, diff_snippet
     cursor.execute("""
         SELECT
             gcf.id, gcf.scan_id, gcf.rule_name, gcf.rule_id, gcf.severity,
             gcf.file_path, gcf.line_number, gcf.matched_text, gcf.category, gcf.created_at,
+            gcf.diff_snippet,
             cr.description AS rule_description,
             cr.cwe,
             cr.owasp,
