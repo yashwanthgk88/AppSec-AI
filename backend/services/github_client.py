@@ -63,6 +63,28 @@ class GitHubClient:
                 return []
             raise
 
+    async def get_all_commits(self, owner: str, repo: str, branch: str = "main") -> List[Dict]:
+        """Fetch ALL commits on the given branch (paginated)."""
+        results = []
+        page = 1
+        while True:
+            try:
+                data = await self._get(
+                    f"/repos/{owner}/{repo}/commits",
+                    params={"sha": branch, "per_page": 100, "page": page}
+                )
+                if not data or not isinstance(data, list):
+                    break
+                results.extend(data)
+                if len(data) < 100:
+                    break
+                page += 1
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 409:
+                    return []
+                raise
+        return results
+
     async def get_commit_detail(self, owner: str, repo: str, sha: str) -> Dict:
         """Get full commit details including file changes and stats."""
         return await self._get(f"/repos/{owner}/{repo}/commits/{sha}")

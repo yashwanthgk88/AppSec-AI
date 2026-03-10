@@ -223,7 +223,8 @@ async def _scan_repo(repo_id: int, db: Session):
     analyzer = CommitAnalyzer(_get_db_path())
 
     try:
-        commits = await client.get_recent_commits(owner, repo_name, since_hours=24, branch=default_branch)
+        # Fetch ALL commits (not just last 24h) so manual scans cover full history
+        commits = await client.get_all_commits(owner, repo_name, branch=default_branch)
         logger.info(f"[GitHub Monitor] {owner}/{repo_name}: {len(commits)} commits to scan")
     except Exception as e:
         logger.error(f"[GitHub Monitor] Failed to fetch commits: {e}")
