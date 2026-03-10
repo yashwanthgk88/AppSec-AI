@@ -128,6 +128,13 @@ const SIGNAL_ICONS: Record<string, string> = {
   off_hours: '🕐', author_committer_mismatch: '👤', unsigned_commit: '🔓',
   large_deletion: '🗑️', force_push: '⚡',
 }
+const SIGNAL_STYLE: Record<string, { icon: string; label: string; bg: string; text: string; border: string }> = {
+  'suspicious_message':   { icon: '💬', label: 'Suspicious Message',   bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200' },
+  'binary_files':         { icon: '📦', label: 'Binary Files',         bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200' },
+  'dependency_tampering': { icon: '🧬', label: 'Dependency Tampering', bg: 'bg-pink-50',    text: 'text-pink-700',    border: 'border-pink-200' },
+  'cicd_tampering':       { icon: '🔧', label: 'CI/CD Tampering',      bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-200' },
+  'config_weakening':     { icon: '🛡️', label: 'Config Weakened',      bg: 'bg-orange-50',  text: 'text-orange-700',  border: 'border-orange-200' },
+}
 
 // ---------------------------------------------------------------------------
 // Utility helpers
@@ -174,6 +181,19 @@ function SignalChip({ signal }: { signal: string }) {
   if (signal.startsWith('sensitive_files:')) {
     const n = signal.split(':')[1]
     return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200">🗂️ {n} sensitive</span>
+  }
+  // New parameterized signals: binary_files:N, dependency_tampering:labels, cicd_tampering:labels, config_weakening:labels, suspicious_message:type
+  for (const key of Object.keys(SIGNAL_STYLE)) {
+    if (signal.startsWith(key)) {
+      const s = SIGNAL_STYLE[key]
+      const detail = signal.includes(':') ? signal.split(':').slice(1).join(':') : ''
+      const label = detail && !isNaN(Number(detail))
+        ? `${s.label} (${detail})`
+        : detail
+          ? `${s.label}`
+          : s.label
+      return <span title={detail} className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${s.bg} ${s.text} border ${s.border}`}>{s.icon} {label}</span>
+    }
   }
   const icon = SIGNAL_ICONS[signal] ?? '⚠️'
   return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200">{icon} {signal.replace(/_/g, ' ')}</span>

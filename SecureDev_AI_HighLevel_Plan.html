@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureDev AI - High-Level Product Plan 2026</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f2f5; color: #1e293b; }
+
+  .page { max-width: 1280px; margin: 0 auto; padding: 40px 32px; }
+
+  /* Header */
+  .hero { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%); border-radius: 20px; padding: 48px 56px; color: white; margin-bottom: 40px; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%); }
+  .hero::after { content: ''; position: absolute; bottom: -40%; left: -10%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%); }
+  .hero-content { position: relative; z-index: 1; }
+  .hero h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.02em; }
+  .hero h1 span { background: linear-gradient(135deg, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { font-size: 16px; color: #94a3b8; margin-top: 8px; max-width: 680px; line-height: 1.6; }
+  .hero-stats { display: flex; gap: 32px; margin-top: 32px; }
+  .hero-stat { text-align: center; }
+  .hero-stat .num { font-size: 36px; font-weight: 800; color: white; }
+  .hero-stat .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-top: 2px; }
+  .phase-chips { display: flex; gap: 12px; margin-top: 28px; }
+  .phase-chip { padding: 6px 20px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+  .phase-chip.p1 { background: rgba(99,102,241,0.2); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); }
+  .phase-chip.p2 { background: rgba(139,92,246,0.2); color: #c4b5fd; border: 1px solid rgba(139,92,246,0.3); }
+
+  /* Phase section */
+  .phase-section { margin-bottom: 48px; }
+  .phase-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .phase-badge { font-size: 14px; font-weight: 700; padding: 6px 20px; border-radius: 8px; color: white; }
+  .phase-badge.p1 { background: linear-gradient(135deg, #6366f1, #818cf8); }
+  .phase-badge.p2 { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+  .phase-title { font-size: 22px; font-weight: 700; color: #0f172a; }
+  .phase-dates { font-size: 13px; color: #94a3b8; font-weight: 500; }
+
+  /* Feature card */
+  .feature-card { background: white; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03); border: 1px solid #e8ecf1; overflow: hidden; transition: box-shadow 0.2s; }
+  .feature-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.06); }
+
+  .feature-top { display: grid; grid-template-columns: 1fr auto; gap: 24px; padding: 24px 28px; align-items: start; }
+  .feature-id-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: white; padding: 3px 12px; border-radius: 6px; margin-bottom: 8px; }
+  .feature-name { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+  .feature-desc { font-size: 13px; color: #64748b; line-height: 1.5; max-width: 700px; }
+  .feature-meta { display: flex; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #64748b; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 10px; }
+  .meta-chip strong { color: #334155; }
+
+  .feature-right { text-align: right; min-width: 140px; }
+  .feature-timeline { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
+  .task-count { font-size: 28px; font-weight: 800; color: #6366f1; }
+  .task-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Task list */
+  .task-list { padding: 0 28px 20px; }
+  .task-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; margin-bottom: 10px; margin-top: 4px; }
+  .task-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .task-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 8px; background: #f8fafc; border: 1px solid #f1f5f9; font-size: 13px; color: #334155; line-height: 1.4; transition: background 0.15s; }
+  .task-item:hover { background: #f1f5f9; }
+  .task-id { font-size: 10px; font-weight: 700; color: #94a3b8; white-space: nowrap; min-width: 36px; margin-top: 2px; }
+  .task-text { flex: 1; }
+  .task-month { font-size: 10px; color: #94a3b8; background: white; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 6px; white-space: nowrap; margin-top: 2px; }
+
+  /* Divider line between features */
+  .feature-divider { height: 1px; background: #e2e8f0; margin: 0 28px; }
+
+  /* Color coding per feature */
+  .f1 .feature-id-badge { background: #6366f1; }
+  .f2 .feature-id-badge { background: #8b5cf6; }
+  .f3 .feature-id-badge { background: #a855f7; }
+  .f4 .feature-id-badge { background: #3b82f6; }
+  .f5 .feature-id-badge { background: #06b6d4; }
+  .f6 .feature-id-badge { background: #10b981; }
+  .f7 .feature-id-badge { background: #f59e0b; }
+  .f8 .feature-id-badge { background: #3b82f6; }
+  .f9 .feature-id-badge { background: #ef4444; }
+  .f10 .feature-id-badge { background: #10b981; }
+  .f11 .feature-id-badge { background: #8b5cf6; }
+  .f12 .feature-id-badge { background: #f59e0b; }
+
+  .f1 .task-count { color: #6366f1; }
+  .f2 .task-count { color: #8b5cf6; }
+  .f3 .task-count { color: #a855f7; }
+  .f4 .task-count { color: #3b82f6; }
+  .f5 .task-count { color: #06b6d4; }
+  .f6 .task-count { color: #10b981; }
+  .f7 .task-count { color: #f59e0b; }
+  .f8 .task-count { color: #3b82f6; }
+  .f9 .task-count { color: #ef4444; }
+  .f10 .task-count { color: #10b981; }
+  .f11 .task-count { color: #8b5cf6; }
+  .f12 .task-count { color: #f59e0b; }
+
+  /* Footer */
+  .footer { text-align: center; padding: 32px; color: #94a3b8; font-size: 12px; }
+
+  @media print {
+    body { background: white; }
+    .page { padding: 20px; }
+    .hero { break-inside: avoid; }
+    .feature-card { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-content">
+    <h1>SecureDev <span>AI</span> - Product Plan 2026</h1>
+    <p>AI-powered Application Security platform that shifts security left by embedding automated security intelligence across the entire SDLC - from requirements and design through development, build, and deployment.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num">12</div><div class="lbl">Features</div></div>
+      <div class="hero-stat"><div class="num">127</div><div class="lbl">Total Tasks</div></div>
+      <div class="hero-stat"><div class="num">2</div><div class="lbl">Phases</div></div>
+      <div class="hero-stat"><div class="num">11</div><div class="lbl">Months</div></div>
+    </div>
+    <div class="phase-chips">
+      <div class="phase-chip p1">Phase 1: Feb - Jun 2026 | 7 Features | 74 Tasks</div>
+      <div class="phase-chip p2">Phase 2: Jul - Dec 2026 | 5 Features | 53 Tasks</div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- PHASE 1 -->
+<!-- ================================================================ -->
+<div class="phase-section">
+  <div class="phase-header">
+    <div class="phase-badge p1">PHASE 1</div>
+    <div>
+      <div class="phase-title">Foundation</div>
+      <div class="phase-dates">February - June 2026</div>
+    </div>
+  </div>
+
+  <!-- F1 -->
+  <div class="feature-card f1">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F1</div>
+        <div class="feature-name">Security Requirements Generation</div>
+        <div class="feature-desc">Automatically produce OWASP/ASVS-aligned security requirements based on application context (tech stack, data sensitivity, compliance scope) and push directly into JIRA and Azure DevOps backlogs.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>OWASP ASVS 4.0</strong></div>
+          <div class="meta-chip"><strong>JIRA</strong> Integration</div>
+          <div class="meta-chip"><strong>Azure DevOps</strong> Integration</div>
+          <div class="meta-chip">AI-Powered Prioritization</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Feb - May</div>
+        <div class="task-count">13</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.1.1</div><div class="task-text">OWASP/ASVS framework research & requirement taxonomy mapping</div><div class="task-month">Feb</div></div>
+        <div class="task-item"><div class="task-id">1.1.2</div><div class="task-text">Application context input schema design</div><div class="task-month">Feb</div></div>
+        <div class="task-item"><div class="task-id">1.1.3</div><div class="task-text">ASVS requirement mapping engine (chapters -> controls -> requirements)</div><div class="task-month">Feb-Mar</div></div>
+        <div class="task-item"><div class="task-id">1.1.4</div><div class="task-text">AI requirement generation pipeline (LLM + context)</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.1.5</div><div class="task-text">Risk-based requirement prioritization engine</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.1.6</div><div class="task-text">JIRA Cloud OAuth 2.0 integration</div><div class="task-month">Mar-Apr</div></div>
+        <div class="task-item"><div class="task-id">1.1.7</div><div class="task-text">JIRA issue creation & bidirectional sync</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.1.8</div><div class="task-text">Azure DevOps OAuth integration</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.1.9</div><div class="task-text">Azure DevOps work item creation & sync</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.1.10</div><div class="task-text">Requirement management dashboard & workflow UI</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.1.11</div><div class="task-text">Export module (PDF / CSV / Markdown)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.1.12</div><div class="task-text">Integration testing & QA</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.1.13</div><div class="task-text">Documentation & user guide</div><div class="task-month">May</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F2 -->
+  <div class="feature-card f2">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F2</div>
+        <div class="feature-name">Misuse / Abuse Case Generation</div>
+        <div class="feature-desc">Generate structured misuse and abuse cases directly from architecture descriptions, including threat actor profiles, attack steps, and testable acceptance criteria for backlog integration.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>CAPEC</strong> Mapping</div>
+          <div class="meta-chip"><strong>MITRE ATT&CK</strong></div>
+          <div class="meta-chip">Attack Tree Visualization</div>
+          <div class="meta-chip">BDD Criteria</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Feb - Apr</div>
+        <div class="task-count">9</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.2.1</div><div class="task-text">Abuse case taxonomy research (CAPEC + ATT&CK)</div><div class="task-month">Feb</div></div>
+        <div class="task-item"><div class="task-id">1.2.2</div><div class="task-text">Abuse case schema & data model design</div><div class="task-month">Feb</div></div>
+        <div class="task-item"><div class="task-id">1.2.3</div><div class="task-text">Architecture description NLP parser</div><div class="task-month">Feb-Mar</div></div>
+        <div class="task-item"><div class="task-id">1.2.4</div><div class="task-text">Threat actor profiling module</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.2.5</div><div class="task-text">Abuse case generation AI engine</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.2.6</div><div class="task-text">Acceptance criteria auto-generation (Given/When/Then)</div><div class="task-month">Mar-Apr</div></div>
+        <div class="task-item"><div class="task-id">1.2.7</div><div class="task-text">Abuse case visualization UI (attack trees)</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.2.8</div><div class="task-text">Backlog export (JIRA / Azure DevOps format)</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.2.9</div><div class="task-text">Testing & QA</div><div class="task-month">Apr</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F3 -->
+  <div class="feature-card f3">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F3</div>
+        <div class="feature-name">Security Acceptance Criteria</div>
+        <div class="feature-desc">Create acceptance criteria mapped to risks and threats in BDD/Gherkin format, with full traceability from requirements to criteria to test cases, for seamless backlog integration.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>BDD / Gherkin</strong> Output</div>
+          <div class="meta-chip">200+ Template Library</div>
+          <div class="meta-chip">Traceability Matrix</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Mar - May</div>
+        <div class="task-count">8</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.3.1</div><div class="task-text">Risk-to-criteria mapping taxonomy design</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.3.2</div><div class="task-text">Threat-to-acceptance criteria mapping engine</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.3.3</div><div class="task-text">Criteria template library (OWASP Top 10 / ASVS / CWE)</div><div class="task-month">Mar-Apr</div></div>
+        <div class="task-item"><div class="task-id">1.3.4</div><div class="task-text">BDD/Gherkin format generator</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.3.5</div><div class="task-text">Backlog integration module (JIRA/ADO)</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.3.6</div><div class="task-text">Criteria management UI & workflow</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.3.7</div><div class="task-text">Requirement-to-test traceability matrix</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.3.8</div><div class="task-text">Testing & QA</div><div class="task-month">May</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F4 -->
+  <div class="feature-card f4">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F4</div>
+        <div class="feature-name">AI-Assisted Threat Modeling (Level 0 & Level 1)</div>
+        <div class="feature-desc">Use only architecture descriptions to auto-generate high-level (L0: system) and detailed (L1: component) threat models with STRIDE categorization, mitigation recommendations, and interactive DFD visualization.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>STRIDE</strong> Framework</div>
+          <div class="meta-chip">NLP Architecture Parser</div>
+          <div class="meta-chip">DFD Visualization</div>
+          <div class="meta-chip">Eraser.io Integration</div>
+          <div class="meta-chip">PDF Reports</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Feb - Jun</div>
+        <div class="task-count">11</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.4.1</div><div class="task-text">Architecture input design (text + diagram upload)</div><div class="task-month">Feb</div></div>
+        <div class="task-item"><div class="task-id">1.4.2</div><div class="task-text">Architecture NLP parser & component extraction</div><div class="task-month">Feb-Mar</div></div>
+        <div class="task-item"><div class="task-id">1.4.3</div><div class="task-text">Trust boundary auto-identification</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.4.4</div><div class="task-text">L0 threat model generator (system-level threats)</div><div class="task-month">Mar-Apr</div></div>
+        <div class="task-item"><div class="task-id">1.4.5</div><div class="task-text">L1 threat model generator (component-level)</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.4.6</div><div class="task-text">STRIDE mapping engine with confidence scoring</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.4.7</div><div class="task-text">Mitigation recommendation engine (NIST/OWASP)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.4.8</div><div class="task-text">Threat model visualization (interactive DFD)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.4.9</div><div class="task-text">Report generation (PDF with risk matrix)</div><div class="task-month">May-Jun</div></div>
+        <div class="task-item"><div class="task-id">1.4.10</div><div class="task-text">Threat model versioning & comparison</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.4.11</div><div class="task-text">Integration testing & QA</div><div class="task-month">Jun</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F5 -->
+  <div class="feature-card f5">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F5</div>
+        <div class="feature-name">Commit Scanner</div>
+        <div class="feature-desc">Detect secrets and sensitive information in developer commits with real-time webhook scanning, historical full-repo analysis, false positive reduction, and per-secret remediation guidance.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>300+</strong> Secret Patterns</div>
+          <div class="meta-chip"><strong>GitHub</strong> Webhooks</div>
+          <div class="meta-chip"><strong>GitLab</strong> Webhooks</div>
+          <div class="meta-chip">Entropy Detection</div>
+          <div class="meta-chip">Slack / Teams Alerts</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Mar - May</div>
+        <div class="task-count">10</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.5.1</div><div class="task-text">Secret detection pattern library (50+ services)</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.5.2</div><div class="task-text">Entropy + regex hybrid detection engine</div><div class="task-month">Mar</div></div>
+        <div class="task-item"><div class="task-id">1.5.3</div><div class="task-text">GitHub webhook real-time commit scanning</div><div class="task-month">Mar-Apr</div></div>
+        <div class="task-item"><div class="task-id">1.5.4</div><div class="task-text">GitLab webhook integration</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.5.5</div><div class="task-text">Historical full-repo scan with progress tracking</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.5.6</div><div class="task-text">False positive reduction engine (context-aware)</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.5.7</div><div class="task-text">Remediation guidance generator (per secret type)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.5.8</div><div class="task-text">Alerting system (Email / Slack / Teams)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.5.9</div><div class="task-text">Scanner dashboard & metrics</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.5.10</div><div class="task-text">Testing & QA</div><div class="task-month">May</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F6 -->
+  <div class="feature-card f6">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F6</div>
+        <div class="feature-name">Pipeline Policy-as-Code Validator</div>
+        <div class="feature-desc">Validate CI/CD pipelines against required AppSec controls using YAML-based policies. Parse GitHub Actions, Jenkins, GitLab CI, and Azure Pipelines; check for SAST/SCA/DAST gates; suggest corrective steps via AI.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>GitHub Actions</strong></div>
+          <div class="meta-chip"><strong>Jenkins</strong></div>
+          <div class="meta-chip"><strong>GitLab CI</strong></div>
+          <div class="meta-chip"><strong>Azure Pipelines</strong></div>
+          <div class="meta-chip">AI Fix Suggestions</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Apr - Jun</div>
+        <div class="task-count">11</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.6.1</div><div class="task-text">Policy definition schema (YAML-based DSL)</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.6.2</div><div class="task-text">GitHub Actions pipeline parser</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.6.3</div><div class="task-text">Jenkins pipeline parser (declarative + scripted)</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.6.4</div><div class="task-text">GitLab CI pipeline parser</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.6.5</div><div class="task-text">Azure Pipelines parser</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.6.6</div><div class="task-text">AppSec control validation rules engine</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.6.7</div><div class="task-text">Compliance checker (pass/fail/warn per control)</div><div class="task-month">May-Jun</div></div>
+        <div class="task-item"><div class="task-id">1.6.8</div><div class="task-text">AI corrective step suggestion engine</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.6.9</div><div class="task-text">Policy management UI</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.6.10</div><div class="task-text">Compliance dashboard & reporting</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.6.11</div><div class="task-text">Testing & QA</div><div class="task-month">Jun</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F7 -->
+  <div class="feature-card f7">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F7</div>
+        <div class="feature-name">VS Code Plugin (Initial Version)</div>
+        <div class="feature-desc">IDE extension for Python and JavaScript/TypeScript delivering inline security hints via squiggly underlines, hover explanations, and quick-fix remediation suggestions at the point of code creation.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>Python</strong></div>
+          <div class="meta-chip"><strong>JavaScript / TypeScript</strong></div>
+          <div class="meta-chip">Inline Diagnostics</div>
+          <div class="meta-chip">Quick-Fix Actions</div>
+          <div class="meta-chip">VS Code Marketplace</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Apr - Jun</div>
+        <div class="task-count">10</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">1.7.1</div><div class="task-text">Extension scaffolding & architecture</div><div class="task-month">Apr</div></div>
+        <div class="task-item"><div class="task-id">1.7.2</div><div class="task-text">Python security analysis (SQLi, command injection, crypto)</div><div class="task-month">Apr-May</div></div>
+        <div class="task-item"><div class="task-id">1.7.3</div><div class="task-text">JavaScript/TypeScript security analysis (XSS, prototype pollution)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.7.4</div><div class="task-text">Inline security hint engine (Diagnostics API)</div><div class="task-month">May</div></div>
+        <div class="task-item"><div class="task-id">1.7.5</div><div class="task-text">Basic remediation suggestion module</div><div class="task-month">May-Jun</div></div>
+        <div class="task-item"><div class="task-id">1.7.6</div><div class="task-text">Settings & configuration panel</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.7.7</div><div class="task-text">Backend authentication & connection</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.7.8</div><div class="task-text">VS Code Marketplace packaging</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.7.9</div><div class="task-text">Beta testing & feedback collection</div><div class="task-month">Jun</div></div>
+        <div class="task-item"><div class="task-id">1.7.10</div><div class="task-text">Documentation & quick start guide</div><div class="task-month">Jun</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- PHASE 2 -->
+<!-- ================================================================ -->
+<div class="phase-section">
+  <div class="phase-header">
+    <div class="phase-badge p2">PHASE 2</div>
+    <div>
+      <div class="phase-title">Scale & Depth</div>
+      <div class="phase-dates">July - December 2026</div>
+    </div>
+  </div>
+
+  <!-- F8 -->
+  <div class="feature-card f8">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F8</div>
+        <div class="feature-name">Full AI Threat Modeling</div>
+        <div class="feature-desc">Deep architecture analysis with automated dataflow modeling, design flaw detection, layered STRIDE mapping (L0/L1/L2), threat chaining, attack path analysis, and compliance mapping to NIST/ISO/PCI.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>L0/L1/L2</strong> STRIDE</div>
+          <div class="meta-chip">Attack Path Analysis</div>
+          <div class="meta-chip">Design Flaw Detection</div>
+          <div class="meta-chip"><strong>NIST / ISO / PCI</strong></div>
+          <div class="meta-chip">Interactive DFD Editor</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Jul - Nov</div>
+        <div class="task-count">12</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">2.1.1</div><div class="task-text">Deep architecture analysis engine (multi-tier, microservices, serverless)</div><div class="task-month">Jul</div></div>
+        <div class="task-item"><div class="task-id">2.1.2</div><div class="task-text">Automated dataflow modeling & DFD generation</div><div class="task-month">Jul-Aug</div></div>
+        <div class="task-item"><div class="task-id">2.1.3</div><div class="task-text">Data classification & sensitivity analysis</div><div class="task-month">Aug</div></div>
+        <div class="task-item"><div class="task-id">2.1.4</div><div class="task-text">Design flaw detection engine (anti-patterns)</div><div class="task-month">Aug-Sep</div></div>
+        <div class="task-item"><div class="task-id">2.1.5</div><div class="task-text">Layered STRIDE mapping (L0 -> L1 -> L2)</div><div class="task-month">Sep</div></div>
+        <div class="task-item"><div class="task-id">2.1.6</div><div class="task-text">L2 threat model (data-flow level granularity)</div><div class="task-month">Sep</div></div>
+        <div class="task-item"><div class="task-id">2.1.7</div><div class="task-text">Threat chaining & kill chain analysis</div><div class="task-month">Sep-Oct</div></div>
+        <div class="task-item"><div class="task-id">2.1.8</div><div class="task-text">Control gap analysis engine</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.1.9</div><div class="task-text">Interactive drag-and-drop threat model editor</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.1.10</div><div class="task-text">Compliance mapping (NIST 800-53 / ISO 27001 / PCI DSS)</div><div class="task-month">Oct-Nov</div></div>
+        <div class="task-item"><div class="task-id">2.1.11</div><div class="task-text">Threat model diff & change impact analysis</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.1.12</div><div class="task-text">Integration testing & QA</div><div class="task-month">Nov</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F9 -->
+  <div class="feature-card f9">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F9</div>
+        <div class="feature-name">Secure Development Intelligence</div>
+        <div class="feature-desc">Unified SAST/SCA/Secrets scanning with AI-powered custom rule generation, commit scanning at enterprise scale, automated remediation PR generation, and developer security scorecards.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>10+</strong> Languages SAST</div>
+          <div class="meta-chip">SCA + NVD/OSV</div>
+          <div class="meta-chip">Auto-Remediation PRs</div>
+          <div class="meta-chip">AI Rule Generation</div>
+          <div class="meta-chip">Dev Scorecards</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Jul - Nov</div>
+        <div class="task-count">11</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">2.2.1</div><div class="task-text">Unified multi-language SAST engine with custom rule SDK</div><div class="task-month">Jul-Aug</div></div>
+        <div class="task-item"><div class="task-id">2.2.2</div><div class="task-text">SCA scanner with vulnerability correlation & reachability</div><div class="task-month">Aug</div></div>
+        <div class="task-item"><div class="task-id">2.2.3</div><div class="task-text">Enterprise secrets scanning (1000+ repos scale)</div><div class="task-month">Aug-Sep</div></div>
+        <div class="task-item"><div class="task-id">2.2.4</div><div class="task-text">AI-powered custom rule generation from CVEs</div><div class="task-month">Sep</div></div>
+        <div class="task-item"><div class="task-id">2.2.5</div><div class="task-text">Commit scanning at scale (parallel processing)</div><div class="task-month">Sep-Oct</div></div>
+        <div class="task-item"><div class="task-id">2.2.6</div><div class="task-text">Automated remediation PR generation</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.2.7</div><div class="task-text">Developer security scorecard</div><div class="task-month">Oct-Nov</div></div>
+        <div class="task-item"><div class="task-id">2.2.8</div><div class="task-text">Security metrics & trend dashboards</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.2.9</div><div class="task-text">Scan orchestration & scheduling engine</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.2.10</div><div class="task-text">Cross-scanner finding deduplication & correlation</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.2.11</div><div class="task-text">Testing & QA (OWASP Benchmark target: FP <15%)</div><div class="task-month">Nov</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F10 -->
+  <div class="feature-card f10">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F10</div>
+        <div class="feature-name">Pipeline Policy-as-Code Enforcement (Advanced)</div>
+        <div class="feature-desc">Org-wide CI/CD policy management with hierarchical inheritance, auto-correction of non-compliant pipelines, SBOM/provenance/signature enforcement, and compliance evidence generation.</div>
+        <div class="feature-meta">
+          <div class="meta-chip">Org-Wide Policies</div>
+          <div class="meta-chip">Auto-Correction</div>
+          <div class="meta-chip"><strong>SBOM</strong> Enforcement</div>
+          <div class="meta-chip"><strong>SLSA</strong> Provenance</div>
+          <div class="meta-chip"><strong>Sigstore</strong> Signatures</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Aug - Nov</div>
+        <div class="task-count">10</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">2.3.1</div><div class="task-text">Org-wide policy management with inheritance</div><div class="task-month">Aug</div></div>
+        <div class="task-item"><div class="task-id">2.3.2</div><div class="task-text">Pipeline auto-correction engine (AI-generated patches)</div><div class="task-month">Aug-Sep</div></div>
+        <div class="task-item"><div class="task-id">2.3.3</div><div class="task-text">SBOM generation enforcement (CycloneDX/SPDX)</div><div class="task-month">Sep</div></div>
+        <div class="task-item"><div class="task-id">2.3.4</div><div class="task-text">SLSA provenance verification engine</div><div class="task-month">Sep-Oct</div></div>
+        <div class="task-item"><div class="task-id">2.3.5</div><div class="task-text">Artifact signature enforcement (Sigstore/Cosign)</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.3.6</div><div class="task-text">Policy violation alerting & escalation chains</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.3.7</div><div class="task-text">Compliance reporting dashboard (SOC 2 / ISO evidence)</div><div class="task-month">Oct-Nov</div></div>
+        <div class="task-item"><div class="task-id">2.3.8</div><div class="task-text">Policy versioning & rollback (git-backed)</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.3.9</div><div class="task-text">Exception management workflow</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.3.10</div><div class="task-text">Testing & QA</div><div class="task-month">Nov</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F11 -->
+  <div class="feature-card f11">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F11</div>
+        <div class="feature-name">AI-Driven Inventory & SBOM Platform</div>
+        <div class="feature-desc">Agent-based application discovery across org repos, automated SBOM generation, dependency health scoring, vulnerability correlation with NVD/OSV/GitHub Advisory, and license compliance tracking.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>CycloneDX / SPDX</strong></div>
+          <div class="meta-chip">Dependency Health Score</div>
+          <div class="meta-chip">NVD / OSV / GitHub Advisory</div>
+          <div class="meta-chip">License Compliance</div>
+          <div class="meta-chip">EPSS Prioritization</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Sep - Dec</div>
+        <div class="task-count">10</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">2.4.1</div><div class="task-text">Agent-based application discovery engine</div><div class="task-month">Sep</div></div>
+        <div class="task-item"><div class="task-id">2.4.2</div><div class="task-text">Automated SBOM generation (CycloneDX + SPDX)</div><div class="task-month">Sep-Oct</div></div>
+        <div class="task-item"><div class="task-id">2.4.3</div><div class="task-text">Dependency health scoring algorithm</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.4.4</div><div class="task-text">Vulnerability correlation engine (multi-feed)</div><div class="task-month">Oct-Nov</div></div>
+        <div class="task-item"><div class="task-id">2.4.5</div><div class="task-text">License tracking & compliance checker</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.4.6</div><div class="task-text">Dependency graph visualization</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.4.7</div><div class="task-text">Risk-based vulnerability prioritization (EPSS + reachability)</div><div class="task-month">Nov-Dec</div></div>
+        <div class="task-item"><div class="task-id">2.4.8</div><div class="task-text">Inventory management dashboard</div><div class="task-month">Dec</div></div>
+        <div class="task-item"><div class="task-id">2.4.9</div><div class="task-text">Automated update recommendation engine</div><div class="task-month">Dec</div></div>
+        <div class="task-item"><div class="task-id">2.4.10</div><div class="task-text">Testing & QA</div><div class="task-month">Dec</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- F12 -->
+  <div class="feature-card f12">
+    <div class="feature-top">
+      <div>
+        <div class="feature-id-badge">F12</div>
+        <div class="feature-name">Advanced VS Code IDE Plugin (V2)</div>
+        <div class="feature-desc">Broader language support (Java, Go, C#, Ruby, PHP), real-time AI-powered remediation, semantic code analysis with taint tracking, risk profile integration, and AI code review assistant with one-click auto-fix.</div>
+        <div class="feature-meta">
+          <div class="meta-chip"><strong>8+</strong> Languages</div>
+          <div class="meta-chip">AI Remediation</div>
+          <div class="meta-chip">Taint Tracking</div>
+          <div class="meta-chip">Code Review Assistant</div>
+          <div class="meta-chip">One-Click Fix</div>
+        </div>
+      </div>
+      <div class="feature-right">
+        <div class="feature-timeline">Sep - Dec</div>
+        <div class="task-count">10</div>
+        <div class="task-label">Tasks</div>
+      </div>
+    </div>
+    <div class="feature-divider"></div>
+    <div class="task-list">
+      <div class="task-grid">
+        <div class="task-item"><div class="task-id">2.5.1</div><div class="task-text">Extended language support (Java, Go, C#, Ruby, PHP, Kotlin)</div><div class="task-month">Sep-Oct</div></div>
+        <div class="task-item"><div class="task-id">2.5.2</div><div class="task-text">Real-time AI remediation engine (LLM + codebase context)</div><div class="task-month">Oct</div></div>
+        <div class="task-item"><div class="task-id">2.5.3</div><div class="task-text">Intelligent code analysis (semantic taint tracking in IDE)</div><div class="task-month">Oct-Nov</div></div>
+        <div class="task-item"><div class="task-id">2.5.4</div><div class="task-text">Risk profile integration (project security posture in sidebar)</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.5.5</div><div class="task-text">Inline threat context overlay (threat model -> code mapping)</div><div class="task-month">Nov</div></div>
+        <div class="task-item"><div class="task-id">2.5.6</div><div class="task-text">AI code review assistant (pre-commit security review)</div><div class="task-month">Nov-Dec</div></div>
+        <div class="task-item"><div class="task-id">2.5.7</div><div class="task-text">Team security metrics widget</div><div class="task-month">Dec</div></div>
+        <div class="task-item"><div class="task-id">2.5.8</div><div class="task-text">One-click auto-fix with diff preview</div><div class="task-month">Dec</div></div>
+        <div class="task-item"><div class="task-id">2.5.9</div><div class="task-text">Marketplace V2 publishing & migration guide</div><div class="task-month">Dec</div></div>
+        <div class="task-item"><div class="task-id">2.5.10</div><div class="task-text">Testing & QA (<500ms analysis time target)</div><div class="task-month">Dec</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  SecureDev AI &mdash; Product Development Plan 2026 &mdash; Confidential
+</div>
+
+</div>
+</body>
+</html>

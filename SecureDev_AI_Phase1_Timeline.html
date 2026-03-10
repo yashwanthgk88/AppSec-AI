@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SecureDev AI - Phase 1 Timeline (Feb-Jun 2026)</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8fafc; color: #1e293b; padding: 40px; }
+
+  .header { text-align: center; margin-bottom: 48px; }
+  .header h1 { font-size: 28px; font-weight: 700; color: #0f172a; }
+  .header p { font-size: 14px; color: #64748b; margin-top: 6px; }
+  .header .phase-badge { display: inline-block; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 4px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 10px; }
+
+  .chart-container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 16px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.04); }
+
+  .month-header { display: grid; grid-template-columns: 280px repeat(5, 1fr); gap: 0; margin-bottom: 8px; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; }
+  .month-header .label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  .month-header .month { font-size: 13px; font-weight: 700; color: #334155; text-align: center; padding: 8px 0; }
+  .month-header .month span { display: block; font-size: 10px; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+
+  .feature-row { display: grid; grid-template-columns: 280px repeat(5, 1fr); gap: 0; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f5f9; position: relative; }
+  .feature-row:last-child { border-bottom: none; }
+  .feature-row:hover { background: #fafbfe; }
+
+  .feature-info { padding-right: 20px; }
+  .feature-id { font-size: 11px; font-weight: 700; color: #6366f1; margin-bottom: 2px; }
+  .feature-name { font-size: 14px; font-weight: 600; color: #1e293b; line-height: 1.3; }
+  .feature-tasks { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+
+  .timeline-cells { display: contents; }
+  .cell { position: relative; height: 48px; display: flex; align-items: center; justify-content: center; }
+
+  /* Grid lines */
+  .cell::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: #f1f5f9; }
+
+  .bar { height: 36px; border-radius: 8px; position: relative; display: flex; align-items: center; justify-content: center; min-width: 90%; font-size: 10px; font-weight: 600; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.15); letter-spacing: 0.02em; }
+
+  /* Feature-specific colors */
+  .bar.f1 { background: linear-gradient(135deg, #6366f1, #818cf8); }
+  .bar.f2 { background: linear-gradient(135deg, #8b5cf6, #a78bfa); }
+  .bar.f3 { background: linear-gradient(135deg, #a855f7, #c084fc); }
+  .bar.f4 { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+  .bar.f5 { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+  .bar.f6 { background: linear-gradient(135deg, #10b981, #34d399); }
+  .bar.f7 { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+
+  .bar.light { opacity: 0.45; }
+  .bar.medium { opacity: 0.7; }
+  .bar.full { opacity: 1; }
+
+  /* Span across multiple cells */
+  .span-bar { position: absolute; height: 36px; border-radius: 8px; display: flex; align-items: center; padding: 0 12px; font-size: 10px; font-weight: 600; color: white; z-index: 2; white-space: nowrap; overflow: hidden; }
+
+  /* Feature timeline rows - custom layout */
+  .gantt-section { margin-top: 16px; }
+
+  .gantt-row { display: grid; grid-template-columns: 280px repeat(20, 1fr); gap: 0; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; min-height: 64px; }
+  .gantt-row:hover { background: #fafbfe; border-radius: 8px; }
+
+  .gantt-week-header { display: grid; grid-template-columns: 280px repeat(20, 1fr); gap: 0; padding: 6px 0; border-bottom: 2px solid #e2e8f0; margin-bottom: 4px; }
+  .gantt-week-header .wk { font-size: 9px; color: #cbd5e1; text-align: center; font-weight: 500; }
+  .gantt-week-header .mo { font-size: 12px; font-weight: 700; color: #334155; text-align: center; grid-column: span 4; border-left: 1px solid #e2e8f0; padding: 4px 0; }
+  .gantt-week-header .mo:first-of-type { border-left: none; }
+
+  .gantt-bar-area { grid-column: span 20; position: relative; height: 44px; }
+
+  .gantt-bar { position: absolute; height: 32px; border-radius: 6px; top: 6px; display: flex; align-items: center; padding: 0 10px; font-size: 10px; font-weight: 600; color: white; overflow: hidden; white-space: nowrap; transition: all 0.2s; }
+  .gantt-bar:hover { height: 36px; top: 4px; filter: brightness(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+  /* Phase labels inside bars */
+  .phase-label { font-size: 9px; opacity: 0.9; margin-left: 6px; font-weight: 400; }
+
+  /* Milestones */
+  .milestone-row { display: grid; grid-template-columns: 280px repeat(20, 1fr); gap: 0; padding: 8px 0; margin-top: 12px; border-top: 2px solid #e2e8f0; }
+  .milestone-label { font-size: 11px; font-weight: 600; color: #64748b; display: flex; align-items: center; gap: 6px; }
+  .milestone-area { grid-column: span 20; position: relative; height: 32px; }
+  .milestone-marker { position: absolute; top: 4px; }
+  .milestone-marker .diamond { width: 16px; height: 16px; background: #ef4444; transform: rotate(45deg); border-radius: 3px; margin: 0 auto; }
+  .milestone-marker .ms-label { font-size: 9px; color: #64748b; text-align: center; margin-top: 6px; white-space: nowrap; transform: translateX(-30%); }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 4px; flex-shrink: 0; }
+
+  .legend-dot.f1 { background: #6366f1; }
+  .legend-dot.f2 { background: #8b5cf6; }
+  .legend-dot.f3 { background: #a855f7; }
+  .legend-dot.f4 { background: #3b82f6; }
+  .legend-dot.f5 { background: #06b6d4; }
+  .legend-dot.f6 { background: #10b981; }
+  .legend-dot.f7 { background: #f59e0b; }
+
+  .phase-desc { display: flex; gap: 16px; align-items: center; margin-top: 12px; font-size: 11px; color: #94a3b8; justify-content: center; }
+  .phase-desc .swatch { display: inline-block; width: 40px; height: 10px; border-radius: 3px; }
+  .phase-desc .swatch.research { background: linear-gradient(90deg, rgba(99,102,241,0.4), rgba(99,102,241,0.4)); }
+  .phase-desc .swatch.dev { background: linear-gradient(90deg, rgba(99,102,241,0.7), rgba(99,102,241,0.7)); }
+  .phase-desc .swatch.test { background: linear-gradient(90deg, rgba(99,102,241,1), rgba(99,102,241,1)); }
+
+  /* Summary stats */
+  .stats-bar { display: flex; gap: 24px; justify-content: center; margin-bottom: 32px; }
+  .stat { text-align: center; padding: 16px 24px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
+  .stat .num { font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat .label { font-size: 11px; color: #94a3b8; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>SecureDev AI - Product Development Timeline</h1>
+  <p>Feature-level Gantt chart with development phases</p>
+  <div class="phase-badge">PHASE 1: February - June 2026</div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="num">7</div><div class="label">Features</div></div>
+  <div class="stat"><div class="num">74</div><div class="label">Tasks</div></div>
+  <div class="stat"><div class="num">5</div><div class="label">Months</div></div>
+  <div class="stat"><div class="num">3</div><div class="label">Integrations</div></div>
+</div>
+
+<div class="chart-container">
+
+  <!-- Month + Week header -->
+  <div class="gantt-week-header">
+    <div class="label" style="font-size:11px; font-weight:600; color:#94a3b8; padding-left:4px;">FEATURE</div>
+    <div class="mo">FEBRUARY</div>
+    <div class="mo">MARCH</div>
+    <div class="mo">APRIL</div>
+    <div class="mo">MAY</div>
+    <div class="mo">JUNE</div>
+  </div>
+  <div class="gantt-week-header" style="border-bottom:1px solid #f1f5f9; margin-bottom:8px;">
+    <div></div>
+    <div class="wk">W1</div><div class="wk">W2</div><div class="wk">W3</div><div class="wk">W4</div>
+    <div class="wk">W1</div><div class="wk">W2</div><div class="wk">W3</div><div class="wk">W4</div>
+    <div class="wk">W1</div><div class="wk">W2</div><div class="wk">W3</div><div class="wk">W4</div>
+    <div class="wk">W1</div><div class="wk">W2</div><div class="wk">W3</div><div class="wk">W4</div>
+    <div class="wk">W1</div><div class="wk">W2</div><div class="wk">W3</div><div class="wk">W4</div>
+  </div>
+
+  <!-- F1: Security Requirements Generation — Feb to May -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F1</div>
+      <div class="feature-name">Security Requirements Generation</div>
+      <div class="feature-tasks">13 tasks | JIRA + Azure DevOps</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Research: Feb W1-W4 (cols 0-3 of 20, so 0%-20%) -->
+      <div class="gantt-bar" style="left:0%; width:19%; background:linear-gradient(135deg, rgba(99,102,241,0.45), rgba(129,140,248,0.45));">Research</div>
+      <!-- Core Dev: Mar W1 - Apr W2 (20%-50%) -->
+      <div class="gantt-bar" style="left:20%; width:30%; background:linear-gradient(135deg, rgba(99,102,241,0.75), rgba(129,140,248,0.75));">Core Engine + Integrations</div>
+      <!-- UI + Test: Apr W3 - May W4 (50%-80%) -->
+      <div class="gantt-bar" style="left:51%; width:29%; background:linear-gradient(135deg, #6366f1, #818cf8);">UI + Testing + QA</div>
+    </div>
+  </div>
+
+  <!-- F2: Misuse/Abuse Case Generation — Feb to Apr -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F2</div>
+      <div class="feature-name">Misuse / Abuse Case Generation</div>
+      <div class="feature-tasks">9 tasks | CAPEC + ATT&CK</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Research: Feb W1-W3 -->
+      <div class="gantt-bar" style="left:0%; width:14%; background:linear-gradient(135deg, rgba(139,92,246,0.45), rgba(167,139,250,0.45));">Research</div>
+      <!-- Dev: Feb W4 - Mar W4 (15%-40%) -->
+      <div class="gantt-bar" style="left:15%; width:25%; background:linear-gradient(135deg, rgba(139,92,246,0.75), rgba(167,139,250,0.75));">AI Engine + Criteria</div>
+      <!-- Test: Apr W1-W4 (40%-60%) -->
+      <div class="gantt-bar" style="left:41%; width:18%; background:linear-gradient(135deg, #8b5cf6, #a78bfa);">UI + Export + QA</div>
+    </div>
+  </div>
+
+  <!-- F3: Security Acceptance Criteria — Mar to May -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F3</div>
+      <div class="feature-name">Security Acceptance Criteria</div>
+      <div class="feature-tasks">8 tasks | BDD/Gherkin</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Mar W1-W4: Design + Engine (20%-40%) -->
+      <div class="gantt-bar" style="left:20%; width:19%; background:linear-gradient(135deg, rgba(168,85,247,0.65), rgba(192,132,252,0.65));">Mapping Engine + Templates</div>
+      <!-- Apr W1 - May W2 (40%-65%) -->
+      <div class="gantt-bar" style="left:40%; width:28%; background:linear-gradient(135deg, #a855f7, #c084fc);">Integration + UI + QA</div>
+    </div>
+  </div>
+
+  <!-- F4: AI Threat Modeling L0/L1 — Feb to Jun -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F4</div>
+      <div class="feature-name">AI Threat Modeling (L0 & L1)</div>
+      <div class="feature-tasks">11 tasks | STRIDE + DFD</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Research: Feb W1-W3 -->
+      <div class="gantt-bar" style="left:0%; width:14%; background:linear-gradient(135deg, rgba(59,130,246,0.45), rgba(96,165,250,0.45));">Input Design</div>
+      <!-- Core: Feb W4 - Apr W4 (15%-60%) -->
+      <div class="gantt-bar" style="left:15%; width:44%; background:linear-gradient(135deg, rgba(59,130,246,0.75), rgba(96,165,250,0.75));">NLP Parser + L0/L1 + STRIDE</div>
+      <!-- Polish: May W1 - Jun W4 (60%-100%) -->
+      <div class="gantt-bar" style="left:60%; width:39%; background:linear-gradient(135deg, #3b82f6, #60a5fa);">Mitigations + Viz + Reports + QA</div>
+    </div>
+  </div>
+
+  <!-- F5: Commit Scanner — Mar to May -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F5</div>
+      <div class="feature-name">Commit Scanner</div>
+      <div class="feature-tasks">10 tasks | GitHub + GitLab</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Mar W1-W4: Patterns + Engine (20%-40%) -->
+      <div class="gantt-bar" style="left:20%; width:19%; background:linear-gradient(135deg, rgba(6,182,212,0.6), rgba(34,211,238,0.6));">Detection Engine + Patterns</div>
+      <!-- Apr W1-W4: Webhooks + History (40%-60%) -->
+      <div class="gantt-bar" style="left:40%; width:19%; background:linear-gradient(135deg, rgba(6,182,212,0.8), rgba(34,211,238,0.8));">Webhooks + History Scan</div>
+      <!-- May W1-W4: FP + Alerts + Dashboard (60%-80%) -->
+      <div class="gantt-bar" style="left:60%; width:19%; background:linear-gradient(135deg, #06b6d4, #22d3ee);">FP Reduction + Alerts + QA</div>
+    </div>
+  </div>
+
+  <!-- F6: Pipeline Policy-as-Code — Apr to Jun -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F6</div>
+      <div class="feature-name">Pipeline Policy-as-Code Validator</div>
+      <div class="feature-tasks">11 tasks | 4 CI/CD platforms</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Apr W1-W4: Schema + Parsers (40%-60%) -->
+      <div class="gantt-bar" style="left:40%; width:19%; background:linear-gradient(135deg, rgba(16,185,129,0.55), rgba(52,211,153,0.55));">Policy Schema + Parsers</div>
+      <!-- May W1-W4: More parsers + Rules (60%-80%) -->
+      <div class="gantt-bar" style="left:60%; width:19%; background:linear-gradient(135deg, rgba(16,185,129,0.75), rgba(52,211,153,0.75));">Validation Rules + Compliance</div>
+      <!-- Jun W1-W4: AI suggestions + UI (80%-100%) -->
+      <div class="gantt-bar" style="left:80%; width:19%; background:linear-gradient(135deg, #10b981, #34d399);">AI Fixes + Dashboard + QA</div>
+    </div>
+  </div>
+
+  <!-- F7: VS Code Plugin — Apr to Jun -->
+  <div class="gantt-row">
+    <div class="feature-info">
+      <div class="feature-id">F7</div>
+      <div class="feature-name">VS Code Plugin (Initial)</div>
+      <div class="feature-tasks">10 tasks | Python + JS/TS</div>
+    </div>
+    <div class="gantt-bar-area">
+      <!-- Apr W1-W4: Scaffolding + Python (40%-60%) -->
+      <div class="gantt-bar" style="left:40%; width:19%; background:linear-gradient(135deg, rgba(245,158,11,0.55), rgba(251,191,36,0.55));">Scaffolding + Python</div>
+      <!-- May W1-W4: JS/TS + Hints (60%-80%) -->
+      <div class="gantt-bar" style="left:60%; width:19%; background:linear-gradient(135deg, rgba(245,158,11,0.75), rgba(251,191,36,0.75));">JS/TS + Inline Hints</div>
+      <!-- Jun W1-W4: Fixes + Package + Beta (80%-100%) -->
+      <div class="gantt-bar" style="left:80%; width:19%; background:linear-gradient(135deg, #f59e0b, #fbbf24);">Remediation + Beta + Ship</div>
+    </div>
+  </div>
+
+  <!-- Milestones -->
+  <div class="milestone-row">
+    <div class="milestone-label">
+      <svg width="12" height="12" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" rx="1.5" fill="#ef4444" transform="rotate(45 6 6)"/></svg>
+      KEY MILESTONES
+    </div>
+    <div class="milestone-area">
+      <!-- End of Feb: Research complete -->
+      <div class="milestone-marker" style="left:18%;">
+        <div class="diamond"></div>
+        <div class="ms-label">Research<br/>Complete</div>
+      </div>
+      <!-- End of Mar: Core engines -->
+      <div class="milestone-marker" style="left:38%;">
+        <div class="diamond"></div>
+        <div class="ms-label">Core AI<br/>Engines</div>
+      </div>
+      <!-- End of Apr: Integrations -->
+      <div class="milestone-marker" style="left:58%;">
+        <div class="diamond"></div>
+        <div class="ms-label">Integrations<br/>Live</div>
+      </div>
+      <!-- End of May: Feature complete -->
+      <div class="milestone-marker" style="left:78%;">
+        <div class="diamond"></div>
+        <div class="ms-label">Feature<br/>Complete</div>
+      </div>
+      <!-- End of Jun: GA Release -->
+      <div class="milestone-marker" style="left:96%;">
+        <div class="diamond" style="background:#16a34a;"></div>
+        <div class="ms-label">Phase 1<br/>GA Release</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot f1"></div>F1: Security Requirements</div>
+    <div class="legend-item"><div class="legend-dot f2"></div>F2: Misuse Cases</div>
+    <div class="legend-item"><div class="legend-dot f3"></div>F3: Acceptance Criteria</div>
+    <div class="legend-item"><div class="legend-dot f4"></div>F4: Threat Modeling</div>
+    <div class="legend-item"><div class="legend-dot f5"></div>F5: Commit Scanner</div>
+    <div class="legend-item"><div class="legend-dot f6"></div>F6: Pipeline Validator</div>
+    <div class="legend-item"><div class="legend-dot f7"></div>F7: VS Code Plugin</div>
+  </div>
+
+  <div class="phase-desc">
+    <span><span class="swatch research"></span> Research / Design</span>
+    <span><span class="swatch dev"></span> Core Development</span>
+    <span><span class="swatch test"></span> Integration / Testing / QA</span>
+  </div>
+
+</div>
+
+<!-- Monthly Completion Target Table -->
+<div class="chart-container" style="margin-top:32px;">
+  <h2 style="font-size:18px; font-weight:700; color:#0f172a; margin-bottom:20px;">Monthly Completion Targets</h2>
+  <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead>
+      <tr style="border-bottom:2px solid #e2e8f0;">
+        <th style="text-align:left; padding:10px 8px; color:#64748b; font-weight:600;">Feature</th>
+        <th style="text-align:center; padding:10px 8px; color:#64748b; font-weight:600;">Feb</th>
+        <th style="text-align:center; padding:10px 8px; color:#64748b; font-weight:600;">Mar</th>
+        <th style="text-align:center; padding:10px 8px; color:#64748b; font-weight:600;">Apr</th>
+        <th style="text-align:center; padding:10px 8px; color:#64748b; font-weight:600;">May</th>
+        <th style="text-align:center; padding:10px 8px; color:#64748b; font-weight:600;">Jun</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F1: Security Requirements</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#eef2ff; color:#6366f1; padding:2px 10px; border-radius:10px; font-weight:600;">15%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#eef2ff; color:#6366f1; padding:2px 10px; border-radius:10px; font-weight:600;">40%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#eef2ff; color:#6366f1; padding:2px 10px; border-radius:10px; font-weight:600;">70%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#6366f1; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F2: Misuse/Abuse Cases</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#f3e8ff; color:#8b5cf6; padding:2px 10px; border-radius:10px; font-weight:600;">20%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#f3e8ff; color:#8b5cf6; padding:2px 10px; border-radius:10px; font-weight:600;">60%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#8b5cf6; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F3: Acceptance Criteria</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#fae8ff; color:#a855f7; padding:2px 10px; border-radius:10px; font-weight:600;">30%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#fae8ff; color:#a855f7; padding:2px 10px; border-radius:10px; font-weight:600;">70%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#a855f7; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F4: Threat Modeling L0/L1</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#dbeafe; color:#3b82f6; padding:2px 10px; border-radius:10px; font-weight:600;">10%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#dbeafe; color:#3b82f6; padding:2px 10px; border-radius:10px; font-weight:600;">30%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#dbeafe; color:#3b82f6; padding:2px 10px; border-radius:10px; font-weight:600;">55%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#dbeafe; color:#3b82f6; padding:2px 10px; border-radius:10px; font-weight:600;">80%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#3b82f6; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F5: Commit Scanner</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#cffafe; color:#06b6d4; padding:2px 10px; border-radius:10px; font-weight:600;">25%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#cffafe; color:#06b6d4; padding:2px 10px; border-radius:10px; font-weight:600;">55%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#06b6d4; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F6: Pipeline Validator</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#d1fae5; color:#10b981; padding:2px 10px; border-radius:10px; font-weight:600;">25%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#d1fae5; color:#10b981; padding:2px 10px; border-radius:10px; font-weight:600;">55%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#10b981; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:10px 8px; font-weight:500;">F7: VS Code Plugin</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px; color:#cbd5e1;">-</td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#fef3c7; color:#f59e0b; padding:2px 10px; border-radius:10px; font-weight:600;">20%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#fef3c7; color:#f59e0b; padding:2px 10px; border-radius:10px; font-weight:600;">55%</span></td>
+        <td style="text-align:center; padding:10px 8px;"><span style="background:#f59e0b; color:white; padding:2px 10px; border-radius:10px; font-weight:600;">100%</span></td>
+      </tr>
+      <tr style="border-top:2px solid #e2e8f0; background:#f8fafc;">
+        <td style="padding:12px 8px; font-weight:700; font-size:14px; color:#0f172a;">PHASE 1 OVERALL</td>
+        <td style="text-align:center; padding:12px 8px;"><span style="background:#0f172a; color:white; padding:3px 12px; border-radius:10px; font-weight:700;">12%</span></td>
+        <td style="text-align:center; padding:12px 8px;"><span style="background:#0f172a; color:white; padding:3px 12px; border-radius:10px; font-weight:700;">35%</span></td>
+        <td style="text-align:center; padding:12px 8px;"><span style="background:#0f172a; color:white; padding:3px 12px; border-radius:10px; font-weight:700;">58%</span></td>
+        <td style="text-align:center; padding:12px 8px;"><span style="background:#0f172a; color:white; padding:3px 12px; border-radius:10px; font-weight:700;">82%</span></td>
+        <td style="text-align:center; padding:12px 8px;"><span style="background:#16a34a; color:white; padding:3px 12px; border-radius:10px; font-weight:700;">100%</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
