@@ -2147,7 +2147,9 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         generate_eraser_diagrams: bool = False,  # Disabled by default - requires API key
         diagram_theme: str = "light",
         progress_callback: Optional[callable] = None,
-        quick_mode: bool = False  # Skip AI enrichment for faster generation
+        quick_mode: bool = False,  # Skip AI enrichment for faster generation
+        threat_intel_context: str = "",  # Sector + client threat intel for AI prompts
+        securereq_context: str = "",  # SecReq abuse cases and requirements
     ) -> Dict[str, Any]:
         """
         Complete threat modeling workflow with AI-powered analysis.
@@ -2186,6 +2188,13 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         # Build system context once for AI prompts
         system_context = self._build_system_context(parsed_arch)
+
+        # Enrich system context with threat intel and SecReq data
+        if threat_intel_context:
+            system_context += f"\n\n=== THREAT INTELLIGENCE ({industry.upper()} SECTOR) ===\n{threat_intel_context}"
+        if securereq_context:
+            system_context += f"\n\n=== SECURITY REQUIREMENTS ANALYSIS ===\n{securereq_context}"
+
         update_progress("dfd", 25, "Generating data flow diagrams...")
 
         # Generate DFD structures

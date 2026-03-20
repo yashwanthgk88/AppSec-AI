@@ -59,6 +59,7 @@ from routers import enterprise_rules
 from routers import securereq
 from routers import integrations
 from routers import github_monitor
+from routers import threat_intel
 
 # Pydantic schemas
 from pydantic import BaseModel, EmailStr
@@ -119,6 +120,7 @@ app.include_router(enterprise_rules.router)
 app.include_router(securereq.router)
 app.include_router(integrations.router)
 app.include_router(github_monitor.router)
+app.include_router(threat_intel.router)
 
 # Initialize AI configuration from database at startup
 def load_ai_config_from_database():
@@ -369,6 +371,9 @@ async def startup_event():
 
     # Migrate GitHub monitor tables
     _migrate_github_monitor_tables()
+
+    # Migrate threat intel tables
+    _migrate_threat_intel_tables()
 
 
 def _migrate_and_seed_insider_threat_rules():
@@ -1341,6 +1346,62 @@ def _migrate_github_monitor_tables():
     print("[MIGRATION] GitHub Monitor tables ready")
 
 
+def _migrate_threat_intel_tables():
+    """Create threat intel tables and add industry_sector to projects."""
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    # Client threat intel table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS client_threat_intel (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            intel_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            severity TEXT DEFAULT 'medium',
+            threat_category TEXT,
+            mitre_techniques TEXT,
+            regulatory_impact TEXT,
+            recommended_controls TEXT,
+            tags TEXT,
+            source TEXT DEFAULT 'client_upload',
+            active INTEGER DEFAULT 1,
+            created_by TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Threat-requirement coverage links
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS threat_requirement_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            threat_id TEXT NOT NULL,
+            threat_title TEXT,
+            requirement_id TEXT,
+            requirement_text TEXT,
+            coverage_status TEXT DEFAULT 'uncovered',
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # Add industry_sector to projects if not present
+    cursor.execute("PRAGMA table_info(projects)")
+    project_cols = [r[1] for r in cursor.fetchall()]
+    if "industry_sector" not in project_cols:
+        cursor.execute("ALTER TABLE projects ADD COLUMN industry_sector TEXT DEFAULT 'technology'")
+
+    # Indexes
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cti_project ON client_threat_intel(project_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_cti_type ON client_threat_intel(intel_type)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_trl_project ON threat_requirement_links(project_id)")
+
+    conn.commit()
+    conn.close()
+    print("[MIGRATION] Threat intel tables ready")
+
+
 # Health check
 @app.get("/health")
 async def health_check():
@@ -2125,6 +2186,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
         quick_mode: If True, skip AI enrichment for faster generation (uses templates)
     """
     from models.database import SessionLocal
+    from models.models import SecurityAnalysis, UserStory
+    from services.sector_threat_intel import get_sector_threats, format_intel_for_prompt
 
     mode_str = "Quick Mode" if quick_mode else "Full Mode"
     logger.info(f"[Threat Model BG] Starting background generation for project {project_id} ({mode_str})")
@@ -2142,6 +2205,95 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
 
     db = SessionLocal()
     try:
+        # --- Gather threat intel context ---
+        threat_intel_context = ""
+        securereq_context = ""
+        industry = "technology"
+
+        # Get project's industry sector
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if project:
+            industry = getattr(project, "industry_sector", "technology") or "technology"
+
+        # Sector threat intel
+        sector_threats = get_sector_threats(industry)
+        if sector_threats:
+            threat_intel_context = format_intel_for_prompt(sector_threats, max_entries=12)
+            logger.info(f"[Threat Model BG] Loaded {len(sector_threats)} sector threats for '{industry}'")
+
+        # Client-uploaded threat intel
+        try:
+            import json as _json
+            conn = sqlite3.connect(get_db_path())
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM client_threat_intel WHERE project_id = ? AND active = 1 ORDER BY severity DESC LIMIT 15",
+                (project_id,)
+            )
+            client_rows = [dict(r) for r in cursor.fetchall()]
+            conn.close()
+
+            if client_rows:
+                client_intel = []
+                for row in client_rows:
+                    for field in ("mitre_techniques", "regulatory_impact", "recommended_controls", "tags"):
+                        if row.get(field):
+                            try:
+                                row[field] = _json.loads(row[field])
+                            except Exception:
+                                row[field] = []
+                    client_intel.append(row)
+
+                client_context = format_intel_for_prompt(client_intel, max_entries=10)
+                threat_intel_context += f"\n\n=== CLIENT-SPECIFIC THREAT INTELLIGENCE ===\n{client_context}"
+                logger.info(f"[Threat Model BG] Loaded {len(client_rows)} client threat intel entries")
+        except Exception as e:
+            logger.warning(f"[Threat Model BG] Could not load client threat intel: {e}")
+
+        # SecReq context (abuse cases + requirements from analyzed user stories)
+        try:
+            analyses = (
+                db.query(SecurityAnalysis)
+                .join(UserStory)
+                .filter(UserStory.project_id == project_id)
+                .order_by(SecurityAnalysis.id.desc())
+                .all()
+            )
+            if analyses:
+                seen_stories = set()
+                lines = []
+                for analysis in analyses:
+                    if analysis.user_story_id in seen_stories:
+                        continue
+                    seen_stories.add(analysis.user_story_id)
+
+                    # Abuse cases
+                    if analysis.abuse_cases and isinstance(analysis.abuse_cases, list):
+                        for ac in analysis.abuse_cases[:5]:
+                            title = ac.get("threat") or ac.get("title", "")
+                            impact = ac.get("impact", "")
+                            actor = ac.get("actor") or ac.get("threat_actor", "")
+                            desc = ac.get("description", "")[:200]
+                            stride = ac.get("stride_category", "")
+                            lines.append(f"- [{impact}] {title} (Actor: {actor}, STRIDE: {stride})")
+                            if desc:
+                                lines.append(f"  {desc}")
+
+                    # Security requirements
+                    if analysis.security_requirements and isinstance(analysis.security_requirements, list):
+                        for req in analysis.security_requirements[:5]:
+                            text = req.get("requirement") or req.get("text", "")
+                            priority = req.get("priority", "")
+                            category = req.get("category", "")
+                            lines.append(f"- [{priority}] [{category}] {text[:200]}")
+
+                if lines:
+                    securereq_context = "\n".join(lines)
+                    logger.info(f"[Threat Model BG] Loaded SecReq context from {len(seen_stories)} stories")
+        except Exception as e:
+            logger.warning(f"[Threat Model BG] Could not load SecReq context: {e}")
+
         # Delete existing threat model if any
         existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
         if existing:
@@ -2149,13 +2301,16 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             db.commit()
             logger.info(f"[Threat Model BG] Deleted existing threat model")
 
-        logger.info(f"[Threat Model BG] Calling generate_threat_model (quick_mode={quick_mode})...")
+        logger.info(f"[Threat Model BG] Calling generate_threat_model (quick_mode={quick_mode}, industry={industry})...")
         threat_model_data = threat_service.generate_threat_model(
             architecture_doc,
             project_name,
+            industry=industry,
             progress_callback=progress_callback,
-            generate_eraser_diagrams=threat_service.eraser_enabled and not quick_mode,  # Skip in quick mode
-            quick_mode=quick_mode
+            generate_eraser_diagrams=threat_service.eraser_enabled and not quick_mode,
+            quick_mode=quick_mode,
+            threat_intel_context=threat_intel_context,
+            securereq_context=securereq_context,
         )
         logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
         logger.info(f"[Threat Model BG] Data keys: {list(threat_model_data.keys())}")

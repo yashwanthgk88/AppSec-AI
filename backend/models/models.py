@@ -66,6 +66,7 @@ class Project(Base):
     repository_url = Column(String(500))
     technology_stack = Column(JSON)  # ["Python", "React", "PostgreSQL"]
     compliance_targets = Column(JSON)  # ["OWASP Top 10", "SANS CWE-25"]
+    industry_sector = Column(String(50), default="technology")  # banking, healthcare, manufacturing, etc.
     risk_score = Column(Float, default=0.0)
     owner_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
