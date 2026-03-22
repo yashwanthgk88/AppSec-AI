@@ -21,6 +21,8 @@ from services.sector_threat_intel import (
     get_sector_threats_by_type,
     SUPPORTED_SECTORS,
     format_intel_for_prompt,
+    get_mitre_enricher,
+    get_cisa_enricher,
 )
 
 logger = logging.getLogger(__name__)
@@ -444,4 +446,145 @@ async def get_securereq_context(
         "risk_score_avg": round(sum(risk_scores) / len(risk_scores), 1) if risk_scores else 0,
         "prompt_context": prompt_context,
         "stories_analyzed": len(seen_stories),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Live Enrichment Endpoints
+# ---------------------------------------------------------------------------
+@router.post("/enrich/load-mitre")
+async def load_mitre_attack(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Load MITRE ATT&CK Enterprise techniques from STIX feed.
+
+    This must be called before validate or enrich endpoints.
+    Data is cached in memory for the server lifetime.
+    """
+    enricher = get_mitre_enricher()
+    count = await enricher.load_techniques()
+    if count == 0:
+        raise HTTPException(status_code=502, detail="Failed to fetch MITRE ATT&CK data")
+    return {"loaded_techniques": count, "source": "MITRE ATT&CK Enterprise v15 (STIX)"}
+
+
+@router.get("/enrich/validate/{sector}")
+async def validate_sector_mitre(
+    sector: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Validate all MITRE technique IDs in a sector's threat intel against live ATT&CK data.
+
+    Call POST /enrich/load-mitre first to populate the technique cache.
+    """
+    enricher = get_mitre_enricher()
+    if not enricher._loaded:
+        count = await enricher.load_techniques()
+        if count == 0:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not load MITRE ATT&CK data. Try POST /enrich/load-mitre first.",
+            )
+
+    sector_lower = sector.lower()
+    if sector_lower not in SUPPORTED_SECTORS:
+        raise HTTPException(status_code=404, detail=f"Sector '{sector}' not supported.")
+
+    report = enricher.validate_sector_intel(sector_lower)
+    return report
+
+
+@router.get("/enrich/sector/{sector}")
+async def get_enriched_sector_intel(
+    sector: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get sector threat intel enriched with live MITRE ATT&CK metadata.
+
+    Each technique in mitre_details will have validated=True/False plus
+    real tactic, platform, and data source info from ATT&CK.
+    """
+    enricher = get_mitre_enricher()
+    if not enricher._loaded:
+        count = await enricher.load_techniques()
+        if count == 0:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not load MITRE ATT&CK data.",
+            )
+
+    sector_lower = sector.lower()
+    if sector_lower not in SUPPORTED_SECTORS:
+        raise HTTPException(status_code=404, detail=f"Sector '{sector}' not supported.")
+
+    threats = get_sector_threats(sector_lower)
+    enriched = [enricher.enrich_threat_entry(t) for t in threats]
+
+    return {
+        "sector": sector_lower,
+        "entries": enriched,
+        "total": len(enriched),
+        "enrichment_source": "MITRE ATT&CK Enterprise STIX",
+    }
+
+
+@router.get("/enrich/technique/{technique_id}")
+async def lookup_mitre_technique(
+    technique_id: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Look up a single MITRE ATT&CK technique by ID (e.g., T1078, T1110.004)."""
+    enricher = get_mitre_enricher()
+    if not enricher._loaded:
+        count = await enricher.load_techniques()
+        if count == 0:
+            raise HTTPException(status_code=502, detail="Could not load MITRE ATT&CK data.")
+
+    technique = enricher.get_technique(technique_id)
+    if not technique:
+        raise HTTPException(status_code=404, detail=f"Technique {technique_id} not found in ATT&CK Enterprise.")
+
+    return technique
+
+
+@router.post("/enrich/load-kev")
+async def load_cisa_kev(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Load CISA Known Exploited Vulnerabilities catalog."""
+    enricher = get_cisa_enricher()
+    count = await enricher.load_kev()
+    if count == 0:
+        raise HTTPException(status_code=502, detail="Failed to fetch CISA KEV data")
+    return {"loaded_kevs": count, "source": "CISA KEV Catalog"}
+
+
+@router.get("/enrich/kev/{sector}")
+async def get_sector_kevs(
+    sector: str,
+    max_results: int = Query(default=20, le=100),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get CISA KEV entries relevant to a sector based on vendor/product matching.
+
+    Call POST /enrich/load-kev first to populate the KEV cache.
+    """
+    enricher = get_cisa_enricher()
+    if not enricher._loaded:
+        count = await enricher.load_kev()
+        if count == 0:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not load CISA KEV data. Try POST /enrich/load-kev first.",
+            )
+
+    sector_lower = sector.lower()
+    kevs = enricher.get_sector_relevant_kevs(sector_lower, max_results)
+
+    return {
+        "sector": sector_lower,
+        "entries": kevs,
+        "total": len(kevs),
+        "source": "CISA KEV Catalog",
+        "note": "Filtered by vendor/product keywords relevant to the sector",
     }
