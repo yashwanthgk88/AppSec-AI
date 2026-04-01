@@ -2146,7 +2146,9 @@ async def get_threat_model(
         "kill_chain_coverage": kill_chain.get("coverage_analysis", {}).get("coverage_percentage", 0),
         "attack_trees_count": len(attack_trees),
         "eraser_diagrams_enabled": eraser_diagrams.get("enabled", False),
-        "eraser_diagrams_count": eraser_diagrams.get("stats", {}).get("successful", 0)
+        "eraser_diagrams_count": eraser_diagrams.get("stats", {}).get("successful", 0),
+        # SecReq traceability
+        "securereq_coverage": (threat_model.stride_analysis or {}).get("securereq_coverage")
     }
 
 
@@ -2252,6 +2254,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             logger.warning(f"[Threat Model BG] Could not load client threat intel: {e}")
 
         # SecReq context (abuse cases + requirements from analyzed user stories)
+        securereq_abuse_cases = []
+        securereq_requirements = []
         try:
             analyses = (
                 db.query(SecurityAnalysis)
@@ -2271,6 +2275,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
                     # Abuse cases
                     if analysis.abuse_cases and isinstance(analysis.abuse_cases, list):
                         for ac in analysis.abuse_cases[:5]:
+                            securereq_abuse_cases.append(ac)
                             title = ac.get("threat") or ac.get("title", "")
                             impact = ac.get("impact", "")
                             actor = ac.get("actor") or ac.get("threat_actor", "")
@@ -2283,6 +2288,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
                     # Security requirements
                     if analysis.security_requirements and isinstance(analysis.security_requirements, list):
                         for req in analysis.security_requirements[:5]:
+                            securereq_requirements.append(req)
                             text = req.get("requirement") or req.get("text", "")
                             priority = req.get("priority", "")
                             category = req.get("category", "")
@@ -2290,7 +2296,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
 
                 if lines:
                     securereq_context = "\n".join(lines)
-                    logger.info(f"[Threat Model BG] Loaded SecReq context from {len(seen_stories)} stories")
+                    logger.info(f"[Threat Model BG] Loaded SecReq context from {len(seen_stories)} stories ({len(securereq_abuse_cases)} abuse cases, {len(securereq_requirements)} requirements)")
         except Exception as e:
             logger.warning(f"[Threat Model BG] Could not load SecReq context: {e}")
 
@@ -2311,6 +2317,8 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             quick_mode=quick_mode,
             threat_intel_context=threat_intel_context,
             securereq_context=securereq_context,
+            securereq_abuse_cases=securereq_abuse_cases if securereq_abuse_cases else None,
+            securereq_requirements=securereq_requirements if securereq_requirements else None,
         )
         logger.info(f"[Threat Model BG] Generated threat model with {threat_model_data.get('threat_count', 0)} threats")
         logger.info(f"[Threat Model BG] Data keys: {list(threat_model_data.keys())}")
@@ -2341,6 +2349,13 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
             kill_chain_analysis=threat_model_data.get('kill_chain_analysis'),
             eraser_diagrams=threat_model_data.get('eraser_diagrams')
         )
+        # Store securereq_coverage in stride_analysis JSON if present
+        if threat_model_data.get('securereq_coverage'):
+            stride_with_coverage = dict(threat_model_data['stride_analysis'])
+            stride_with_coverage['securereq_coverage'] = threat_model_data['securereq_coverage']
+            threat_model.stride_analysis = stride_with_coverage
+            logger.info(f"[Threat Model BG] SecReq coverage: {threat_model_data['securereq_coverage'].get('summary', {})}")
+
         db.add(threat_model)
         db.commit()
         db.refresh(threat_model)

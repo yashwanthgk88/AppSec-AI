@@ -769,6 +769,183 @@ For each component, determine the most appropriate category from: api, database,
 
         return flows
 
+    def _inject_securereq_threats(
+        self,
+        stride_analysis: Dict[str, List[Dict]],
+        abuse_cases: List[Dict],
+        requirements: List[Dict],
+    ) -> tuple:
+        """Inject explicit threats from SecReq abuse cases and build a coverage matrix.
+
+        Each abuse case becomes a dedicated threat in the STRIDE analysis with
+        source='securereq' and links back to abuse_case_id and requirement IDs.
+        Returns (updated_stride_analysis, coverage_matrix).
+        """
+        # Normalize STRIDE category names
+        stride_key_map = {
+            "spoofing": "Spoofing",
+            "tampering": "Tampering",
+            "repudiation": "Repudiation",
+            "information disclosure": "Information Disclosure",
+            "denial of service": "Denial of Service",
+            "elevation of privilege": "Elevation of Privilege",
+        }
+
+        # Map severity from impact text
+        def _impact_to_severity(impact: str) -> str:
+            impact_lower = (impact or "").lower()
+            if any(w in impact_lower for w in ["critical", "catastrophic", "$10m", "criminal", "charter"]):
+                return "critical"
+            if any(w in impact_lower for w in ["high", "significant", "major", "regulatory"]):
+                return "high"
+            if any(w in impact_lower for w in ["low", "minor", "minimal"]):
+                return "low"
+            return "medium"
+
+        # Map likelihood text to risk score
+        def _likelihood_to_score(likelihood: str, severity: str) -> float:
+            sev_base = {"critical": 8, "high": 6, "medium": 4, "low": 2}.get(severity, 4)
+            like_mult = {"critical": 1.2, "high": 1.1, "medium": 1.0, "low": 0.8}.get(
+                (likelihood or "medium").lower(), 1.0
+            )
+            return min(round(sev_base * like_mult, 1), 10.0)
+
+        # Build requirement lookup by category for linking
+        req_by_category: Dict[str, List[Dict]] = {}
+        for req in requirements:
+            cat = (req.get("category") or "").lower()
+            req_by_category.setdefault(cat, []).append(req)
+
+        # Category mapping from requirement categories to STRIDE
+        req_cat_to_stride = {
+            "access control": "Elevation of Privilege",
+            "credential management": "Spoofing",
+            "data integrity": "Tampering",
+            "data protection": "Information Disclosure",
+            "transport security": "Information Disclosure",
+            "audit and logging": "Repudiation",
+            "audit & logging": "Repudiation",
+            "session management": "Spoofing",
+            "availability": "Denial of Service",
+            "input validation": "Tampering",
+            "business logic": "Tampering",
+            "data loss prevention": "Information Disclosure",
+            "compliance automation": "Repudiation",
+        }
+
+        injected_count = 0
+        for ac in abuse_cases:
+            ac_id = ac.get("id", f"AC-{injected_count + 1:03d}")
+            stride_cat_raw = (ac.get("stride_category") or "").strip()
+            stride_cat = stride_key_map.get(stride_cat_raw.lower(), stride_cat_raw)
+
+            # Ensure the category exists in stride_analysis
+            if stride_cat not in stride_analysis:
+                # Try to find closest match
+                for k in stride_analysis:
+                    if k.lower() == stride_cat.lower():
+                        stride_cat = k
+                        break
+                else:
+                    stride_cat = "Elevation of Privilege"  # fallback
+
+            severity = _impact_to_severity(ac.get("impact", ""))
+            likelihood = (ac.get("likelihood") or "medium").lower()
+
+            # Find related requirements
+            related_req_ids = []
+            # Match by stride category
+            for req_cat, req_stride in req_cat_to_stride.items():
+                if req_stride.lower() == stride_cat.lower():
+                    for req in req_by_category.get(req_cat, []):
+                        related_req_ids.append(req.get("id", ""))
+            # Also match by text overlap
+            ac_text = (ac.get("description") or "").lower()
+            for req in requirements:
+                req_text = (req.get("requirement") or req.get("text") or "").lower()
+                # Check if requirement text references the abuse case topic
+                common_words = set(ac_text.split()) & set(req_text.split())
+                significant = common_words - {"the", "a", "an", "to", "for", "in", "of", "and", "or", "is", "be", "must", "shall", "should", "with", "all", "from", "by", "on", "at", "this", "that"}
+                if len(significant) >= 5:
+                    req_id = req.get("id", "")
+                    if req_id and req_id not in related_req_ids:
+                        related_req_ids.append(req_id)
+
+            # Build mitigation from related requirements
+            mitigation_parts = []
+            for req in requirements:
+                if req.get("id") in related_req_ids:
+                    mitigation_parts.append(f"[{req.get('id')}] {req.get('requirement', req.get('text', ''))}")
+
+            threat_obj = {
+                "source": "securereq",
+                "abuse_case_id": ac_id,
+                "related_requirement_ids": related_req_ids,
+                "component": "System-wide",
+                "component_type": "securereq",
+                "category": stride_cat,
+                "threat": ac.get("threat", ac.get("title", "Unknown")),
+                "description": ac.get("description", ""),
+                "severity": severity,
+                "risk_score": _likelihood_to_score(likelihood, severity),
+                "likelihood": likelihood,
+                "impact": ac.get("impact", ""),
+                "attack_vector": ac.get("attack_vector", ""),
+                "actor": ac.get("actor", ""),
+                "mitigation": "; ".join(mitigation_parts) if mitigation_parts else "See linked security requirements",
+                "detection": "",
+            }
+
+            stride_analysis[stride_cat].append(threat_obj)
+            injected_count += 1
+
+        # Build coverage matrix
+        coverage_reqs = []
+        for req in requirements:
+            req_id = req.get("id", "")
+            covered_by = []
+            # Check SecReq-derived threats
+            for cat, threats in stride_analysis.items():
+                for t in threats:
+                    if t.get("source") == "securereq" and req_id in (t.get("related_requirement_ids") or []):
+                        covered_by.append(f"secreq_{t.get('abuse_case_id', '')}")
+                    # Check AI-generated threats by text match
+                    elif t.get("source") != "securereq":
+                        req_text = (req.get("requirement") or req.get("text") or "").lower()
+                        t_text = (t.get("mitigation") or "").lower() + " " + (t.get("description") or "").lower()
+                        # Simple keyword overlap
+                        req_keywords = set(w for w in req_text.split() if len(w) > 4) - {"shall", "should", "implement", "ensure"}
+                        if len(req_keywords & set(t_text.split())) >= 3:
+                            threat_id = t.get("id", f"{cat}_{threats.index(t)}")
+                            if threat_id not in covered_by:
+                                covered_by.append(threat_id)
+
+            status = "covered" if covered_by else "uncovered"
+            coverage_reqs.append({
+                "id": req_id,
+                "requirement": req.get("requirement", req.get("text", "")),
+                "priority": req.get("priority", ""),
+                "category": req.get("category", ""),
+                "covered_by_threats": covered_by,
+                "coverage_status": status,
+            })
+
+        covered_count = sum(1 for r in coverage_reqs if r["coverage_status"] == "covered")
+        total_reqs = len(coverage_reqs)
+
+        coverage_matrix = {
+            "requirements": coverage_reqs,
+            "summary": {
+                "total_requirements": total_reqs,
+                "covered": covered_count,
+                "uncovered": total_reqs - covered_count,
+                "coverage_percentage": round(covered_count / total_reqs * 100, 1) if total_reqs else 0,
+            },
+            "securereq_threats_injected": injected_count,
+        }
+
+        return stride_analysis, coverage_matrix
+
     def generate_stride_analysis(self, parsed_arch: Dict[str, Any], system_context: str = "", skip_ai_enrichment: bool = False) -> Dict[str, List[Dict]]:
         """Generate comprehensive STRIDE analysis with AI-powered threat enrichment
 
@@ -2150,6 +2327,8 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
         quick_mode: bool = False,  # Skip AI enrichment for faster generation
         threat_intel_context: str = "",  # Sector + client threat intel for AI prompts
         securereq_context: str = "",  # SecReq abuse cases and requirements
+        securereq_abuse_cases: Optional[List[Dict]] = None,  # Structured abuse case data
+        securereq_requirements: Optional[List[Dict]] = None,  # Structured requirement data
     ) -> Dict[str, Any]:
         """
         Complete threat modeling workflow with AI-powered analysis.
@@ -2211,6 +2390,14 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
         # Generate STRIDE analysis (skip AI enrichment in quick mode)
         stride_analysis = self.generate_stride_analysis(parsed_arch, system_context, skip_ai_enrichment=quick_mode)
+
+        # Inject SecReq-derived threats and build coverage matrix
+        securereq_coverage = None
+        if securereq_abuse_cases:
+            stride_analysis, securereq_coverage = self._inject_securereq_threats(
+                stride_analysis, securereq_abuse_cases, securereq_requirements or []
+            )
+            logger.info(f"[ThreatModelingService] Injected {len(securereq_abuse_cases)} SecReq-derived threats, coverage: {securereq_coverage.get('summary', {}).get('coverage_percentage', 0)}%")
 
         if quick_mode:
             update_progress("mitre", 60, "Mapping to MITRE ATT&CK...")
@@ -2308,6 +2495,9 @@ Technology Stack: {', '.join(parsed_arch.get('technology_stack', []))}
 
             # Professional Eraser AI Diagrams
             "eraser_diagrams": eraser_diagrams,
+
+            # SecReq traceability
+            "securereq_coverage": securereq_coverage,
 
             # Risk metrics
             "threat_count": total_threats,

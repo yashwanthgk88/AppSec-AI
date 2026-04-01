@@ -628,6 +628,16 @@ from services.ado_client import ADOClient
 from services.snow_client import SNOWClient
 
 
+class ThreatToRequirementRequest(BaseModel):
+    project_id: int
+    threat_id: str
+    threat_title: str
+    threat_description: str
+    stride_category: Optional[str] = None
+    severity: Optional[str] = "High"
+    mitigations: Optional[List[str]] = None
+
+
 class SyncRequest(BaseModel):
     external_project_id: str
     issue_types: Optional[List[str]] = None
@@ -1163,4 +1173,133 @@ async def get_feedback_stats(
         "abuse_case_negative": stats.get("abuse_case_negative", 0),
         "security_requirement_positive": stats.get("security_requirement_positive", 0),
         "security_requirement_negative": stats.get("security_requirement_negative", 0)
+    }
+
+
+# ==================== Threat → Security Requirement Conversion ====================
+
+STRIDE_TO_REQUIREMENT_CATEGORY = {
+    "spoofing": "Authentication",
+    "tampering": "Input Validation",
+    "repudiation": "Audit & Logging",
+    "information_disclosure": "Data Protection",
+    "denial_of_service": "Availability",
+    "elevation_of_privilege": "Authorization",
+}
+
+
+@router.post("/from-threat")
+async def convert_threat_to_requirement(
+    request: ThreatToRequirementRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Convert a threat from the threat model into a security requirement.
+
+    Creates or finds a synthetic 'Threat-Derived Requirements' user story for the project,
+    then adds a SecurityAnalysis record with the derived requirement.
+    """
+    project = db.query(Project).filter(
+        Project.id == request.project_id,
+        Project.owner_id == current_user.id
+    ).first()
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Find or create the synthetic user story for threat-derived requirements
+    synthetic_title = "Threat-Derived Security Requirements"
+    synthetic_story = db.query(UserStory).filter(
+        UserStory.project_id == request.project_id,
+        UserStory.title == synthetic_title,
+        UserStory.source == StorySource.MANUAL
+    ).first()
+
+    if not synthetic_story:
+        synthetic_story = UserStory(
+            project_id=request.project_id,
+            title=synthetic_title,
+            description="Auto-generated story containing security requirements derived from threat model analysis.",
+            source=StorySource.MANUAL,
+            created_by=current_user.id,
+            is_analyzed=True
+        )
+        db.add(synthetic_story)
+        db.commit()
+        db.refresh(synthetic_story)
+
+    # Build the security requirement from the threat
+    stride_cat = (request.stride_category or "").lower().replace(" ", "_")
+    category = STRIDE_TO_REQUIREMENT_CATEGORY.get(stride_cat, "Security")
+
+    # Build requirement text from threat
+    req_text = f"The system SHALL mitigate {request.threat_title}"
+    if request.mitigations:
+        req_text += f" by implementing: {'; '.join(request.mitigations)}"
+
+    # Determine priority from severity
+    severity_to_priority = {"Critical": "Must Have", "High": "Must Have", "Medium": "Should Have", "Low": "Nice to Have"}
+    priority = severity_to_priority.get(request.severity, "Should Have")
+
+    requirement = {
+        "id": f"SR-T-{request.threat_id[:8]}",
+        "text": req_text,
+        "requirement": req_text,
+        "category": category,
+        "priority": priority,
+        "source": "threat_model",
+        "source_threat_id": request.threat_id,
+        "source_threat_title": request.threat_title,
+        "stride_category": request.stride_category,
+        "details": request.threat_description,
+    }
+
+    # Get latest analysis for this synthetic story, or create first one
+    latest_analysis = db.query(SecurityAnalysis).filter(
+        SecurityAnalysis.user_story_id == synthetic_story.id
+    ).order_by(SecurityAnalysis.version.desc()).first()
+
+    if latest_analysis:
+        # Append to existing requirements
+        existing_reqs = latest_analysis.security_requirements or []
+        # Check for duplicate by source_threat_id
+        if any(r.get("source_threat_id") == request.threat_id for r in existing_reqs):
+            return {
+                "success": False,
+                "message": f"Requirement already exists for threat {request.threat_id}",
+                "requirement": requirement,
+                "story_id": synthetic_story.id,
+                "analysis_id": latest_analysis.id
+            }
+        existing_reqs.append(requirement)
+        latest_analysis.security_requirements = existing_reqs
+        latest_analysis.updated_at = datetime.utcnow()
+        # Update story metrics
+        synthetic_story.requirement_count = len(existing_reqs)
+        db.commit()
+        analysis_id = latest_analysis.id
+    else:
+        # Create new analysis
+        analysis = SecurityAnalysis(
+            user_story_id=synthetic_story.id,
+            version=1,
+            abuse_cases=[],
+            stride_threats={},
+            security_requirements=[requirement],
+            risk_score=0,
+            risk_factors=[],
+            ai_model_used="threat_conversion"
+        )
+        db.add(analysis)
+        synthetic_story.requirement_count = 1
+        db.commit()
+        db.refresh(analysis)
+        analysis_id = analysis.id
+
+    return {
+        "success": True,
+        "message": f"Created security requirement from threat '{request.threat_title}'",
+        "requirement": requirement,
+        "story_id": synthetic_story.id,
+        "analysis_id": analysis_id
     }
