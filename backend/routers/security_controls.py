@@ -375,6 +375,92 @@ async def get_controls_coverage(
     }
 
 
+# ==================== Threats List & Set ====================
+
+@router.get("/projects/{project_id}/threats")
+async def list_project_threats(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Return all threats from the project's threat model for selection UI."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    threat_model = db.query(ThreatModel).filter(
+        ThreatModel.project_id == project_id
+    ).first()
+    if not threat_model or not threat_model.stride_analysis:
+        return []
+
+    threats = []
+    for category, items in threat_model.stride_analysis.items():
+        if category == "securereq_coverage" or not isinstance(items, list):
+            continue
+        for i, t in enumerate(items):
+            threats.append({
+                "id": t.get("id", f"{category}_{i}"),
+                "title": t.get("threat", t.get("name", "Unknown")),
+                "category": t.get("category", category),
+                "severity": t.get("severity", "medium"),
+                "component": t.get("component", ""),
+                "description": (t.get("description", "") or "")[:150],
+            })
+    return threats
+
+
+class SetThreatsRequest(BaseModel):
+    threat_ids: List[str]
+
+
+@router.put("/controls/{control_id}/threats")
+async def set_control_threats(
+    control_id: int,
+    data: SetThreatsRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Replace all linked threats for a control (supports select/deselect)."""
+    control = db.query(SecurityControl).join(Project).filter(
+        SecurityControl.id == control_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not control:
+        raise HTTPException(status_code=404, detail="Control not found")
+
+    control.linked_threat_ids = data.threat_ids
+    db.commit()
+    return {"message": f"Updated linked threats for '{control.name}'", "linked_threat_ids": data.threat_ids}
+
+
+class SetRequirementsRequest(BaseModel):
+    requirement_ids: List[str]
+
+
+@router.put("/controls/{control_id}/requirements")
+async def set_control_requirements(
+    control_id: int,
+    data: SetRequirementsRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Replace all linked requirements for a control."""
+    control = db.query(SecurityControl).join(Project).filter(
+        SecurityControl.id == control_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not control:
+        raise HTTPException(status_code=404, detail="Control not found")
+
+    control.linked_requirement_ids = data.requirement_ids
+    db.commit()
+    return {"message": f"Updated linked requirements for '{control.name}'", "linked_requirement_ids": data.requirement_ids}
+
+
 # ==================== AI Auto-Map ====================
 
 STRIDE_CATEGORY_ALIASES = {
@@ -484,20 +570,14 @@ async def auto_map_control(
     # Sort by relevance descending
     matched_threats.sort(key=lambda t: t["relevance_score"], reverse=True)
 
-    # Auto-link threats above 0.4 threshold
-    auto_linked = [t["threat_id"] for t in matched_threats if t["relevance_score"] >= 0.4]
-    if auto_linked:
-        existing = control.linked_threat_ids or []
-        merged = list(set(existing + auto_linked))
-        control.linked_threat_ids = merged
-        db.commit()
-        logger.info(f"Auto-mapped control '{control.name}' to {len(auto_linked)} threats")
+    # Return suggestions — do NOT auto-link. Let the frontend handle user selection.
+    suggested = [t["threat_id"] for t in matched_threats if t["relevance_score"] >= 0.4]
 
     return {
         "control_id": control_id,
         "control_name": control.name,
         "total_threats_scored": len(matched_threats),
-        "auto_linked_count": len(auto_linked),
-        "auto_linked_threshold": 0.4,
-        "matched_threats": matched_threats[:20],  # Top 20
+        "suggested_count": len(suggested),
+        "suggested_ids": suggested,
+        "matched_threats": matched_threats[:20],
     }

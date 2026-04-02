@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Shield, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react'
+import { Shield, Plus, Trash2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp, Sparkles, Loader2, Search, Check, Link2 } from 'lucide-react'
 import axios from 'axios'
 
 interface SecurityControl {
@@ -18,6 +18,15 @@ interface SecurityControl {
   linked_requirement_ids: string[] | null
   created_at: string | null
   updated_at: string | null
+}
+
+interface ProjectThreat {
+  id: string
+  title: string
+  category: string
+  severity: string
+  component: string
+  description: string
 }
 
 interface CoverageSummary {
@@ -51,6 +60,13 @@ const STATUS_COLORS: Record<string, string> = {
   not_implemented: 'bg-red-100 text-red-800',
 }
 
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: 'bg-red-100 text-red-800',
+  high: 'bg-orange-100 text-orange-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  low: 'bg-green-100 text-green-800',
+}
+
 const STATUS_ICONS: Record<string, any> = {
   implemented: CheckCircle2,
   planned: Clock,
@@ -62,16 +78,20 @@ export default function SecurityControlsPage() {
   const { id: projectId } = useParams<{ id: string }>()
   const [controls, setControls] = useState<SecurityControl[]>([])
   const [coverage, setCoverage] = useState<CoverageSummary | null>(null)
+  const [threats, setThreats] = useState<ProjectThreat[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'controls' | 'coverage'>('controls')
-  const [linkThreatId, setLinkThreatId] = useState('')
-  const [linkReqId, setLinkReqId] = useState('')
-  const [linkingControlId, setLinkingControlId] = useState<number | null>(null)
-  const [autoMapping, setAutoMapping] = useState<number | null>(null)
-  const [autoMapResults, setAutoMapResults] = useState<Record<number, any>>({})
+
+  // Threat mapping state
+  const [mappingControlId, setMappingControlId] = useState<number | null>(null)
+  const [selectedThreatIds, setSelectedThreatIds] = useState<Set<string>>(new Set())
+  const [threatSearch, setThreatSearch] = useState('')
+  const [autoMapLoading, setAutoMapLoading] = useState(false)
+  const [autoMapScores, setAutoMapScores] = useState<Record<string, number>>({})
+  const [savingMapping, setSavingMapping] = useState(false)
 
   // Form state
   const [form, setForm] = useState({
@@ -95,12 +115,14 @@ export default function SecurityControlsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [controlsRes, coverageRes] = await Promise.all([
+      const [controlsRes, coverageRes, threatsRes] = await Promise.all([
         axios.get(`/api/security-controls/projects/${projectId}/controls`, { headers }),
         axios.get(`/api/security-controls/projects/${projectId}/coverage`, { headers }),
+        axios.get(`/api/security-controls/projects/${projectId}/threats`, { headers }),
       ])
       setControls(controlsRes.data)
       setCoverage(coverageRes.data)
+      setThreats(threatsRes.data)
     } catch (err) {
       console.error('Failed to fetch controls:', err)
     } finally {
@@ -165,46 +187,127 @@ export default function SecurityControlsPage() {
     }))
   }
 
-  const handleLinkThreat = async (controlId: number) => {
-    if (!linkThreatId.trim()) return
-    try {
-      await axios.post(`/api/security-controls/controls/${controlId}/link-threats`, {
-        threat_ids: [linkThreatId.trim()]
-      }, { headers })
-      setLinkThreatId('')
-      setLinkingControlId(null)
-      fetchData()
-    } catch (err) {
-      console.error('Failed to link threat:', err)
-    }
+  // ====== Threat Mapping ======
+
+  const openThreatMapper = (control: SecurityControl) => {
+    setMappingControlId(control.id)
+    setSelectedThreatIds(new Set(control.linked_threat_ids || []))
+    setThreatSearch('')
+    setAutoMapScores({})
   }
 
-  const handleLinkRequirement = async (controlId: number) => {
-    if (!linkReqId.trim()) return
-    try {
-      await axios.post(`/api/security-controls/controls/${controlId}/link-requirements`, {
-        requirement_ids: [linkReqId.trim()]
-      }, { headers })
-      setLinkReqId('')
-      setLinkingControlId(null)
-      fetchData()
-    } catch (err) {
-      console.error('Failed to link requirement:', err)
-    }
+  const closeThreatMapper = () => {
+    setMappingControlId(null)
+    setSelectedThreatIds(new Set())
+    setAutoMapScores({})
+    setThreatSearch('')
+  }
+
+  const toggleThreatSelection = (threatId: string) => {
+    setSelectedThreatIds(prev => {
+      const next = new Set(prev)
+      if (next.has(threatId)) {
+        next.delete(threatId)
+      } else {
+        next.add(threatId)
+      }
+      return next
+    })
   }
 
   const handleAutoMap = async (controlId: number) => {
-    setAutoMapping(controlId)
+    setAutoMapLoading(true)
     try {
       const res = await axios.post(`/api/security-controls/controls/${controlId}/auto-map`, {}, { headers })
-      setAutoMapResults(prev => ({ ...prev, [controlId]: res.data }))
-      fetchData()
+      const scores: Record<string, number> = {}
+      const suggested = new Set(selectedThreatIds)
+      for (const t of res.data.matched_threats || []) {
+        scores[t.threat_id] = t.relevance_score
+        if (t.relevance_score >= 0.4) {
+          suggested.add(t.threat_id)
+        }
+      }
+      setAutoMapScores(scores)
+      setSelectedThreatIds(suggested)
     } catch (err) {
       console.error('Failed to auto-map:', err)
     } finally {
-      setAutoMapping(null)
+      setAutoMapLoading(false)
     }
   }
+
+  const saveThreatMapping = async (controlId: number) => {
+    setSavingMapping(true)
+    try {
+      await axios.put(`/api/security-controls/controls/${controlId}/threats`, {
+        threat_ids: Array.from(selectedThreatIds)
+      }, { headers })
+      closeThreatMapper()
+      fetchData()
+    } catch (err) {
+      console.error('Failed to save mapping:', err)
+    } finally {
+      setSavingMapping(false)
+    }
+  }
+
+  const removeThreat = async (controlId: number, threatId: string) => {
+    const control = controls.find(c => c.id === controlId)
+    if (!control) return
+    const updated = (control.linked_threat_ids || []).filter(id => id !== threatId)
+    try {
+      await axios.put(`/api/security-controls/controls/${controlId}/threats`, {
+        threat_ids: updated
+      }, { headers })
+      fetchData()
+    } catch (err) {
+      console.error('Failed to remove threat:', err)
+    }
+  }
+
+  const removeRequirement = async (controlId: number, reqId: string) => {
+    const control = controls.find(c => c.id === controlId)
+    if (!control) return
+    const updated = (control.linked_requirement_ids || []).filter(id => id !== reqId)
+    try {
+      await axios.put(`/api/security-controls/controls/${controlId}/requirements`, {
+        requirement_ids: updated
+      }, { headers })
+      fetchData()
+    } catch (err) {
+      console.error('Failed to remove requirement:', err)
+    }
+  }
+
+  // Threat title lookup
+  const threatMap = useMemo(() => {
+    const map: Record<string, ProjectThreat> = {}
+    for (const t of threats) map[t.id] = t
+    return map
+  }, [threats])
+
+  // Filtered threats for the mapper
+  const filteredThreats = useMemo(() => {
+    if (!threatSearch.trim()) return threats
+    const q = threatSearch.toLowerCase()
+    return threats.filter(t =>
+      t.title.toLowerCase().includes(q) ||
+      t.category.toLowerCase().includes(q) ||
+      t.component.toLowerCase().includes(q) ||
+      t.severity.toLowerCase().includes(q)
+    )
+  }, [threats, threatSearch])
+
+  // Group filtered threats by STRIDE category
+  const groupedThreats = useMemo(() => {
+    const groups: Record<string, ProjectThreat[]> = {}
+    for (const t of filteredThreats) {
+      const cat = t.category || 'Other'
+      if (!groups[cat]) groups[cat] = []
+      groups[cat].push(t)
+    }
+    return groups
+  }, [filteredThreats])
 
   const isFormValid = form.name.trim() && form.description.trim() && form.stride_categories.length > 0 && form.owner.trim()
 
@@ -217,6 +320,7 @@ export default function SecurityControlsPage() {
   }
 
   const summary = coverage?.summary
+  const mappingControl = controls.find(c => c.id === mappingControlId)
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -292,7 +396,6 @@ export default function SecurityControlsPage() {
                     onChange={e => setForm({ ...form, name: e.target.value })}
                     className={`w-full border rounded-md px-3 py-2 text-sm ${!form.name.trim() ? 'border-red-300' : ''}`}
                     placeholder="e.g., Web Application Firewall (WAF)"
-                    required
                   />
                 </div>
                 <div>
@@ -303,7 +406,6 @@ export default function SecurityControlsPage() {
                     onChange={e => setForm({ ...form, owner: e.target.value })}
                     className={`w-full border rounded-md px-3 py-2 text-sm ${!form.owner.trim() ? 'border-red-300' : ''}`}
                     placeholder="e.g., Security Team"
-                    required
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -314,7 +416,6 @@ export default function SecurityControlsPage() {
                     className={`w-full border rounded-md px-3 py-2 text-sm ${!form.description.trim() ? 'border-red-300' : ''}`}
                     rows={2}
                     placeholder="What does this control do? Be specific for better AI auto-mapping."
-                    required
                   />
                 </div>
                 <div>
@@ -403,6 +504,9 @@ export default function SecurityControlsPage() {
               {controls.map(control => {
                 const StatusIcon = STATUS_ICONS[control.status] || Shield
                 const isExpanded = expandedId === control.id
+                const linkedThreats = (control.linked_threat_ids || []).map(id => threatMap[id]).filter(Boolean)
+                const linkedCount = control.linked_threat_ids?.length || 0
+
                 return (
                   <div key={control.id} className="bg-white border rounded-lg overflow-hidden">
                     <div className="flex items-center justify-between p-4">
@@ -420,6 +524,11 @@ export default function SecurityControlsPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                        {linkedCount > 0 && (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                            {linkedCount} threat{linkedCount !== 1 ? 's' : ''}
+                          </span>
+                        )}
                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[control.status] || 'bg-gray-100 text-gray-800'}`}>
                           {control.status.replace('_', ' ')}
                         </span>
@@ -440,119 +549,89 @@ export default function SecurityControlsPage() {
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t px-4 py-3 bg-gray-50 space-y-3">
-                        {/* STRIDE categories */}
-                        {control.stride_categories && control.stride_categories.length > 0 && (
-                          <div>
-                            <div className="text-xs font-medium text-gray-500 mb-1">STRIDE Coverage</div>
-                            <div className="flex flex-wrap gap-1">
+                      <div className="border-t px-4 py-3 bg-gray-50 space-y-4">
+                        {/* STRIDE categories & Owner */}
+                        <div className="flex flex-wrap gap-6 text-sm">
+                          {control.stride_categories && control.stride_categories.length > 0 && (
+                            <div>
+                              <span className="text-xs font-medium text-gray-500">STRIDE: </span>
                               {control.stride_categories.map(cat => (
-                                <span key={cat} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs">
+                                <span key={cat} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs mr-1">
                                   {cat.replace('_', ' ')}
                                 </span>
                               ))}
                             </div>
-                          </div>
-                        )}
-
-                        {/* Owner & Evidence */}
-                        <div className="flex gap-6 text-sm">
+                          )}
                           {control.owner && <div><span className="text-gray-500">Owner:</span> {control.owner}</div>}
                           {control.evidence && <div><span className="text-gray-500">Evidence:</span> {control.evidence}</div>}
                         </div>
 
-                        {/* Linked Threats */}
+                        {/* Linked Threats — shown as readable cards with remove */}
                         <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <div className="text-xs font-medium text-gray-500">Linked Threats</div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Mapped Threats</div>
                             <button
-                              onClick={() => handleAutoMap(control.id)}
-                              disabled={autoMapping === control.id}
-                              className="flex items-center gap-1 text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
+                              onClick={() => openThreatMapper(control)}
+                              className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
                             >
-                              {autoMapping === control.id ? (
-                                <><Loader2 className="w-3 h-3 animate-spin" /> Mapping...</>
-                              ) : (
-                                <><Sparkles className="w-3 h-3" /> Auto-Map Threats</>
-                              )}
+                              <Sparkles className="w-3.5 h-3.5" /> Map Threats
                             </button>
                           </div>
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {(control.linked_threat_ids || []).map(tid => (
-                              <span key={tid} className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-xs">{tid}</span>
-                            ))}
-                            {(!control.linked_threat_ids || control.linked_threat_ids.length === 0) && (
-                              <span className="text-xs text-gray-400">No threats linked — use Auto-Map or link manually</span>
-                            )}
-                          </div>
-                          {/* Auto-map results */}
-                          {autoMapResults[control.id] && (
-                            <div className="mb-2 p-2 bg-purple-50 rounded border border-purple-200">
-                              <div className="text-xs font-medium text-purple-800 mb-1">
-                                Auto-mapped {autoMapResults[control.id].auto_linked_count} threats (relevance &ge; 40%)
-                              </div>
-                              {autoMapResults[control.id].matched_threats?.slice(0, 5).map((t: any) => (
-                                <div key={t.threat_id} className="flex items-center justify-between text-xs py-0.5">
-                                  <span className="text-gray-700 truncate flex-1">{t.threat_title}</span>
-                                  <span className={`ml-2 px-1.5 rounded ${t.relevance_score >= 0.4 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                    {(t.relevance_score * 100).toFixed(0)}%
+                          {linkedThreats.length > 0 ? (
+                            <div className="space-y-1.5">
+                              {linkedThreats.map(t => (
+                                <div key={t.id} className="flex items-center gap-2 bg-white border rounded-md px-3 py-2 group">
+                                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[t.severity] || 'bg-gray-100 text-gray-600'}`}>
+                                    {t.severity}
                                   </span>
+                                  <span className="text-sm text-gray-800 flex-1 truncate">{t.title}</span>
+                                  <span className="text-xs text-gray-400">{t.category}</span>
+                                  <button
+                                    onClick={() => removeThreat(control.id, t.id)}
+                                    className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Remove mapping"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                              {/* Show IDs that don't match any known threat */}
+                              {(control.linked_threat_ids || []).filter(id => !threatMap[id]).map(id => (
+                                <div key={id} className="flex items-center gap-2 bg-white border border-dashed rounded-md px-3 py-2 group">
+                                  <span className="text-xs text-gray-400 font-mono flex-1">{id}</span>
+                                  <button
+                                    onClick={() => removeThreat(control.id, id)}
+                                    className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               ))}
                             </div>
-                          )}
-                          {linkingControlId === control.id ? (
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={linkThreatId}
-                                onChange={e => setLinkThreatId(e.target.value)}
-                                placeholder="Enter threat ID"
-                                className="border rounded px-2 py-1 text-xs flex-1"
-                              />
-                              <button onClick={() => handleLinkThreat(control.id)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Link</button>
-                              <button onClick={() => setLinkingControlId(null)} className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">Cancel</button>
-                            </div>
                           ) : (
-                            <button
-                              onClick={() => { setLinkingControlId(control.id); setLinkThreatId('') }}
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                            >
-                              <Link2 className="w-3 h-3" /> Link Manually
-                            </button>
+                            <div className="text-sm text-gray-400 py-2">No threats mapped. Click "Map Threats" to start.</div>
                           )}
                         </div>
 
                         {/* Linked Requirements */}
                         <div>
-                          <div className="text-xs font-medium text-gray-500 mb-1">Linked Requirements</div>
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {(control.linked_requirement_ids || []).map(rid => (
-                              <span key={rid} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs">{rid}</span>
-                            ))}
-                            {(!control.linked_requirement_ids || control.linked_requirement_ids.length === 0) && (
-                              <span className="text-xs text-gray-400">No requirements linked</span>
-                            )}
-                          </div>
-                          {linkingControlId === -control.id ? (
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                value={linkReqId}
-                                onChange={e => setLinkReqId(e.target.value)}
-                                placeholder="Enter requirement ID (e.g. SR-001)"
-                                className="border rounded px-2 py-1 text-xs flex-1"
-                              />
-                              <button onClick={() => handleLinkRequirement(control.id)} className="px-2 py-1 bg-blue-600 text-white rounded text-xs">Link</button>
-                              <button onClick={() => setLinkingControlId(null)} className="px-2 py-1 bg-gray-200 text-gray-700 rounded text-xs">Cancel</button>
+                          <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Linked Requirements</div>
+                          {(control.linked_requirement_ids || []).length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {(control.linked_requirement_ids || []).map(rid => (
+                                <span key={rid} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs group">
+                                  {rid}
+                                  <button
+                                    onClick={() => removeRequirement(control.id, rid)}
+                                    className="text-indigo-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </span>
+                              ))}
                             </div>
                           ) : (
-                            <button
-                              onClick={() => { setLinkingControlId(-control.id); setLinkReqId('') }}
-                              className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800"
-                            >
-                              <Link2 className="w-3 h-3" /> Link Requirement
-                            </button>
+                            <div className="text-sm text-gray-400">No requirements linked</div>
                           )}
                         </div>
                       </div>
@@ -625,6 +704,163 @@ export default function SecurityControlsPage() {
               <div className="text-center p-3 bg-orange-50 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">{summary?.planned || 0}</div>
                 <div className="text-xs text-gray-500 mt-1">Controls Planned</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== Threat Mapper Modal ====== */}
+      {mappingControl && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Map Threats to Control</h3>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  <span className="font-medium text-gray-700">{mappingControl.name}</span> — select threats this control mitigates
+                </p>
+              </div>
+              <button onClick={closeThreatMapper} className="p-1 text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Toolbar: Search + Auto-Map */}
+            <div className="flex items-center gap-3 px-6 py-3 border-b bg-gray-50">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={threatSearch}
+                  onChange={e => setThreatSearch(e.target.value)}
+                  placeholder="Search threats by title, category, component..."
+                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-purple-200 focus:border-purple-400 outline-none"
+                />
+              </div>
+              <button
+                onClick={() => handleAutoMap(mappingControl.id)}
+                disabled={autoMapLoading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium disabled:opacity-50 whitespace-nowrap"
+              >
+                {autoMapLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
+                ) : (
+                  <><Sparkles className="w-4 h-4" /> AI Auto-Map</>
+                )}
+              </button>
+            </div>
+
+            {/* Selection summary */}
+            <div className="px-6 py-2 bg-purple-50 border-b text-sm">
+              <span className="text-purple-700 font-medium">{selectedThreatIds.size}</span>
+              <span className="text-purple-600"> threat{selectedThreatIds.size !== 1 ? 's' : ''} selected</span>
+              {Object.keys(autoMapScores).length > 0 && (
+                <span className="text-purple-500 ml-2">
+                  — AI suggested {Object.values(autoMapScores).filter(s => s >= 0.4).length} matches
+                </span>
+              )}
+            </div>
+
+            {/* Threat List */}
+            <div className="flex-1 overflow-y-auto px-6 py-3">
+              {threats.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-2" />
+                  <p>No threat model found. Generate a threat model first.</p>
+                </div>
+              ) : filteredThreats.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Search className="w-6 h-6 mx-auto mb-2" />
+                  <p>No threats match your search.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(groupedThreats).map(([category, categoryThreats]) => (
+                    <div key={category}>
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 bg-white py-1">
+                        {category} ({categoryThreats.length})
+                      </div>
+                      <div className="space-y-1">
+                        {categoryThreats.map(threat => {
+                          const isSelected = selectedThreatIds.has(threat.id)
+                          const relevance = autoMapScores[threat.id]
+                          const isSuggested = relevance !== undefined && relevance >= 0.4
+                          return (
+                            <button
+                              key={threat.id}
+                              onClick={() => toggleThreatSelection(threat.id)}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
+                                isSelected
+                                  ? 'bg-purple-50 border border-purple-200'
+                                  : 'bg-white border border-gray-100 hover:bg-gray-50'
+                              }`}
+                            >
+                              {/* Checkbox */}
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                              }`}>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
+                              </div>
+
+                              {/* Severity badge */}
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${SEVERITY_COLORS[threat.severity] || 'bg-gray-100 text-gray-600'}`}>
+                                {threat.severity}
+                              </span>
+
+                              {/* Title + component */}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm text-gray-800 truncate">{threat.title}</div>
+                                {threat.component && (
+                                  <div className="text-xs text-gray-400 truncate">{threat.component}</div>
+                                )}
+                              </div>
+
+                              {/* Relevance score from AI */}
+                              {relevance !== undefined && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                                  isSuggested ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {(relevance * 100).toFixed(0)}% match
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
+              <button
+                onClick={() => setSelectedThreatIds(new Set())}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Clear all
+              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={closeThreatMapper}
+                  className="px-4 py-2 text-sm text-gray-700 bg-white border rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => saveThreatMapping(mappingControl.id)}
+                  disabled={savingMapping}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+                >
+                  {savingMapping ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                  ) : (
+                    <><Link2 className="w-4 h-4" /> Save Mapping ({selectedThreatIds.size})</>
+                  )}
+                </button>
               </div>
             </div>
           </div>
