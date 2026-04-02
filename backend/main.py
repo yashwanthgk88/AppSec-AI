@@ -262,6 +262,7 @@ class ProjectCreate(BaseModel):
     repository_url: Optional[str] = None
     technology_stack: Optional[List[str]] = []
     compliance_targets: Optional[List[str]] = ["OWASP Top 10", "SANS CWE-25"]
+    industry_sector: Optional[str] = "technology"
     auto_scan_types: Optional[List[str]] = ["threat_model"]  # Default to just threat model
 
 class ChatRequest(BaseModel):
@@ -1528,6 +1529,7 @@ async def create_project(
         repository_url=project_data.repository_url,
         technology_stack=project_data.technology_stack,
         compliance_targets=project_data.compliance_targets,
+        industry_sector=project_data.industry_sector or "technology",
         owner_id=current_user.id
     )
     db.add(project)

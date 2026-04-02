@@ -196,6 +196,7 @@ function CreateProjectModal({ onClose, onCreate }: any) {
     repository_url: '',
     technology_stack: [] as string[],
     compliance_targets: ['OWASP Top 10', 'SANS CWE-25'],
+    industry_sector: 'technology',
     auto_scan_types: ['threat_model', 'sast', 'sca', 'secret'] as string[],
   })
 
@@ -259,15 +260,41 @@ The system consists of the following components:
             />
           </div>
 
-          <div>
-            <label className="label">Repository URL</label>
-            <input
-              type="url"
-              className="input"
-              placeholder="https://github.com/org/repo"
-              value={formData.repository_url}
-              onChange={(e) => setFormData({ ...formData, repository_url: e.target.value })}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Industry Sector *</label>
+              <select
+                className="input"
+                value={formData.industry_sector}
+                onChange={(e) => setFormData({ ...formData, industry_sector: e.target.value })}
+              >
+                <option value="technology">Technology</option>
+                <option value="banking">Banking & Finance</option>
+                <option value="healthcare">Healthcare</option>
+                <option value="government">Government</option>
+                <option value="retail">Retail & E-Commerce</option>
+                <option value="manufacturing">Manufacturing</option>
+                <option value="energy">Energy & Utilities</option>
+                <option value="telecom">Telecommunications</option>
+                <option value="education">Education</option>
+                <option value="insurance">Insurance</option>
+                <option value="defense">Defense & Aerospace</option>
+                <option value="media">Media & Entertainment</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Used for sector-specific threat intelligence and compliance mapping
+              </p>
+            </div>
+            <div>
+              <label className="label">Repository URL</label>
+              <input
+                type="url"
+                className="input"
+                placeholder="https://github.com/org/repo"
+                value={formData.repository_url}
+                onChange={(e) => setFormData({ ...formData, repository_url: e.target.value })}
+              />
+            </div>
           </div>
 
           <div>
