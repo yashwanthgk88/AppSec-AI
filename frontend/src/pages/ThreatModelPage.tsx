@@ -5,7 +5,8 @@ import {
   Target, TrendingUp, ExternalLink, ChevronRight, Zap,
   AlertCircle, CheckCircle, XCircle, Activity, Route, Lock,
   RefreshCw, Layers, FileText, GitBranch, Clock, Upload,
-  FileImage, File, X, Eye, Info, Trash2, ChevronDown, Sparkles
+  FileImage, File, X, Eye, Info, Trash2, ChevronDown, Sparkles,
+  ShieldCheck, ShieldX, CircleDot
 } from 'lucide-react'
 import axios from 'axios'
 import mermaid from 'mermaid'
@@ -1405,6 +1406,9 @@ export default function ThreatModelPage() {
               expandedThreats={expandedThreats}
               toggleThreat={toggleThreat}
               controls={controls}
+              controlsMap={threatModel.controls_map || {}}
+              projectId={id || ''}
+              onThreatStatusChange={fetchThreatModel}
             />
           )}
 
@@ -1668,8 +1672,29 @@ function ThreatsTab({
   filteredThreats,
   expandedThreats,
   toggleThreat,
-  controls
+  controls,
+  controlsMap,
+  projectId,
+  onThreatStatusChange
 }: any) {
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  // Count threats by review status
+  const statusCounts = {
+    all: filteredThreats.length,
+    open: filteredThreats.filter((t: any) => !t.review_status || t.review_status === 'open').length,
+    closed: filteredThreats.filter((t: any) => t.review_status === 'closed').length,
+    accepted: filteredThreats.filter((t: any) => t.review_status === 'accepted').length,
+  }
+
+  // Apply status filter
+  const displayThreats = statusFilter === 'all'
+    ? filteredThreats
+    : filteredThreats.filter((t: any) => {
+        if (statusFilter === 'open') return !t.review_status || t.review_status === 'open'
+        return t.review_status === statusFilter
+      })
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -1700,32 +1725,57 @@ function ThreatsTab({
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-4">
+      {/* Status Filter + Search */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+          {(['all', 'open', 'closed', 'accepted'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
+                statusFilter === s
+                  ? s === 'open' ? 'bg-red-500 text-white' :
+                    s === 'closed' ? 'bg-green-500 text-white' :
+                    s === 'accepted' ? 'bg-blue-500 text-white' :
+                    'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)} ({statusCounts[s]})
+            </button>
+          ))}
+        </div>
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search threats by name, description, CWE, component, or mitigation..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          placeholder="Search threats..."
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
         />
       </div>
 
       <div className="space-y-4">
-        {filteredThreats.length === 0 ? (
+        {displayThreats.length === 0 ? (
           <p className="text-center text-gray-600 py-8">
-            {searchQuery ? 'No threats match your search' : 'No threats in this category'}
+            {searchQuery || statusFilter !== 'all' ? 'No threats match your filters' : 'No threats in this category'}
           </p>
         ) : (
-          filteredThreats.map((threat: any, idx: number) => (
-            <ThreatCard
-              key={idx}
-              threat={threat}
-              isExpanded={expandedThreats.has(idx)}
-              onToggle={() => toggleThreat(idx)}
-              controls={controls}
-            />
-          ))
+          displayThreats.map((threat: any, idx: number) => {
+            const threatId = threat.id || `${threat.category || 'unknown'}_${idx}`
+            const mappedControls = controlsMap[threatId] || []
+            return (
+              <ThreatCard
+                key={idx}
+                threat={threat}
+                isExpanded={expandedThreats.has(idx)}
+                onToggle={() => toggleThreat(idx)}
+                controls={controls}
+                mappedControls={mappedControls}
+                projectId={projectId}
+                onStatusChange={onThreatStatusChange}
+              />
+            )
+          })
         )}
       </div>
     </div>
@@ -3365,29 +3415,80 @@ function ThreatCard({
   threat,
   isExpanded,
   onToggle,
-  controls
+  controls,
+  mappedControls = [],
+  projectId,
+  onStatusChange
 }: {
   threat: any
   isExpanded: boolean
   onToggle: () => void
   controls: string[]
+  mappedControls?: any[]
+  projectId?: string
+  onStatusChange?: () => void
 }) {
-  const hasMitigatingControls = controls.length > 0
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const hasMitigatingControls = mappedControls.length > 0
   const severity = threat.severity || 'medium'
   const severityColor = SEVERITY_COLORS[severity as keyof typeof SEVERITY_COLORS] || SEVERITY_COLORS.medium
+  const reviewStatus = threat.review_status || 'open'
+
+  const handleStatusChange = async (newStatus: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!projectId || !threat.id) return
+    setUpdatingStatus(true)
+    try {
+      const token = localStorage.getItem('token')
+      await axios.put(
+        `/api/projects/${projectId}/threat-model/threats/${threat.id}/status`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      onStatusChange?.()
+    } catch (err) {
+      console.error('Failed to update threat status:', err)
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
+  const StatusIcon = reviewStatus === 'closed' ? ShieldCheck : reviewStatus === 'accepted' ? CircleDot : ShieldX
 
   return (
     <div
-      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition cursor-pointer"
+      className={`border rounded-lg p-4 hover:shadow-md transition cursor-pointer ${
+        reviewStatus === 'closed' ? 'border-green-200 bg-green-50/30' :
+        reviewStatus === 'accepted' ? 'border-blue-200 bg-blue-50/30' :
+        'border-gray-200'
+      }`}
       onClick={onToggle}
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-1 flex-wrap gap-y-1">
-            <h3 className="font-semibold text-gray-900">{threat.threat}</h3>
+            <StatusIcon className={`w-4 h-4 flex-shrink-0 ${
+              reviewStatus === 'closed' ? 'text-green-500' :
+              reviewStatus === 'accepted' ? 'text-blue-500' :
+              'text-red-400'
+            }`} />
+            <h3 className={`font-semibold ${reviewStatus === 'closed' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{threat.threat}</h3>
             <span className={`text-xs px-2 py-1 rounded-full border ${severityColor}`}>
               {severity.charAt(0).toUpperCase() + severity.slice(1)}
             </span>
+            {/* Review Status Badge */}
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              reviewStatus === 'closed' ? 'bg-green-100 text-green-700' :
+              reviewStatus === 'accepted' ? 'bg-blue-100 text-blue-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {reviewStatus.toUpperCase()}
+            </span>
+            {hasMitigatingControls && (
+              <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+                {mappedControls.length} control{mappedControls.length !== 1 ? 's' : ''}
+              </span>
+            )}
             {threat.lifecycle_status && (
               <ThreatStatusBadge status={threat.lifecycle_status as ThreatStatus} size="sm" />
             )}
@@ -3420,6 +3521,39 @@ function ThreatCard({
           <p className="text-sm text-gray-600">{threat.component}</p>
         </div>
         <div className="flex items-center space-x-2">
+          {/* Status Actions */}
+          <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+            {reviewStatus === 'open' && (
+              <>
+                <button
+                  onClick={(e) => handleStatusChange('closed', e)}
+                  disabled={updatingStatus}
+                  className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                  title="Close threat (mitigated)"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={(e) => handleStatusChange('accepted', e)}
+                  disabled={updatingStatus}
+                  className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                  title="Accept risk"
+                >
+                  Accept
+                </button>
+              </>
+            )}
+            {(reviewStatus === 'closed' || reviewStatus === 'accepted') && (
+              <button
+                onClick={(e) => handleStatusChange('open', e)}
+                disabled={updatingStatus}
+                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                title="Reopen threat"
+              >
+                Reopen
+              </button>
+            )}
+          </div>
           <span className="text-sm text-gray-500">
             {isExpanded ? '▼' : '▶'}
           </span>
@@ -3427,6 +3561,24 @@ function ThreatCard({
       </div>
 
       <p className="text-sm text-gray-700 mb-3">{threat.description}</p>
+
+      {/* Mapped Controls Summary (always visible) */}
+      {hasMitigatingControls && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {mappedControls.map((ctrl: any) => (
+            <span key={ctrl.id} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border ${
+              ctrl.status === 'implemented' ? 'bg-green-50 text-green-700 border-green-200' :
+              ctrl.status === 'planned' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+              ctrl.status === 'partial' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+              'bg-gray-50 text-gray-600 border-gray-200'
+            }`}>
+              <Shield className="w-3 h-3" />
+              {ctrl.name}
+              <span className="text-[10px] opacity-70">({(ctrl.effectiveness * 100).toFixed(0)}%)</span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Change Reason (for incremental analysis) */}
       {threat.change_reason && threat.lifecycle_status && (
@@ -3651,11 +3803,46 @@ function ThreatCard({
           )}
 
           {hasMitigatingControls && (
-            <div className="bg-green-100 border border-green-300 rounded-lg p-3">
-              <p className="text-xs font-medium text-green-800 mb-1">Active Controls Applied:</p>
-              <p className="text-sm text-green-900">
-                {controls.length} security control{controls.length !== 1 ? 's' : ''} active.
-              </p>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2 mb-2">
+                <Shield className="w-4 h-4 text-emerald-600" />
+                <p className="text-xs font-medium text-emerald-800">Mapped Security Controls ({mappedControls.length})</p>
+              </div>
+              <div className="space-y-1.5">
+                {mappedControls.map((ctrl: any) => (
+                  <div key={ctrl.id} className="flex items-center justify-between bg-white rounded-md px-3 py-1.5 border border-emerald-100">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${
+                        ctrl.status === 'implemented' ? 'bg-green-500' :
+                        ctrl.status === 'planned' ? 'bg-blue-500' :
+                        ctrl.status === 'partial' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`} />
+                      <span className="text-sm text-gray-800">{ctrl.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        ctrl.status === 'implemented' ? 'bg-green-100 text-green-700' :
+                        ctrl.status === 'planned' ? 'bg-blue-100 text-blue-700' :
+                        ctrl.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>{ctrl.status}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>{ctrl.control_type}</span>
+                      <span className="font-medium">{(ctrl.effectiveness * 100).toFixed(0)}% effective</span>
+                      {ctrl.owner && <span>({ctrl.owner})</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!hasMitigatingControls && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <p className="text-xs font-medium text-amber-800">No security controls mapped to this threat</p>
+              </div>
+              <p className="text-xs text-amber-600 mt-1">Go to Security Controls to map controls and then close this threat.</p>
             </div>
           )}
         </div>

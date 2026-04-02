@@ -2160,6 +2160,27 @@ async def get_threat_model(
     kill_chain = threat_model.kill_chain_analysis or {}
     eraser_diagrams = threat_model.eraser_diagrams or {"enabled": False, "diagrams": {}}
 
+    # Build controls map: threat_id → list of controls mitigating it
+    controls_map = {}
+    try:
+        sec_controls = db.query(SecurityControl).filter(
+            SecurityControl.project_id == project_id
+        ).all()
+        for sc in sec_controls:
+            for tid in (sc.linked_threat_ids or []):
+                if tid not in controls_map:
+                    controls_map[tid] = []
+                controls_map[tid].append({
+                    "id": sc.id,
+                    "name": sc.name,
+                    "status": sc.status.value if sc.status else "implemented",
+                    "effectiveness": sc.effectiveness or 0.7,
+                    "control_type": sc.control_type.value if sc.control_type else "preventive",
+                    "owner": sc.owner,
+                })
+    except Exception as e:
+        logger.warning(f"Failed to load controls map: {e}")
+
     return {
         "id": threat_model.id,
         "name": threat_model.name,
@@ -2188,7 +2209,9 @@ async def get_threat_model(
         "eraser_diagrams_enabled": eraser_diagrams.get("enabled", False),
         "eraser_diagrams_count": eraser_diagrams.get("stats", {}).get("successful", 0),
         # SecReq traceability
-        "securereq_coverage": (threat_model.stride_analysis or {}).get("securereq_coverage")
+        "securereq_coverage": (threat_model.stride_analysis or {}).get("securereq_coverage"),
+        # Controls mapped to threats
+        "controls_map": controls_map,
     }
 
 
@@ -2219,6 +2242,63 @@ async def delete_threat_model(
     logger.info(f"Deleted threat model for project {project_id}")
 
     return {"message": "Threat model deleted successfully", "project_id": project_id}
+
+
+class ThreatStatusUpdate(BaseModel):
+    status: str  # "open", "closed", "accepted"
+    reason: Optional[str] = None
+
+
+@app.put("/api/projects/{project_id}/threat-model/threats/{threat_id}/status")
+async def update_threat_status(
+    project_id: int,
+    threat_id: str,
+    data: ThreatStatusUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Update a threat's status (open/closed/accepted) inside stride_analysis JSON."""
+    if data.status not in ("open", "closed", "accepted"):
+        raise HTTPException(status_code=400, detail="Status must be open, closed, or accepted")
+
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+    if not threat_model or not threat_model.stride_analysis:
+        raise HTTPException(status_code=404, detail="Threat model not found")
+
+    # Find and update the threat in stride_analysis
+    updated = False
+    stride = dict(threat_model.stride_analysis)
+    for category, threats in stride.items():
+        if category == "securereq_coverage" or not isinstance(threats, list):
+            continue
+        for i, t in enumerate(threats):
+            tid = t.get("id", f"{category}_{i}")
+            if tid == threat_id:
+                threats[i] = dict(t)
+                threats[i]["review_status"] = data.status
+                if data.reason:
+                    threats[i]["review_reason"] = data.reason
+                updated = True
+                break
+        if updated:
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Threat '{threat_id}' not found")
+
+    threat_model.stride_analysis = stride
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(threat_model, "stride_analysis")
+    db.commit()
+
+    return {"message": f"Threat '{threat_id}' status updated to '{data.status}'"}
 
 
 def _generate_threat_model_background(project_id: int, project_name: str, architecture_doc: str, quick_mode: bool = False):
