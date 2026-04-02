@@ -1406,7 +1406,6 @@ export default function ThreatModelPage() {
               expandedThreats={expandedThreats}
               toggleThreat={toggleThreat}
               controls={controls}
-              controlsMap={threatModel.controls_map || {}}
               projectId={id || ''}
               onThreatStatusChange={fetchThreatModel}
             />
@@ -1673,7 +1672,6 @@ function ThreatsTab({
   expandedThreats,
   toggleThreat,
   controls,
-  controlsMap,
   projectId,
   onThreatStatusChange
 }: any) {
@@ -1760,23 +1758,18 @@ function ThreatsTab({
             {searchQuery || statusFilter !== 'all' ? 'No threats match your filters' : 'No threats in this category'}
           </p>
         ) : (
-          displayThreats.map((threat: any, idx: number) => {
-            // Match using threat.id — this is what controls store as linked_threat_ids
-            const threatId = threat.id || ''
-            const mappedControls = controlsMap[threatId] || []
-            return (
+          displayThreats.map((threat: any, idx: number) => (
               <ThreatCard
                 key={idx}
                 threat={threat}
                 isExpanded={expandedThreats.has(idx)}
                 onToggle={() => toggleThreat(idx)}
                 controls={controls}
-                mappedControls={mappedControls}
+                mappedControls={threat._mapped_controls || []}
                 projectId={projectId}
                 onStatusChange={onThreatStatusChange}
               />
-            )
-          })
+          ))
         )}
       </div>
     </div>

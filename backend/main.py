@@ -2160,26 +2160,42 @@ async def get_threat_model(
     kill_chain = threat_model.kill_chain_analysis or {}
     eraser_diagrams = threat_model.eraser_diagrams or {"enabled": False, "diagrams": {}}
 
-    # Build controls map: threat_id → list of controls mitigating it
+    # Build controls map and inject into stride_analysis for frontend
     controls_map = {}
     try:
         sec_controls = db.query(SecurityControl).filter(
             SecurityControl.project_id == project_id
         ).all()
         for sc in sec_controls:
+            ctrl_info = {
+                "id": sc.id,
+                "name": sc.name,
+                "status": sc.status.value if sc.status else "implemented",
+                "effectiveness": sc.effectiveness or 0.7,
+                "control_type": sc.control_type.value if sc.control_type else "preventive",
+                "owner": sc.owner,
+            }
             for tid in (sc.linked_threat_ids or []):
                 if tid not in controls_map:
                     controls_map[tid] = []
-                controls_map[tid].append({
-                    "id": sc.id,
-                    "name": sc.name,
-                    "status": sc.status.value if sc.status else "implemented",
-                    "effectiveness": sc.effectiveness or 0.7,
-                    "control_type": sc.control_type.value if sc.control_type else "preventive",
-                    "owner": sc.owner,
-                })
+                controls_map[tid].append(ctrl_info)
     except Exception as e:
         logger.warning(f"Failed to load controls map: {e}")
+
+    # Annotate each threat in stride_analysis with its mapped controls
+    annotated_stride = {}
+    raw_stride = threat_model.stride_analysis or {}
+    for category, threats_list in raw_stride.items():
+        if category == "securereq_coverage" or not isinstance(threats_list, list):
+            annotated_stride[category] = threats_list
+            continue
+        annotated = []
+        for i, t in enumerate(threats_list):
+            threat_copy = dict(t)
+            tid = t.get("id", f"{category}_{i}")
+            threat_copy["_mapped_controls"] = controls_map.get(tid, [])
+            annotated.append(threat_copy)
+        annotated_stride[category] = annotated
 
     return {
         "id": threat_model.id,
@@ -2191,7 +2207,7 @@ async def get_threat_model(
         "components_count": components_count,
         "data_flows_count": data_flows_count,
         "trust_boundaries_count": trust_boundaries_count,
-        "stride_analysis": threat_model.stride_analysis,
+        "stride_analysis": annotated_stride,
         "mitre_mapping": threat_model.mitre_mapping,
         "trust_boundaries": threat_model.trust_boundaries,
         "attack_paths": threat_model.attack_paths or [],
