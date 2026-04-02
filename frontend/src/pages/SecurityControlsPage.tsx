@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Shield, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { Shield, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp, Sparkles, Loader2 } from 'lucide-react'
 import axios from 'axios'
 
 interface SecurityControl {
@@ -70,6 +70,8 @@ export default function SecurityControlsPage() {
   const [linkThreatId, setLinkThreatId] = useState('')
   const [linkReqId, setLinkReqId] = useState('')
   const [linkingControlId, setLinkingControlId] = useState<number | null>(null)
+  const [autoMapping, setAutoMapping] = useState<number | null>(null)
+  const [autoMapResults, setAutoMapResults] = useState<Record<number, any>>({})
 
   // Form state
   const [form, setForm] = useState({
@@ -191,6 +193,21 @@ export default function SecurityControlsPage() {
     }
   }
 
+  const handleAutoMap = async (controlId: number) => {
+    setAutoMapping(controlId)
+    try {
+      const res = await axios.post(`/api/security-controls/controls/${controlId}/auto-map`, {}, { headers })
+      setAutoMapResults(prev => ({ ...prev, [controlId]: res.data }))
+      fetchData()
+    } catch (err) {
+      console.error('Failed to auto-map:', err)
+    } finally {
+      setAutoMapping(null)
+    }
+  }
+
+  const isFormValid = form.name.trim() && form.description.trim() && form.stride_categories.length > 0 && form.owner.trim()
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -268,33 +285,36 @@ export default function SecurityControlsPage() {
               <h3 className="text-lg font-semibold mb-4">{editingId ? 'Edit Control' : 'Add New Control'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    className={`w-full border rounded-md px-3 py-2 text-sm ${!form.name.trim() ? 'border-red-300' : ''}`}
                     placeholder="e.g., Web Application Firewall (WAF)"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={form.owner}
                     onChange={e => setForm({ ...form, owner: e.target.value })}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    className={`w-full border rounded-md px-3 py-2 text-sm ${!form.owner.trim() ? 'border-red-300' : ''}`}
                     placeholder="e.g., Security Team"
+                    required
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-red-500">*</span></label>
                   <textarea
                     value={form.description}
                     onChange={e => setForm({ ...form, description: e.target.value })}
-                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    className={`w-full border rounded-md px-3 py-2 text-sm ${!form.description.trim() ? 'border-red-300' : ''}`}
                     rows={2}
-                    placeholder="What does this control do?"
+                    placeholder="What does this control do? Be specific for better AI auto-mapping."
+                    required
                   />
                 </div>
                 <div>
@@ -342,7 +362,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">STRIDE Categories Covered</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">STRIDE Categories Covered <span className="text-red-500">*</span></label>
                   <div className="flex flex-wrap gap-2">
                     {STRIDE_CATEGORIES.map(cat => (
                       <button
@@ -361,7 +381,7 @@ export default function SecurityControlsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={handleSubmit} className="flex items-center gap-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                <button onClick={handleSubmit} disabled={!isFormValid} className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm ${isFormValid ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
                   <Save className="w-4 h-4" /> {editingId ? 'Update' : 'Save'}
                 </button>
                 <button onClick={resetForm} className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
@@ -443,15 +463,44 @@ export default function SecurityControlsPage() {
 
                         {/* Linked Threats */}
                         <div>
-                          <div className="text-xs font-medium text-gray-500 mb-1">Linked Threats</div>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="text-xs font-medium text-gray-500">Linked Threats</div>
+                            <button
+                              onClick={() => handleAutoMap(control.id)}
+                              disabled={autoMapping === control.id}
+                              className="flex items-center gap-1 text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 disabled:opacity-50"
+                            >
+                              {autoMapping === control.id ? (
+                                <><Loader2 className="w-3 h-3 animate-spin" /> Mapping...</>
+                              ) : (
+                                <><Sparkles className="w-3 h-3" /> Auto-Map Threats</>
+                              )}
+                            </button>
+                          </div>
                           <div className="flex flex-wrap gap-1 mb-2">
                             {(control.linked_threat_ids || []).map(tid => (
                               <span key={tid} className="px-2 py-0.5 bg-red-50 text-red-700 rounded text-xs">{tid}</span>
                             ))}
                             {(!control.linked_threat_ids || control.linked_threat_ids.length === 0) && (
-                              <span className="text-xs text-gray-400">No threats linked</span>
+                              <span className="text-xs text-gray-400">No threats linked — use Auto-Map or link manually</span>
                             )}
                           </div>
+                          {/* Auto-map results */}
+                          {autoMapResults[control.id] && (
+                            <div className="mb-2 p-2 bg-purple-50 rounded border border-purple-200">
+                              <div className="text-xs font-medium text-purple-800 mb-1">
+                                Auto-mapped {autoMapResults[control.id].auto_linked_count} threats (relevance &ge; 40%)
+                              </div>
+                              {autoMapResults[control.id].matched_threats?.slice(0, 5).map((t: any) => (
+                                <div key={t.threat_id} className="flex items-center justify-between text-xs py-0.5">
+                                  <span className="text-gray-700 truncate flex-1">{t.threat_title}</span>
+                                  <span className={`ml-2 px-1.5 rounded ${t.relevance_score >= 0.4 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                    {(t.relevance_score * 100).toFixed(0)}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {linkingControlId === control.id ? (
                             <div className="flex gap-2">
                               <input
@@ -469,7 +518,7 @@ export default function SecurityControlsPage() {
                               onClick={() => { setLinkingControlId(control.id); setLinkThreatId('') }}
                               className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
                             >
-                              <Link2 className="w-3 h-3" /> Link Threat
+                              <Link2 className="w-3 h-3" /> Link Manually
                             </button>
                           )}
                         </div>

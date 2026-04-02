@@ -2,6 +2,7 @@
 Security Controls Registry Router
 Project-level controls inventory + per-threat control linking + residual risk scoring.
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -10,9 +11,11 @@ from datetime import datetime
 
 from models import get_db
 from models.models import (
-    User, Project, SecurityControl, ControlStatus, ControlType
+    User, Project, SecurityControl, ControlStatus, ControlType, ThreatModel
 )
 from core.security import get_current_active_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/security-controls", tags=["Security Controls"])
 
@@ -21,12 +24,12 @@ router = APIRouter(prefix="/api/security-controls", tags=["Security Controls"])
 
 class ControlCreate(BaseModel):
     name: str
-    description: Optional[str] = None
-    control_type: Optional[str] = "preventive"
-    status: Optional[str] = "implemented"
-    stride_categories: Optional[List[str]] = None
-    effectiveness: Optional[float] = Field(default=0.7, ge=0.0, le=1.0)
-    owner: Optional[str] = None
+    description: str
+    control_type: str = "preventive"
+    status: str = "implemented"
+    stride_categories: List[str]  # At least one STRIDE category required
+    effectiveness: float = Field(default=0.7, ge=0.0, le=1.0)
+    owner: str
     evidence: Optional[str] = None
 
 
@@ -369,4 +372,132 @@ async def get_controls_coverage(
         "stride_coverage": stride_coverage,
         "threat_coverage": threat_to_controls,
         "requirement_coverage": requirement_to_controls,
+    }
+
+
+# ==================== AI Auto-Map ====================
+
+STRIDE_CATEGORY_ALIASES = {
+    "spoofing": ["spoofing", "authentication", "identity", "impersonation"],
+    "tampering": ["tampering", "integrity", "modification", "injection", "input validation"],
+    "repudiation": ["repudiation", "logging", "audit", "non-repudiation", "accountability"],
+    "information_disclosure": ["information disclosure", "data leak", "exposure", "confidentiality", "privacy"],
+    "denial_of_service": ["denial of service", "dos", "availability", "resource exhaustion", "rate limit"],
+    "elevation_of_privilege": ["elevation of privilege", "privilege escalation", "authorization", "access control", "rbac"],
+}
+
+
+def _compute_relevance(control_name: str, control_desc: str, control_stride: list,
+                       threat_title: str, threat_desc: str, threat_category: str) -> float:
+    """Score how well a control matches a threat (0.0-1.0) using keyword + STRIDE overlap."""
+    score = 0.0
+    control_text = f"{control_name} {control_desc}".lower()
+    threat_text = f"{threat_title} {threat_desc}".lower()
+
+    # STRIDE category match (strongest signal)
+    threat_cat_lower = threat_category.lower().replace(" ", "_")
+    for stride_cat in control_stride:
+        cat_lower = stride_cat.lower().replace(" ", "_")
+        if cat_lower == threat_cat_lower:
+            score += 0.5
+            break
+        # Check aliases
+        aliases = STRIDE_CATEGORY_ALIASES.get(cat_lower, [])
+        if threat_cat_lower in [a.replace(" ", "_") for a in aliases]:
+            score += 0.4
+            break
+
+    # Keyword overlap between control description and threat title/description
+    control_words = set(control_text.split()) - {"the", "a", "an", "is", "are", "and", "or", "to", "of", "in", "for", "with", "on"}
+    threat_words = set(threat_text.split()) - {"the", "a", "an", "is", "are", "and", "or", "to", "of", "in", "for", "with", "on"}
+    if control_words and threat_words:
+        overlap = len(control_words & threat_words)
+        keyword_score = min(overlap / max(len(control_words), 1) * 0.5, 0.4)
+        score += keyword_score
+
+    # Bonus for specific security terms matching
+    security_terms = ["encrypt", "auth", "token", "firewall", "waf", "mfa", "ssl", "tls",
+                      "rbac", "audit", "log", "monitor", "rate limit", "input valid", "sanitiz",
+                      "cors", "csrf", "xss", "injection", "password", "hash", "session"]
+    for term in security_terms:
+        if term in control_text and term in threat_text:
+            score += 0.1
+
+    return min(score, 1.0)
+
+
+@router.post("/controls/{control_id}/auto-map")
+async def auto_map_control(
+    control_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """AI-powered auto-mapping: match a control against the project's threats using
+    STRIDE category overlap + keyword relevance scoring. Returns matched threats
+    sorted by relevance and auto-links those above threshold."""
+    control = db.query(SecurityControl).join(Project).filter(
+        SecurityControl.id == control_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not control:
+        raise HTTPException(status_code=404, detail="Control not found")
+
+    # Get the project's threat model
+    threat_model = db.query(ThreatModel).filter(
+        ThreatModel.project_id == control.project_id
+    ).first()
+    if not threat_model or not threat_model.stride_analysis:
+        raise HTTPException(status_code=404, detail="No threat model found. Generate a threat model first.")
+
+    stride_analysis = threat_model.stride_analysis
+    control_stride = control.stride_categories or []
+    control_name = control.name or ""
+    control_desc = control.description or ""
+
+    # Score each threat
+    matched_threats = []
+    for category, threats in stride_analysis.items():
+        if category == "securereq_coverage":
+            continue
+        if not isinstance(threats, list):
+            continue
+        for i, threat in enumerate(threats):
+            threat_id = threat.get("id", f"{category}_{i}")
+            threat_title = threat.get("threat", threat.get("name", ""))
+            threat_desc = threat.get("description", "")
+            threat_category = threat.get("category", category)
+
+            relevance = _compute_relevance(
+                control_name, control_desc, control_stride,
+                threat_title, threat_desc, threat_category
+            )
+
+            if relevance >= 0.2:  # Minimum threshold
+                matched_threats.append({
+                    "threat_id": threat_id,
+                    "threat_title": threat_title,
+                    "stride_category": threat_category,
+                    "severity": threat.get("severity", "medium"),
+                    "relevance_score": round(relevance, 2),
+                })
+
+    # Sort by relevance descending
+    matched_threats.sort(key=lambda t: t["relevance_score"], reverse=True)
+
+    # Auto-link threats above 0.4 threshold
+    auto_linked = [t["threat_id"] for t in matched_threats if t["relevance_score"] >= 0.4]
+    if auto_linked:
+        existing = control.linked_threat_ids or []
+        merged = list(set(existing + auto_linked))
+        control.linked_threat_ids = merged
+        db.commit()
+        logger.info(f"Auto-mapped control '{control.name}' to {len(auto_linked)} threats")
+
+    return {
+        "control_id": control_id,
+        "control_name": control.name,
+        "total_threats_scored": len(matched_threats),
+        "auto_linked_count": len(auto_linked),
+        "auto_linked_threshold": 0.4,
+        "matched_threats": matched_threats[:20],  # Top 20
     }
