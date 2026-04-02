@@ -18,6 +18,7 @@ import ApplicationIntelligencePage from './pages/ApplicationIntelligencePage'
 import SecurityRequirementsPage from './pages/SecurityRequirementsPage'
 import StoryAnalysisPage from './pages/StoryAnalysisPage'
 import GitHubMonitorPage from './pages/GitHubMonitorPage'
+import SecurityControlsPage from './pages/SecurityControlsPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -61,6 +62,7 @@ function App() {
           <Route path="/projects/:id/vulnerabilities" element={<VulnerabilitiesPage />} />
           <Route path="/projects/:id/security-requirements" element={<SecurityRequirementsPage />} />
           <Route path="/projects/:id/stories/:storyId" element={<StoryAnalysisPage />} />
+          <Route path="/projects/:id/security-controls" element={<SecurityControlsPage />} />
           <Route path="/threat-intel" element={<ThreatIntelPage />} />
           <Route path="/chat" element={<ChatPage />} />
           <Route path="/custom-rules" element={<CustomRulesPage />} />

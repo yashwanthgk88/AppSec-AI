@@ -622,3 +622,42 @@ class PromptFeedback(Base):
 
     # Relationships
     user = relationship("User", backref="prompt_feedback")
+
+
+class ControlStatus(str, enum.Enum):
+    IMPLEMENTED = "implemented"
+    PLANNED = "planned"
+    PARTIAL = "partial"
+    NOT_IMPLEMENTED = "not_implemented"
+
+
+class ControlType(str, enum.Enum):
+    PREVENTIVE = "preventive"
+    DETECTIVE = "detective"
+    CORRECTIVE = "corrective"
+    COMPENSATING = "compensating"
+
+
+class SecurityControl(Base):
+    """Project-level security controls registry for tracking existing mitigations."""
+    __tablename__ = "security_controls"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    control_type = Column(Enum(ControlType), default=ControlType.PREVENTIVE)
+    status = Column(Enum(ControlStatus), default=ControlStatus.IMPLEMENTED)
+    stride_categories = Column(JSON)  # ["spoofing", "tampering", ...] categories this control covers
+    effectiveness = Column(Float, default=0.7)  # 0.0-1.0 how effective is this control
+    owner = Column(String(255))  # Team or person responsible
+    evidence = Column(Text)  # Link or description of implementation evidence
+    linked_threat_ids = Column(JSON)  # List of threat IDs this control mitigates
+    linked_requirement_ids = Column(JSON)  # List of SR-XXX IDs this control satisfies
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    project = relationship("Project", backref="security_controls")
+    creator = relationship("User", backref="created_controls")

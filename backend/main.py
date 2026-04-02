@@ -60,6 +60,7 @@ from routers import securereq
 from routers import integrations
 from routers import github_monitor
 from routers import threat_intel
+from routers import security_controls
 
 # Pydantic schemas
 from pydantic import BaseModel, EmailStr
@@ -121,6 +122,7 @@ app.include_router(securereq.router)
 app.include_router(integrations.router)
 app.include_router(github_monitor.router)
 app.include_router(threat_intel.router)
+app.include_router(security_controls.router)
 
 # Initialize AI configuration from database at startup
 def load_ai_config_from_database():
@@ -374,6 +376,42 @@ async def startup_event():
 
     # Migrate threat intel tables
     _migrate_threat_intel_tables()
+
+    # Migrate security controls tables
+    _migrate_security_controls_tables()
+
+
+def _migrate_security_controls_tables():
+    """Create security controls registry table."""
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS security_controls (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            control_type TEXT DEFAULT 'preventive',
+            status TEXT DEFAULT 'implemented',
+            stride_categories TEXT,
+            effectiveness REAL DEFAULT 0.7,
+            owner TEXT,
+            evidence TEXT,
+            linked_threat_ids TEXT,
+            linked_requirement_ids TEXT,
+            created_by INTEGER,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sc_project ON security_controls(project_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sc_status ON security_controls(status)")
+
+    conn.commit()
+    conn.close()
+    print("[MIGRATION] Security controls tables ready")
 
 
 def _migrate_and_seed_insider_threat_rules():
@@ -2188,7 +2226,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
         quick_mode: If True, skip AI enrichment for faster generation (uses templates)
     """
     from models.database import SessionLocal
-    from models.models import SecurityAnalysis, UserStory
+    from models.models import SecurityAnalysis, UserStory, SecurityControl
     from services.sector_threat_intel import get_sector_threats, format_intel_for_prompt
 
     mode_str = "Quick Mode" if quick_mode else "Full Mode"
@@ -2299,6 +2337,30 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
                     logger.info(f"[Threat Model BG] Loaded SecReq context from {len(seen_stories)} stories ({len(securereq_abuse_cases)} abuse cases, {len(securereq_requirements)} requirements)")
         except Exception as e:
             logger.warning(f"[Threat Model BG] Could not load SecReq context: {e}")
+
+        # Load existing security controls for context
+        controls_context = ""
+        try:
+            controls = db.query(SecurityControl).filter(
+                SecurityControl.project_id == project_id
+            ).all()
+            if controls:
+                ctrl_lines = []
+                for c in controls:
+                    status = c.status.value if c.status else "unknown"
+                    ctype = c.control_type.value if c.control_type else "unknown"
+                    effectiveness = c.effectiveness or 0.7
+                    stride_cats = ", ".join(c.stride_categories) if c.stride_categories else "general"
+                    ctrl_lines.append(
+                        f"- [{status.upper()}] {c.name} (type: {ctype}, effectiveness: {effectiveness:.0%}, covers: {stride_cats})"
+                    )
+                    if c.description:
+                        ctrl_lines.append(f"  {c.description[:200]}")
+                controls_context = "\n".join(ctrl_lines)
+                threat_intel_context += f"\n\n=== EXISTING SECURITY CONTROLS ===\n{controls_context}"
+                logger.info(f"[Threat Model BG] Loaded {len(controls)} existing security controls")
+        except Exception as e:
+            logger.warning(f"[Threat Model BG] Could not load security controls: {e}")
 
         # Delete existing threat model if any
         existing = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()

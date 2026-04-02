@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Trash2,
   ClipboardCheck,
+  ShieldCheck,
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -274,6 +275,13 @@ export default function ProjectDetailPage() {
           title="SecureReq"
           description="Security requirements"
           color="green"
+        />
+        <QuickLink
+          to={`/projects/${id}/security-controls`}
+          icon={<ShieldCheck className="w-6 h-6" />}
+          title="Controls"
+          description="Security controls registry"
+          color="teal"
         />
       </div>
 
