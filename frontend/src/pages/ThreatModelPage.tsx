@@ -899,11 +899,11 @@ export default function ThreatModelPage() {
     )
   }
 
-  const strideCategories = Object.keys(threatModel.stride_analysis || {})
+  const strideCategories = Object.keys(threatModel.stride_analysis || {}).filter(k => k !== 'securereq_coverage')
   let filteredThreats =
     selectedCategory === 'all'
-      ? Object.values(threatModel.stride_analysis || {}).flat()
-      : threatModel.stride_analysis[selectedCategory] || []
+      ? strideCategories.flatMap(cat => threatModel.stride_analysis[cat] || []).filter((t: any) => typeof t === 'object' && t !== null)
+      : (threatModel.stride_analysis[selectedCategory] || []).filter((t: any) => typeof t === 'object' && t !== null)
 
   // Apply search filter
   if (searchQuery.trim()) {
@@ -1761,7 +1761,8 @@ function ThreatsTab({
           </p>
         ) : (
           displayThreats.map((threat: any, idx: number) => {
-            const threatId = threat.id || `${threat.category || 'unknown'}_${idx}`
+            // Match using threat.id — this is what controls store as linked_threat_ids
+            const threatId = threat.id || ''
             const mappedControls = controlsMap[threatId] || []
             return (
               <ThreatCard
