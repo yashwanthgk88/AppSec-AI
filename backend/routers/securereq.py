@@ -733,6 +733,100 @@ async def sync_stories_from_jira(
         raise HTTPException(status_code=500, detail=f"Jira sync failed: {str(e)}")
 
 
+@router.post("/projects/{project_id}/push-to-jira")
+async def push_seed_stories_to_jira(
+    project_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create seed user stories in Jira project and sync back."""
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    jira_settings = db.query(IntegrationSettings).filter(
+        IntegrationSettings.user_id == current_user.id,
+        IntegrationSettings.integration_type == IntegrationType.JIRA
+    ).first()
+    if not jira_settings:
+        raise HTTPException(status_code=400, detail="Jira not configured")
+
+    client = JiraClient(
+        base_url=jira_settings.base_url,
+        email=jira_settings.username,
+        api_token=jira_settings.api_token
+    )
+
+    seed_stories = [
+        {
+            "summary": "Implement Wire Transfer API with dual-approval workflow",
+            "description": "As a business banking customer, I want to initiate domestic and international wire transfers from the web portal so that I can send funds to vendors and partners.\n\nWire transfers above $10,000 require dual-approval from an authorized signer. The system must validate beneficiary details, check OFAC sanctions lists, and generate a Fedwire message.\n\nAcceptance Criteria:\n1. User can enter beneficiary details (name, account, routing, SWIFT/BIC)\n2. Amount validation against daily/transaction limits\n3. OFAC/SDN screening before submission\n4. Dual-approval workflow for amounts > $10,000\n5. Fedwire/SWIFT message generation\n6. Email/SMS notification on transfer status\n7. Full audit trail with timestamps"
+        },
+        {
+            "summary": "Customer authentication with adaptive MFA",
+            "description": "As a banking customer, I want to securely log in using my credentials with adaptive multi-factor authentication so that my account is protected against unauthorized access.\n\nThe system should evaluate risk signals (new device, location, impossible travel) and step up authentication when risk is elevated. Support FIDO2/WebAuthn, TOTP, SMS OTP, and push notification as second factors.\n\nAcceptance Criteria:\n1. Username/password primary authentication\n2. Risk-based MFA step-up (device fingerprint, geolocation, velocity)\n3. FIDO2/WebAuthn hardware key support\n4. TOTP authenticator app support\n5. SMS OTP fallback with rate limiting\n6. Session management with idle/absolute timeouts\n7. Account lockout after 5 failed attempts\n8. Login audit log with IP, device, location"
+        },
+        {
+            "summary": "Account balance and transaction history API",
+            "description": "As a customer, I want to view my real-time account balance and paginated transaction history so that I can track my spending and verify deposits.\n\nThe API should support filtering by date range, transaction type, and amount. Must handle multiple account types (checking, savings, money market, CD). Transaction data is sourced from the core banking ledger via Kafka events.\n\nAcceptance Criteria:\n1. GET /api/accounts/{id}/balance returns real-time balance\n2. GET /api/accounts/{id}/transactions with pagination\n3. Filter by date range, type, amount range\n4. Support CSV/PDF export of transaction history\n5. Response time < 200ms for balance, < 500ms for transactions\n6. Authorization: user can only see own accounts\n7. Mask account numbers in responses (show last 4 digits)"
+        },
+        {
+            "summary": "Bill payment scheduling and recurring payments",
+            "description": "As a customer, I want to schedule one-time and recurring bill payments to registered payees so that I never miss a payment.\n\nThe system should support ACH and check payments, allow editing/cancelling scheduled payments before the processing cutoff, and send reminders before payment execution.\n\nAcceptance Criteria:\n1. Add/edit/delete payees with account validation\n2. Schedule one-time payment with future date\n3. Set up recurring payments (weekly, bi-weekly, monthly)\n4. Edit/cancel scheduled payments before cutoff time\n5. Payment reminders via email/push 1 day before execution\n6. Support ACH and check payment methods\n7. Payment confirmation with reference number\n8. Insufficient funds handling and retry logic"
+        },
+        {
+            "summary": "KYC document upload and identity verification",
+            "description": "As a new customer applying for an account, I want to upload my identity documents (passport, driver's license, utility bill) for KYC verification so that my account can be activated.\n\nThe system should perform OCR extraction, liveness detection for selfie matching, and sanctions/PEP screening. Documents must be encrypted at rest and purged after the retention period.\n\nAcceptance Criteria:\n1. Upload government ID (passport, driver's license, state ID)\n2. Upload proof of address (utility bill, bank statement)\n3. Selfie capture with liveness detection\n4. OCR extraction of name, DOB, address from documents\n5. Face matching between ID photo and selfie (>95% confidence)\n6. PEP and sanctions screening\n7. AES-256 encryption of documents at rest\n8. Auto-purge after 7-year retention period\n9. Audit trail for all document access"
+        },
+        {
+            "summary": "Real-time fraud detection and alerting engine",
+            "description": "As a fraud analyst, I want the system to detect and alert on suspicious transactions in real-time so that fraudulent activity is stopped before funds leave the bank.\n\nThe engine evaluates transactions against ML models and rule-based policies. Suspicious transactions are held for review, and customers receive instant push/SMS alerts.\n\nAcceptance Criteria:\n1. Real-time scoring of all transactions (< 100ms latency)\n2. ML model for anomaly detection (spending patterns, geo, device)\n3. Rule engine for velocity checks and amount thresholds\n4. Auto-hold transactions exceeding risk threshold\n5. Push/SMS alerts to customer for flagged transactions\n6. Fraud analyst queue with approve/deny workflow\n7. False positive feedback loop to improve model\n8. Daily/weekly fraud summary reports"
+        },
+        {
+            "summary": "Debit card management — activate, freeze, set limits",
+            "description": "As a customer, I want to manage my debit card from the mobile app including activation, temporary freeze, PIN change, and spending limits so that I have full control over my card.\n\nAcceptance Criteria:\n1. Activate new card via app (scan or enter last 4 + CVV)\n2. Instant freeze/unfreeze card\n3. Set daily ATM withdrawal limit\n4. Set daily POS spending limit\n5. Enable/disable international transactions\n6. Enable/disable online transactions\n7. Report lost/stolen and request replacement\n8. View real-time card transaction notifications"
+        },
+        {
+            "summary": "Internal admin portal with role-based access control",
+            "description": "As a bank operations manager, I want an internal admin portal with granular role-based access control so that employees can only access functions appropriate to their role.\n\nRoles include: teller, branch manager, compliance officer, fraud analyst, IT admin, auditor. All actions must be logged for SOX and regulatory compliance.\n\nAcceptance Criteria:\n1. Role definitions with granular permissions (view, edit, approve, admin)\n2. User provisioning/deprovisioning with manager approval\n3. Separation of duties enforcement (e.g., cannot create and approve same transaction)\n4. Session timeout and re-authentication for sensitive operations\n5. Complete audit trail for all admin actions\n6. Quarterly access review workflow\n7. Emergency break-glass access with alerts\n8. Integration with Active Directory/LDAP"
+        },
+    ]
+
+    # Check which stories already exist in Jira BAN project
+    try:
+        existing_issues = await client.get_project_issues("BAN", max_results=100)
+        existing_summaries = {i["fields"]["summary"].lower().strip() for i in existing_issues}
+    except Exception:
+        existing_summaries = set()
+
+    created = []
+    skipped = []
+    for story in seed_stories:
+        if story["summary"].lower().strip() in existing_summaries:
+            skipped.append(story["summary"])
+            continue
+        try:
+            result = await client.create_issue(
+                project_key="BAN",
+                summary=story["summary"],
+                description=story["description"],
+                issue_type="Story"
+            )
+            created.append(result.get("key", "unknown"))
+        except Exception as e:
+            logger.error("Failed to create Jira issue '%s': %s", story["summary"], e)
+
+    return {
+        "success": True,
+        "created_in_jira": created,
+        "skipped_existing": skipped,
+        "message": f"Created {len(created)} stories in Jira BAN project, skipped {len(skipped)} existing"
+    }
+
+
 @router.post("/projects/{project_id}/sync/ado")
 async def sync_stories_from_ado(
     project_id: int,

@@ -74,6 +74,40 @@ class JiraClient:
             data = resp.json()
             return data.get("issues", [])
 
+    async def create_issue(self, project_key: str, summary: str, description: str,
+                           issue_type: str = "Story", extra_fields: dict = None) -> dict:
+        """Create a new Jira issue."""
+        # Build ADF description
+        adf_description = {
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {"type": "paragraph", "content": [{"type": "text", "text": para}]}
+                for para in description.split("\n") if para.strip()
+            ]
+        }
+        payload = {
+            "fields": {
+                "project": {"key": project_key},
+                "summary": summary,
+                "description": adf_description,
+                "issuetype": {"name": issue_type},
+                **(extra_fields or {})
+            }
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{self.base_url}/rest/api/3/issue",
+                json=payload,
+                headers=self.headers,
+            )
+            if resp.status_code >= 400:
+                logger.error("Jira create failed: %s - %s", resp.status_code, resp.text)
+                resp.raise_for_status()
+            data = resp.json()
+            logger.info("Created Jira issue: %s", data.get("key"))
+            return data
+
     async def get_issue(self, issue_key: str) -> dict:
         """Get issue details."""
         async with httpx.AsyncClient(timeout=30) as client:
