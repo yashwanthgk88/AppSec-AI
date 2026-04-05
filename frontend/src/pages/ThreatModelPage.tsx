@@ -1666,6 +1666,27 @@ function ThreatsTab({
   getControlsForThreat = (_id: string) => []
 }: any) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [severityFilter, setSeverityFilter] = useState<string>('all')
+  const [componentFilter, setComponentFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  // Reset page when filters change
+  useEffect(() => { setCurrentPage(1) }, [statusFilter, severityFilter, componentFilter, selectedCategory, searchQuery])
+
+  // Extract unique components
+  const uniqueComponents = Array.from(new Set(
+    filteredThreats.map((t: any) => t.component).filter(Boolean)
+  )).sort() as string[]
+
+  // Severity counts from filteredThreats
+  const severityCounts = {
+    all: filteredThreats.length,
+    critical: filteredThreats.filter((t: any) => t.severity === 'critical').length,
+    high: filteredThreats.filter((t: any) => t.severity === 'high').length,
+    medium: filteredThreats.filter((t: any) => t.severity === 'medium').length,
+    low: filteredThreats.filter((t: any) => t.severity === 'low').length,
+  }
 
   // Count threats by review status
   const statusCounts = {
@@ -1675,46 +1696,90 @@ function ThreatsTab({
     accepted: filteredThreats.filter((t: any) => t.review_status === 'accepted').length,
   }
 
-  // Apply status filter
-  const displayThreats = statusFilter === 'all'
-    ? filteredThreats
-    : filteredThreats.filter((t: any) => {
-        if (statusFilter === 'open') return !t.review_status || t.review_status === 'open'
-        return t.review_status === statusFilter
-      })
+  // Apply all filters
+  const displayThreats = filteredThreats.filter((t: any) => {
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'open' && t.review_status && t.review_status !== 'open') return false
+      if (statusFilter !== 'open' && t.review_status !== statusFilter) return false
+    }
+    if (severityFilter !== 'all' && t.severity !== severityFilter) return false
+    if (componentFilter !== 'all' && t.component !== componentFilter) return false
+    return true
+  })
+
+  // Pagination
+  const totalPages = Math.ceil(displayThreats.length / pageSize)
+  const paginatedThreats = displayThreats.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  // Page numbers to show
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      pages.push(1)
+      if (currentPage > 3) pages.push('...')
+      for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i)
+      if (currentPage < totalPages - 2) pages.push('...')
+      pages.push(totalPages)
+    }
+    return pages
+  }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center space-x-2 flex-wrap">
+      {/* Severity Summary Bar */}
+      <div className="grid grid-cols-5 gap-3 mb-5">
+        {([
+          { key: 'all', label: 'Total', color: 'bg-gray-100 text-gray-800 border-gray-200' },
+          { key: 'critical', label: 'Critical', color: 'bg-red-50 text-red-700 border-red-200' },
+          { key: 'high', label: 'High', color: 'bg-orange-50 text-orange-700 border-orange-200' },
+          { key: 'medium', label: 'Medium', color: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+          { key: 'low', label: 'Low', color: 'bg-green-50 text-green-700 border-green-200' },
+        ] as const).map(s => (
           <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 text-sm rounded-lg transition ${
-              selectedCategory === 'all'
+            key={s.key}
+            onClick={() => setSeverityFilter(s.key)}
+            className={`rounded-lg border p-3 text-center transition ${s.color} ${
+              severityFilter === s.key ? 'ring-2 ring-primary-500 shadow-sm' : 'hover:shadow-sm'
+            }`}
+          >
+            <div className="text-2xl font-bold">{severityCounts[s.key]}</div>
+            <div className="text-xs font-medium mt-0.5">{s.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* STRIDE Category Filter */}
+      <div className="flex items-center space-x-2 flex-wrap mb-4">
+        <span className="text-xs font-medium text-gray-500 mr-1">STRIDE:</span>
+        <button
+          onClick={() => setSelectedCategory('all')}
+          className={`px-3 py-1.5 text-xs rounded-lg transition ${
+            selectedCategory === 'all'
+              ? 'bg-primary-600 text-white'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          All
+        </button>
+        {strideCategories.map((category: string) => (
+          <button
+            key={category}
+            onClick={() => setSelectedCategory(category)}
+            className={`px-3 py-1.5 text-xs rounded-lg transition ${
+              selectedCategory === category
                 ? 'bg-primary-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            All
+            {category}
           </button>
-          {strideCategories.map((category: string) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 text-sm rounded-lg transition ${
-                selectedCategory === category
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        ))}
       </div>
 
-      {/* Status Filter + Search */}
-      <div className="flex items-center gap-3 mb-4">
+      {/* Status Filter + Component Filter + Search */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
           {(['all', 'open', 'closed', 'accepted'] as const).map(s => (
             <button
@@ -1733,35 +1798,114 @@ function ThreatsTab({
             </button>
           ))}
         </div>
+
+        {/* Component Filter */}
+        {uniqueComponents.length > 1 && (
+          <select
+            value={componentFilter}
+            onChange={(e) => setComponentFilter(e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+          >
+            <option value="all">All Components ({uniqueComponents.length})</option>
+            {uniqueComponents.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        )}
+
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search threats..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          className="flex-1 min-w-[200px] px-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
         />
       </div>
 
+      {/* Results count + Page size */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm text-gray-500">
+          Showing {displayThreats.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, displayThreats.length)} of {displayThreats.length} threats
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">Per page:</span>
+          {[10, 20, 50, 100].map(size => (
+            <button
+              key={size}
+              onClick={() => { setPageSize(size); setCurrentPage(1) }}
+              className={`px-2 py-1 text-xs rounded ${
+                pageSize === size ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Threat Cards */}
       <div className="space-y-4">
-        {displayThreats.length === 0 ? (
+        {paginatedThreats.length === 0 ? (
           <p className="text-center text-gray-600 py-8">
-            {searchQuery || statusFilter !== 'all' ? 'No threats match your filters' : 'No threats in this category'}
+            {searchQuery || statusFilter !== 'all' || severityFilter !== 'all' || componentFilter !== 'all'
+              ? 'No threats match your filters'
+              : 'No threats in this category'}
           </p>
         ) : (
-          displayThreats.map((threat: any, idx: number) => (
+          paginatedThreats.map((threat: any, idx: number) => {
+            const globalIdx = (currentPage - 1) * pageSize + idx
+            return (
               <ThreatCard
-                key={idx}
+                key={globalIdx}
                 threat={threat}
-                isExpanded={expandedThreats.has(idx)}
-                onToggle={() => toggleThreat(idx)}
+                isExpanded={expandedThreats.has(globalIdx)}
+                onToggle={() => toggleThreat(globalIdx)}
                 controls={controls}
                 mappedControls={getControlsForThreat(threat.id)}
                 projectId={projectId}
                 onStatusChange={onThreatStatusChange}
               />
-          ))
+            )
+          })
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-1 mt-6 pt-4 border-t border-gray-200">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          {getPageNumbers().map((page, i) =>
+            typeof page === 'string' ? (
+              <span key={`ellipsis-${i}`} className="px-2 text-gray-400">...</span>
+            ) : (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`w-9 h-9 text-sm rounded-lg transition ${
+                  currentPage === page
+                    ? 'bg-primary-600 text-white'
+                    : 'border border-gray-300 hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                {page}
+              </button>
+            )
+          )}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-2 text-sm rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }
