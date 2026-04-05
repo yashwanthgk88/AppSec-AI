@@ -1473,59 +1473,6 @@ export default function ThreatModelPage() {
         </div>
       )}
 
-      {/* Security Controls Input */}
-      <div className="card p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Security Controls</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Add security controls you have implemented. The system will adjust threat severity based on active controls.
-        </p>
-
-        <div className="flex items-start space-x-2 mb-4">
-          <input
-            type="text"
-            value={newControl}
-            onChange={(e) => setNewControl(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && addControl()}
-            placeholder="e.g., Multi-factor authentication, Input validation, Encryption at rest..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-          />
-          <button
-            onClick={addControl}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
-          >
-            Add Control
-          </button>
-        </div>
-
-        {controls.length > 0 ? (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700 mb-2">Active Controls ({controls.length}):</p>
-            <div className="flex flex-wrap gap-2">
-              {controls.map((control, index) => (
-                <div
-                  key={index}
-                  className="inline-flex items-center space-x-2 px-3 py-1.5 bg-green-100 text-green-800 rounded-lg"
-                >
-                  <Shield className="w-4 h-4" />
-                  <span className="text-sm">{control}</span>
-                  <button
-                    onClick={() => removeControl(index)}
-                    className="text-green-600 hover:text-green-900"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="text-center py-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-            <Shield className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-            <p className="text-sm text-gray-600">No security controls added yet</p>
-            <p className="text-xs text-gray-500">Add controls to see how they affect threat severity</p>
-          </div>
-        )}
-      </div>
 
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
