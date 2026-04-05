@@ -74,8 +74,8 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Projects</h1>
-          <p className="text-gray-600 mt-1">Manage your application security projects</p>
+          <h1 className="text-3xl font-bold text-white">Projects</h1>
+          <p className="text-gray-400 mt-1">Manage your application security projects</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -90,8 +90,8 @@ export default function ProjectsPage() {
       {projects.length === 0 ? (
         <div className="card p-12 text-center">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No projects yet</h3>
-          <p className="text-gray-600 mb-6">Create your first project to start security scanning</p>
+          <h3 className="text-lg font-semibold text-white mb-2">No projects yet</h3>
+          <p className="text-gray-400 mb-6">Create your first project to start security scanning</p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="btn btn-primary inline-flex items-center space-x-2"
@@ -122,26 +122,26 @@ export default function ProjectsPage() {
 function ProjectCard({ project }: { project: any }) {
   const riskLevel = project.risk_score >= 7 ? 'high' : project.risk_score >= 4 ? 'medium' : 'low'
   const riskColors = {
-    high: 'bg-red-100 text-red-800',
-    medium: 'bg-yellow-100 text-yellow-800',
-    low: 'bg-green-100 text-green-800',
+    high: 'bg-red-900/30 text-red-300',
+    medium: 'bg-yellow-900/30 text-yellow-300',
+    low: 'bg-green-900/30 text-green-300',
   }
 
   return (
     <div className="card p-6 hover:shadow-lg transition">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+          <div className="w-12 h-12 bg-primary-900/30 rounded-lg flex items-center justify-center">
             <FileText className="w-6 h-6 text-primary-600" />
           </div>
           <div>
             <Link
               to={`/projects/${project.id}`}
-              className="font-semibold text-gray-900 hover:text-primary-600"
+              className="font-semibold text-white hover:text-primary-600"
             >
               {project.name}
             </Link>
-            <p className="text-sm text-gray-500 flex items-center mt-1">
+            <p className="text-sm text-gray-400 flex items-center mt-1">
               <Calendar className="w-3 h-3 mr-1" />
               {new Date(project.created_at).toLocaleDateString()}
             </p>
@@ -149,19 +149,19 @@ function ProjectCard({ project }: { project: any }) {
         </div>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+      <p className="text-sm text-gray-400 mb-4 line-clamp-2">
         {project.description || 'No description provided'}
       </p>
 
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-xs text-gray-500">Risk Score</div>
+          <div className="text-xs text-gray-400">Risk Score</div>
           <div className="flex items-center space-x-2">
             <TrendingUp className="w-4 h-4 text-gray-400" />
-            <span className="text-2xl font-bold text-gray-900">
+            <span className="text-2xl font-bold text-white">
               {project.risk_score?.toFixed(1) || '0.0'}
             </span>
-            <span className="text-sm text-gray-500">/10</span>
+            <span className="text-sm text-gray-400">/10</span>
           </div>
         </div>
         <span className={`badge ${riskColors[riskLevel]}`}>
@@ -230,10 +230,10 @@ The system consists of the following components:
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Create New Project</h2>
-          <p className="text-gray-600 mt-1">Add architecture details for threat modeling</p>
+      <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-700">
+          <h2 className="text-2xl font-bold text-white">Create New Project</h2>
+          <p className="text-gray-400 mt-1">Add architecture details for threat modeling</p>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -281,7 +281,7 @@ The system consists of the following components:
                 <option value="defense">Defense & Aerospace</option>
                 <option value="media">Media & Entertainment</option>
               </select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 Used for sector-specific threat intelligence and compliance mapping
               </p>
             </div>
@@ -303,7 +303,7 @@ The system consists of the following components:
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, architecture_doc: sampleArchitecture })}
-                className="ml-2 text-xs text-primary-600 hover:text-primary-700"
+                className="ml-2 text-xs text-primary-600 hover:text-primary-400"
               >
                 Use Sample
               </button>
@@ -315,66 +315,66 @@ The system consists of the following components:
               onChange={(e) => setFormData({ ...formData, architecture_doc: e.target.value })}
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 mt-1">
               Describe components, services, databases, and data flows for automatic DFD generation
             </p>
           </div>
 
           <div>
             <label className="label">Automatic Security Scans</label>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-gray-400 mb-3">
               Select which security scans to run automatically after project creation
             </p>
             <div className="space-y-2">
-              <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <label className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg hover:bg-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.auto_scan_types.includes('threat_model')}
                   onChange={() => toggleScanType('threat_model')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-gray-600 rounded focus:ring-primary-500"
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">Threat Modeling</div>
-                  <div className="text-xs text-gray-500">Generate DFD and STRIDE analysis</div>
+                  <div className="font-medium text-white">Threat Modeling</div>
+                  <div className="text-xs text-gray-400">Generate DFD and STRIDE analysis</div>
                 </div>
               </label>
 
-              <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <label className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg hover:bg-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.auto_scan_types.includes('sast')}
                   onChange={() => toggleScanType('sast')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-gray-600 rounded focus:ring-primary-500"
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">SAST Scanning</div>
-                  <div className="text-xs text-gray-500">Static application security testing - code vulnerabilities</div>
+                  <div className="font-medium text-white">SAST Scanning</div>
+                  <div className="text-xs text-gray-400">Static application security testing - code vulnerabilities</div>
                 </div>
               </label>
 
-              <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <label className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg hover:bg-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.auto_scan_types.includes('sca')}
                   onChange={() => toggleScanType('sca')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-gray-600 rounded focus:ring-primary-500"
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">SCA Scanning</div>
-                  <div className="text-xs text-gray-500">Software composition analysis - dependency vulnerabilities</div>
+                  <div className="font-medium text-white">SCA Scanning</div>
+                  <div className="text-xs text-gray-400">Software composition analysis - dependency vulnerabilities</div>
                 </div>
               </label>
 
-              <label className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <label className="flex items-center space-x-3 p-3 border border-gray-700 rounded-lg hover:bg-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.auto_scan_types.includes('secret')}
                   onChange={() => toggleScanType('secret')}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-gray-600 rounded focus:ring-primary-500"
                 />
                 <div className="flex-1">
-                  <div className="font-medium text-gray-900">Secret Scanning</div>
-                  <div className="text-xs text-gray-500">Detect hardcoded credentials and API keys</div>
+                  <div className="font-medium text-white">Secret Scanning</div>
+                  <div className="text-xs text-gray-400">Detect hardcoded credentials and API keys</div>
                 </div>
               </label>
             </div>

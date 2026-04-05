@@ -255,10 +255,10 @@ const ApplicationIntelligencePage: React.FC = () => {
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical': return 'bg-red-600 text-white';
-      case 'high': return 'bg-orange-500 text-white';
-      case 'medium': return 'bg-yellow-500 text-black';
-      case 'low': return 'bg-blue-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case 'high': return 'bg-orange-900/30 text-white';
+      case 'medium': return 'bg-yellow-900/30 text-black';
+      case 'low': return 'bg-blue-900/30 text-white';
+      default: return 'bg-gray-700 text-white';
     }
   };
 
@@ -305,7 +305,7 @@ const ApplicationIntelligencePage: React.FC = () => {
         <div className="w-full bg-gray-700 rounded-full h-3 mb-2">
           <div
             className={`h-3 rounded-full transition-all duration-500 ${
-              status === 'failed' ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'
+              status === 'failed' ? 'bg-red-900/30' : 'bg-gradient-to-r from-blue-900/30 to-purple-900/30'
             }`}
             style={{ width: `${progress}%` }}
           />
@@ -344,7 +344,7 @@ const ApplicationIntelligencePage: React.FC = () => {
         <div className="text-sm text-gray-400 mt-1">
           Lines of Code
         </div>
-        <div className="text-sm text-gray-500 mt-1">
+        <div className="text-sm text-gray-400 mt-1">
           {profile?.file_count?.toLocaleString() || '--'} files analyzed
         </div>
       </div>
@@ -377,7 +377,7 @@ const ApplicationIntelligencePage: React.FC = () => {
           className={`mt-3 w-full py-2 px-4 rounded-lg font-medium transition-colors ${
             loading || isPolling
               ? 'bg-gray-600 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600'
+              : 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 hover:from-blue-600 hover:to-purple-600'
           }`}
         >
           {loading || isPolling ? 'Profiling...' : profile ? 'Re-Profile' : 'Start Profiling'}
@@ -405,7 +405,7 @@ const ApplicationIntelligencePage: React.FC = () => {
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2">
                 <div
-                  className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                  className="h-2 rounded-full bg-gradient-to-r from-blue-900/30 to-cyan-900/30"
                   style={{ width: `${percentage}%` }}
                 />
               </div>
@@ -429,8 +429,8 @@ const ApplicationIntelligencePage: React.FC = () => {
               {fw.version && <span className="text-gray-400 text-xs">{fw.version}</span>}
               {fw.type && (
                 <span className={`text-xs px-1.5 py-0.5 rounded ${
-                  fw.type === 'backend' ? 'bg-blue-500/20 text-blue-400' :
-                  fw.type === 'frontend' ? 'bg-green-500/20 text-green-400' : 'bg-gray-600 text-gray-400'
+                  fw.type === 'backend' ? 'bg-blue-900/20 text-blue-400' :
+                  fw.type === 'frontend' ? 'bg-green-900/20 text-green-400' : 'bg-gray-600 text-gray-400'
                 }`}>
                   {fw.type}
                 </span>
@@ -448,12 +448,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-400 mb-2">Databases</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.databases?.map((db, idx) => (
-                <span key={idx} className="px-3 py-1 bg-purple-500/20 text-purple-400 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-purple-900/20 text-purple-400 rounded-lg text-sm">
                   {db}
                 </span>
               ))}
               {(!profile?.databases || profile.databases.length === 0) && (
-                <span className="text-gray-500 text-sm">None detected</span>
+                <span className="text-gray-400 text-sm">None detected</span>
               )}
             </div>
           </div>
@@ -461,12 +461,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-400 mb-2">ORM Libraries</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.orm_libraries?.map((orm, idx) => (
-                <span key={idx} className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-cyan-900/20 text-cyan-400 rounded-lg text-sm">
                   {orm}
                 </span>
               ))}
               {(!profile?.orm_libraries || profile.orm_libraries.length === 0) && (
-                <span className="text-gray-500 text-sm">None detected</span>
+                <span className="text-gray-400 text-sm">None detected</span>
               )}
             </div>
           </div>
@@ -481,12 +481,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-400 mb-2">Services</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.external_integrations?.map((int, idx) => (
-                <span key={idx} className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-orange-900/20 text-orange-400 rounded-lg text-sm">
                   {int}
                 </span>
               ))}
               {(!profile?.external_integrations || profile.external_integrations.length === 0) && (
-                <span className="text-gray-500 text-sm">None detected</span>
+                <span className="text-gray-400 text-sm">None detected</span>
               )}
             </div>
           </div>
@@ -494,12 +494,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-400 mb-2">Cloud Providers</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.cloud_services?.map((cloud, idx) => (
-                <span key={idx} className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-blue-900/20 text-blue-400 rounded-lg text-sm">
                   {cloud}
                 </span>
               ))}
               {(!profile?.cloud_services || profile.cloud_services.length === 0) && (
-                <span className="text-gray-500 text-sm">None detected</span>
+                <span className="text-gray-400 text-sm">None detected</span>
               )}
             </div>
           </div>
@@ -511,12 +511,12 @@ const ApplicationIntelligencePage: React.FC = () => {
         <h3 className="text-lg font-semibold mb-4">Authentication Mechanisms</h3>
         <div className="flex flex-wrap gap-2">
           {profile?.auth_mechanisms?.map((auth, idx) => (
-            <span key={idx} className="px-3 py-1.5 bg-green-500/20 text-green-400 rounded-lg text-sm font-medium">
+            <span key={idx} className="px-3 py-1.5 bg-green-900/20 text-green-400 rounded-lg text-sm font-medium">
               {auth}
             </span>
           ))}
           {(!profile?.auth_mechanisms || profile.auth_mechanisms.length === 0) && (
-            <span className="text-gray-500 text-sm">None detected</span>
+            <span className="text-gray-400 text-sm">None detected</span>
           )}
         </div>
       </div>
@@ -547,21 +547,21 @@ const ApplicationIntelligencePage: React.FC = () => {
             <div key={idx} className="bg-gray-700/50 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                  ep.method === 'GET' ? 'bg-green-500/20 text-green-400' :
-                  ep.method === 'POST' ? 'bg-blue-500/20 text-blue-400' :
-                  ep.method === 'PUT' ? 'bg-yellow-500/20 text-yellow-400' :
-                  ep.method === 'DELETE' ? 'bg-red-500/20 text-red-400' :
+                  ep.method === 'GET' ? 'bg-green-900/20 text-green-400' :
+                  ep.method === 'POST' ? 'bg-blue-900/20 text-blue-400' :
+                  ep.method === 'PUT' ? 'bg-yellow-900/20 text-yellow-400' :
+                  ep.method === 'DELETE' ? 'bg-red-900/20 text-red-400' :
                   'bg-gray-600 text-gray-400'
                 }`}>
                   {ep.method || 'GET'}
                 </span>
                 <span className="font-mono text-sm text-gray-200">{ep.path}</span>
               </div>
-              <div className="text-xs text-gray-500">{ep.file}</div>
+              <div className="text-xs text-gray-400">{ep.file}</div>
               {ep.risk_indicators && ep.risk_indicators.length > 0 && (
                 <div className="flex gap-1 mt-2">
                   {ep.risk_indicators.map((ri, i) => (
-                    <span key={i} className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 rounded">
+                    <span key={i} className="text-xs px-2 py-0.5 bg-red-900/20 text-red-400 rounded">
                       {ri}
                     </span>
                   ))}
@@ -570,7 +570,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             </div>
           ))}
           {(!profile?.entry_points || profile.entry_points.length === 0) && (
-            <p className="text-gray-500">No entry points detected</p>
+            <p className="text-gray-400">No entry points detected</p>
           )}
         </div>
       </div>
@@ -579,7 +579,7 @@ const ApplicationIntelligencePage: React.FC = () => {
       <div className="bg-gray-800 rounded-lg p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center">
           <span className="mr-2">Sensitive Data Fields</span>
-          <span className="text-sm bg-red-500/20 text-red-400 px-2 py-0.5 rounded">
+          <span className="text-sm bg-red-900/20 text-red-400 px-2 py-0.5 rounded">
             {profile?.sensitive_data_fields?.length || 0}
           </span>
         </h3>
@@ -588,12 +588,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             <div key={idx} className="bg-gray-700/50 rounded-lg p-3 flex justify-between items-start">
               <div>
                 <div className="font-mono text-sm text-gray-200">{field.field}</div>
-                <div className="text-xs text-gray-500">{field.file}:{field.line}</div>
+                <div className="text-xs text-gray-400">{field.file}:{field.line}</div>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded ${
-                field.category === 'credential' ? 'bg-red-500/20 text-red-400' :
-                field.category === 'pii' ? 'bg-orange-500/20 text-orange-400' :
-                field.category === 'financial' ? 'bg-yellow-500/20 text-yellow-400' :
+                field.category === 'credential' ? 'bg-red-900/20 text-red-400' :
+                field.category === 'pii' ? 'bg-orange-900/20 text-orange-400' :
+                field.category === 'financial' ? 'bg-yellow-900/20 text-yellow-400' :
                 'bg-gray-600 text-gray-400'
               }`}>
                 {field.category}
@@ -601,7 +601,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             </div>
           ))}
           {(!profile?.sensitive_data_fields || profile.sensitive_data_fields.length === 0) && (
-            <p className="text-gray-500">No sensitive data fields detected</p>
+            <p className="text-gray-400">No sensitive data fields detected</p>
           )}
         </div>
       </div>
@@ -663,14 +663,14 @@ const ApplicationIntelligencePage: React.FC = () => {
                     {suggestion.category?.replace('_', ' ').toUpperCase()}
                   </span>
                   {suggestion.framework_context && (
-                    <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                    <span className="text-xs bg-blue-900/20 text-blue-400 px-2 py-1 rounded">
                       {suggestion.framework_context}
                     </span>
                   )}
                   <span className={`text-xs px-2 py-1 rounded ${
-                    suggestion.status === 'accepted' ? 'bg-green-500/20 text-green-400' :
+                    suggestion.status === 'accepted' ? 'bg-green-900/20 text-green-400' :
                     suggestion.status === 'dismissed' ? 'bg-gray-600 text-gray-400' :
-                    'bg-yellow-500/20 text-yellow-400'
+                    'bg-yellow-900/20 text-yellow-400'
                   }`}>
                     {suggestion.status}
                   </span>
@@ -694,12 +694,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             {/* CWE and OWASP Tags */}
             <div className="flex flex-wrap gap-2 mb-4">
               {suggestion.cwe_ids?.map((cwe, idx) => (
-                <span key={idx} className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
+                <span key={idx} className="text-xs bg-purple-900/20 text-purple-400 px-2 py-1 rounded">
                   {cwe}
                 </span>
               ))}
               {suggestion.owasp_categories?.map((owasp, idx) => (
-                <span key={idx} className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                <span key={idx} className="text-xs bg-orange-900/20 text-orange-400 px-2 py-1 rounded">
                   {owasp}
                 </span>
               ))}
@@ -711,13 +711,13 @@ const ApplicationIntelligencePage: React.FC = () => {
                 <>
                   <button
                     onClick={() => acceptSuggestion(suggestion.id)}
-                    className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg text-sm font-medium transition-colors"
+                    className="px-4 py-2 bg-green-900/30 hover:bg-green-600 rounded-lg text-sm font-medium transition-colors"
                   >
                     Accept
                   </button>
                   <button
                     onClick={() => dismissSuggestion(suggestion.id)}
-                    className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-medium transition-colors"
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors"
                   >
                     Dismiss
                   </button>
@@ -728,7 +728,7 @@ const ApplicationIntelligencePage: React.FC = () => {
                   setSelectedSuggestion(suggestion);
                   setShowRuleModal(true);
                 }}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-blue-900/30 hover:bg-blue-600 rounded-lg text-sm font-medium transition-colors"
               >
                 View Rule
               </button>
@@ -745,7 +745,7 @@ const ApplicationIntelligencePage: React.FC = () => {
                 </select>
                 <button
                   onClick={() => exportRule(suggestion.id, exportFormat)}
-                  className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-purple-900/30 hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
                 >
                   Export
                 </button>
@@ -755,7 +755,7 @@ const ApplicationIntelligencePage: React.FC = () => {
         ))}
 
         {suggestions.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-400">
             {profile ? 'No rule suggestions yet. Start profiling to generate suggestions.' : 'No profile found. Start profiling first.'}
           </div>
         )}
@@ -815,7 +815,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <div className="mt-4 flex justify-end gap-3">
               <button
                 onClick={() => exportRule(selectedSuggestion.id, exportFormat)}
-                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
+                className="px-4 py-2 bg-purple-900/30 hover:bg-purple-600 rounded-lg text-sm font-medium transition-colors"
               >
                 Download {exportFormat.charAt(0).toUpperCase() + exportFormat.slice(1)} Rule
               </button>
@@ -827,7 +827,7 @@ const ApplicationIntelligencePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <div className="space-y-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -864,7 +864,7 @@ const ApplicationIntelligencePage: React.FC = () => {
               onClick={() => setActiveTab(tab as any)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
+                  ? 'bg-gradient-to-r from-blue-900/30 to-purple-900/30 text-white'
                   : 'text-gray-400 hover:text-white'
               }`}
             >
@@ -884,7 +884,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <button
               onClick={startProfiling}
               disabled={loading}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition-colors"
+              className="px-6 py-3 bg-gradient-to-r from-blue-900/30 to-purple-900/30 hover:from-blue-600 hover:to-purple-600 rounded-lg font-medium transition-colors"
             >
               Start Application Profiling
             </button>

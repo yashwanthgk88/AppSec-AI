@@ -54,17 +54,17 @@ const CONTROL_TYPES = ['preventive', 'detective', 'corrective', 'compensating']
 const CONTROL_STATUSES = ['implemented', 'planned', 'partial', 'not_implemented']
 
 const STATUS_COLORS: Record<string, string> = {
-  implemented: 'bg-green-100 text-green-800',
-  planned: 'bg-blue-100 text-blue-800',
-  partial: 'bg-yellow-100 text-yellow-800',
-  not_implemented: 'bg-red-100 text-red-800',
+  implemented: 'bg-green-900/30 text-green-300',
+  planned: 'bg-blue-900/30 text-blue-300',
+  partial: 'bg-yellow-900/30 text-yellow-300',
+  not_implemented: 'bg-red-900/30 text-red-300',
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: 'bg-red-100 text-red-800',
-  high: 'bg-orange-100 text-orange-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  low: 'bg-green-100 text-green-800',
+  critical: 'bg-red-900/30 text-red-300',
+  high: 'bg-orange-900/30 text-orange-300',
+  medium: 'bg-yellow-900/30 text-yellow-300',
+  low: 'bg-green-900/30 text-green-300',
 }
 
 const STATUS_ICONS: Record<string, any> = {
@@ -331,30 +331,30 @@ export default function SecurityControlsPage() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Link to={`/projects/${projectId}`} className="text-gray-500 hover:text-gray-700">
+        <Link to={`/projects/${projectId}`} className="text-gray-400 hover:text-gray-300">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <Shield className="w-6 h-6 text-blue-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Security Controls Registry</h1>
+        <h1 className="text-2xl font-bold text-white">Security Controls Registry</h1>
       </div>
 
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-sm text-gray-500">Total Controls</div>
-            <div className="text-2xl font-bold text-gray-900">{summary.total_controls}</div>
+          <div className="bg-gray-800 rounded-lg border p-4">
+            <div className="text-sm text-gray-400">Total Controls</div>
+            <div className="text-2xl font-bold text-white">{summary.total_controls}</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-sm text-gray-500">Implemented</div>
+          <div className="bg-gray-800 rounded-lg border p-4">
+            <div className="text-sm text-gray-400">Implemented</div>
             <div className="text-2xl font-bold text-green-600">{summary.implemented}</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-sm text-gray-500">Avg Effectiveness</div>
+          <div className="bg-gray-800 rounded-lg border p-4">
+            <div className="text-sm text-gray-400">Avg Effectiveness</div>
             <div className="text-2xl font-bold text-blue-600">{(summary.average_effectiveness * 100).toFixed(0)}%</div>
           </div>
-          <div className="bg-white rounded-lg border p-4">
-            <div className="text-sm text-gray-500">Threats Mitigated</div>
+          <div className="bg-gray-800 rounded-lg border p-4">
+            <div className="text-sm text-gray-400">Threats Mitigated</div>
             <div className="text-2xl font-bold text-purple-600">{summary.threats_mitigated}</div>
           </div>
         </div>
@@ -364,13 +364,13 @@ export default function SecurityControlsPage() {
       <div className="flex gap-4 mb-6 border-b">
         <button
           onClick={() => setActiveTab('controls')}
-          className={`pb-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'controls' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          className={`pb-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'controls' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-300'}`}
         >
           Controls ({controls.length})
         </button>
         <button
           onClick={() => setActiveTab('coverage')}
-          className={`pb-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'coverage' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          className={`pb-2 px-1 text-sm font-medium border-b-2 ${activeTab === 'coverage' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-300'}`}
         >
           STRIDE Coverage
         </button>
@@ -409,7 +409,7 @@ export default function SecurityControlsPage() {
                   console.error('Failed to download template:', err)
                 }
               }}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+              className="flex items-center gap-2 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 text-sm"
             >
               <Download className="w-4 h-4" /> CSV Template
             </button>
@@ -449,7 +449,7 @@ export default function SecurityControlsPage() {
               }}
             />
           </div>
-          <p className="text-xs text-gray-500 mb-4 -mt-2 flex items-center gap-1">
+          <p className="text-xs text-gray-400 mb-4 -mt-2 flex items-center gap-1">
             <FileText className="w-3 h-3" />
             To bulk upload controls,{' '}
             <button
@@ -479,8 +479,8 @@ export default function SecurityControlsPage() {
           {uploadResult && (
             <div className={`mb-4 p-3 rounded-lg border flex items-start gap-2 ${
               uploadResult.type === 'success'
-                ? 'bg-green-50 border-green-200 text-green-800'
-                : 'bg-red-50 border-red-200 text-red-800'
+                ? 'bg-green-900/20 border-green-700 text-green-300'
+                : 'bg-red-900/20 border-red-700 text-red-300'
             }`}>
               {uploadResult.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -497,7 +497,7 @@ export default function SecurityControlsPage() {
                   </ul>
                 )}
               </div>
-              <button onClick={() => setUploadResult(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setUploadResult(null)} className="text-gray-400 hover:text-gray-400">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -505,11 +505,11 @@ export default function SecurityControlsPage() {
 
           {/* Add/Edit Form */}
           {showForm && (
-            <div className="bg-white border rounded-lg p-6 mb-6">
+            <div className="bg-gray-800 border rounded-lg p-6 mb-6">
               <h3 className="text-lg font-semibold mb-4">{editingId ? 'Edit Control' : 'Add New Control'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={form.name}
@@ -519,7 +519,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Owner <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Owner <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={form.owner}
@@ -529,7 +529,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Description <span className="text-red-500">*</span></label>
                   <textarea
                     value={form.description}
                     onChange={e => setForm({ ...form, description: e.target.value })}
@@ -539,7 +539,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
                   <select
                     value={form.control_type}
                     onChange={e => setForm({ ...form, control_type: e.target.value })}
@@ -551,7 +551,7 @@ export default function SecurityControlsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Status</label>
                   <select
                     value={form.status}
                     onChange={e => setForm({ ...form, status: e.target.value })}
@@ -563,7 +563,7 @@ export default function SecurityControlsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Effectiveness ({(form.effectiveness * 100).toFixed(0)}%)</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Effectiveness ({(form.effectiveness * 100).toFixed(0)}%)</label>
                   <input
                     type="range"
                     min="0" max="1" step="0.05"
@@ -573,7 +573,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Evidence / Link</label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Evidence / Link</label>
                   <input
                     type="text"
                     value={form.evidence}
@@ -583,7 +583,7 @@ export default function SecurityControlsPage() {
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">STRIDE Categories Covered <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">STRIDE Categories Covered <span className="text-red-500">*</span></label>
                   <div className="flex flex-wrap gap-2">
                     {STRIDE_CATEGORIES.map(cat => (
                       <button
@@ -591,8 +591,8 @@ export default function SecurityControlsPage() {
                         onClick={() => toggleStrideCategory(cat)}
                         className={`px-3 py-1 rounded-full text-xs font-medium border ${
                           form.stride_categories.includes(cat)
-                            ? 'bg-blue-100 text-blue-800 border-blue-300'
-                            : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                            ? 'bg-blue-900/30 text-blue-300 border-blue-300'
+                            : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:bg-gray-700'
                         }`}
                       >
                         {cat.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -602,10 +602,10 @@ export default function SecurityControlsPage() {
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
-                <button onClick={handleSubmit} disabled={!isFormValid} className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm ${isFormValid ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}>
+                <button onClick={handleSubmit} disabled={!isFormValid} className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm ${isFormValid ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-300 text-gray-400 cursor-not-allowed'}`}>
                   <Save className="w-4 h-4" /> {editingId ? 'Update' : 'Save'}
                 </button>
-                <button onClick={resetForm} className="flex items-center gap-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                <button onClick={resetForm} className="flex items-center gap-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">
                   <X className="w-4 h-4" /> Cancel
                 </button>
               </div>
@@ -614,9 +614,9 @@ export default function SecurityControlsPage() {
 
           {/* Controls List */}
           {controls.length === 0 ? (
-            <div className="bg-white border rounded-lg p-12 text-center">
+            <div className="bg-gray-800 border rounded-lg p-12 text-center">
               <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No security controls registered yet.</p>
+              <p className="text-gray-400">No security controls registered yet.</p>
               <p className="text-sm text-gray-400 mt-1">Add your existing controls so the threat model can account for them.</p>
             </div>
           ) : (
@@ -628,7 +628,7 @@ export default function SecurityControlsPage() {
                 const linkedCount = control.linked_threat_ids?.length || 0
 
                 return (
-                  <div key={control.id} className="bg-white border rounded-lg overflow-hidden">
+                  <div key={control.id} className="bg-gray-800 border rounded-lg overflow-hidden">
                     <div className="flex items-center justify-between p-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         <StatusIcon className={`w-5 h-5 flex-shrink-0 ${
@@ -637,59 +637,59 @@ export default function SecurityControlsPage() {
                           control.status === 'partial' ? 'text-yellow-500' : 'text-red-500'
                         }`} />
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{control.name}</div>
+                          <div className="font-medium text-white truncate">{control.name}</div>
                           {control.description && (
-                            <div className="text-sm text-gray-500 truncate">{control.description}</div>
+                            <div className="text-sm text-gray-400 truncate">{control.description}</div>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                         {linkedCount > 0 && (
-                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-900/30 text-purple-400">
                             {linkedCount} threat{linkedCount !== 1 ? 's' : ''}
                           </span>
                         )}
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[control.status] || 'bg-gray-100 text-gray-800'}`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[control.status] || 'bg-gray-700 text-gray-100'}`}>
                           {control.status.replace('_', ' ')}
                         </span>
-                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-700 text-gray-400">
                           {control.control_type}
                         </span>
-                        <span className="text-xs text-gray-500">{(control.effectiveness * 100).toFixed(0)}%</span>
+                        <span className="text-xs text-gray-400">{(control.effectiveness * 100).toFixed(0)}%</span>
                         <button onClick={() => handleEdit(control)} className="p-1 text-gray-400 hover:text-blue-600">
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button onClick={() => handleDelete(control.id)} className="p-1 text-gray-400 hover:text-red-600">
                           <Trash2 className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setExpandedId(isExpanded ? null : control.id)} className="p-1 text-gray-400 hover:text-gray-600">
+                        <button onClick={() => setExpandedId(isExpanded ? null : control.id)} className="p-1 text-gray-400 hover:text-gray-400">
                           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="border-t px-4 py-3 bg-gray-50 space-y-4">
+                      <div className="border-t px-4 py-3 bg-gray-800/50 space-y-4">
                         {/* STRIDE categories & Owner */}
                         <div className="flex flex-wrap gap-6 text-sm">
                           {control.stride_categories && control.stride_categories.length > 0 && (
                             <div>
-                              <span className="text-xs font-medium text-gray-500">STRIDE: </span>
+                              <span className="text-xs font-medium text-gray-400">STRIDE: </span>
                               {control.stride_categories.map(cat => (
-                                <span key={cat} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs mr-1">
+                                <span key={cat} className="px-2 py-0.5 bg-blue-900/20 text-blue-400 rounded text-xs mr-1">
                                   {cat.replace('_', ' ')}
                                 </span>
                               ))}
                             </div>
                           )}
-                          {control.owner && <div><span className="text-gray-500">Owner:</span> {control.owner}</div>}
-                          {control.evidence && <div><span className="text-gray-500">Evidence:</span> {control.evidence}</div>}
+                          {control.owner && <div><span className="text-gray-400">Owner:</span> {control.owner}</div>}
+                          {control.evidence && <div><span className="text-gray-400">Evidence:</span> {control.evidence}</div>}
                         </div>
 
                         {/* Linked Threats — shown as readable cards with remove */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Mapped Threats</div>
+                            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Mapped Threats</div>
                             <button
                               onClick={() => openThreatMapper(control)}
                               className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-purple-600 text-white rounded-md hover:bg-purple-700 font-medium"
@@ -700,11 +700,11 @@ export default function SecurityControlsPage() {
                           {linkedThreats.length > 0 ? (
                             <div className="space-y-1.5">
                               {linkedThreats.map(t => (
-                                <div key={t.id} className="flex items-center gap-2 bg-white border rounded-md px-3 py-2 group">
-                                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[t.severity] || 'bg-gray-100 text-gray-600'}`}>
+                                <div key={t.id} className="flex items-center gap-2 bg-gray-800 border rounded-md px-3 py-2 group">
+                                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${SEVERITY_COLORS[t.severity] || 'bg-gray-700 text-gray-400'}`}>
                                     {t.severity}
                                   </span>
-                                  <span className="text-sm text-gray-800 flex-1 truncate">{t.title}</span>
+                                  <span className="text-sm text-gray-100 flex-1 truncate">{t.title}</span>
                                   <span className="text-xs text-gray-400">{t.category}</span>
                                   <button
                                     onClick={() => removeThreat(control.id, t.id)}
@@ -717,7 +717,7 @@ export default function SecurityControlsPage() {
                               ))}
                               {/* Show IDs that don't match any known threat */}
                               {(control.linked_threat_ids || []).filter(id => !threatMap[id]).map(id => (
-                                <div key={id} className="flex items-center gap-2 bg-white border border-dashed rounded-md px-3 py-2 group">
+                                <div key={id} className="flex items-center gap-2 bg-gray-800 border border-dashed rounded-md px-3 py-2 group">
                                   <span className="text-xs text-gray-400 font-mono flex-1">{id}</span>
                                   <button
                                     onClick={() => removeThreat(control.id, id)}
@@ -735,11 +735,11 @@ export default function SecurityControlsPage() {
 
                         {/* Linked Requirements */}
                         <div>
-                          <div className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Linked Requirements</div>
+                          <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Linked Requirements</div>
                           {(control.linked_requirement_ids || []).length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
                               {(control.linked_requirement_ids || []).map(rid => (
-                                <span key={rid} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 text-indigo-700 rounded-md text-xs group">
+                                <span key={rid} className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-900/20 text-indigo-400 rounded-md text-xs group">
                                   {rid}
                                   <button
                                     onClick={() => removeRequirement(control.id, rid)}
@@ -767,14 +767,14 @@ export default function SecurityControlsPage() {
       {activeTab === 'coverage' && coverage && (
         <div className="space-y-6">
           {/* STRIDE Coverage Matrix */}
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-gray-800 border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4">STRIDE Coverage Matrix</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {STRIDE_CATEGORIES.map(cat => {
                 const catControls = coverage.stride_coverage[cat] || []
                 const hasCoverage = catControls.length > 0
                 return (
-                  <div key={cat} className={`border rounded-lg p-4 ${hasCoverage ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                  <div key={cat} className={`border rounded-lg p-4 ${hasCoverage ? 'border-green-700 bg-green-900/20' : 'border-red-700 bg-red-900/20'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium text-sm capitalize">{cat.replace('_', ' ')}</span>
                       {hasCoverage ? (
@@ -786,7 +786,7 @@ export default function SecurityControlsPage() {
                     {hasCoverage ? (
                       <div className="space-y-1">
                         {catControls.map((c: any, i: number) => (
-                          <div key={i} className="text-xs text-gray-700 flex justify-between">
+                          <div key={i} className="text-xs text-gray-300 flex justify-between">
                             <span>{c.name}</span>
                             <span className={`px-1.5 rounded ${STATUS_COLORS[c.status] || ''}`}>{(c.effectiveness * 100).toFixed(0)}%</span>
                           </div>
@@ -802,28 +802,28 @@ export default function SecurityControlsPage() {
           </div>
 
           {/* Gap Analysis */}
-          <div className="bg-white border rounded-lg p-6">
+          <div className="bg-gray-800 border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4">Gap Analysis</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-center p-3 bg-green-900/20 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">
                   {STRIDE_CATEGORIES.filter(c => (coverage.stride_coverage[c] || []).length > 0).length}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">STRIDE Categories Covered</div>
+                <div className="text-xs text-gray-400 mt-1">STRIDE Categories Covered</div>
               </div>
-              <div className="text-center p-3 bg-red-50 rounded-lg">
+              <div className="text-center p-3 bg-red-900/20 rounded-lg">
                 <div className="text-2xl font-bold text-red-600">
                   {STRIDE_CATEGORIES.filter(c => (coverage.stride_coverage[c] || []).length === 0).length}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">Uncovered Categories</div>
+                <div className="text-xs text-gray-400 mt-1">Uncovered Categories</div>
               </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg">
+              <div className="text-center p-3 bg-purple-900/20 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{summary?.requirements_satisfied || 0}</div>
-                <div className="text-xs text-gray-500 mt-1">Requirements Satisfied</div>
+                <div className="text-xs text-gray-400 mt-1">Requirements Satisfied</div>
               </div>
-              <div className="text-center p-3 bg-orange-50 rounded-lg">
+              <div className="text-center p-3 bg-orange-900/20 rounded-lg">
                 <div className="text-2xl font-bold text-orange-600">{summary?.planned || 0}</div>
-                <div className="text-xs text-gray-500 mt-1">Controls Planned</div>
+                <div className="text-xs text-gray-400 mt-1">Controls Planned</div>
               </div>
             </div>
           </div>
@@ -833,22 +833,22 @@ export default function SecurityControlsPage() {
       {/* ====== Threat Mapper Modal ====== */}
       {mappingControl && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+          <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Map Threats to Control</h3>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  <span className="font-medium text-gray-700">{mappingControl.name}</span> — select threats this control mitigates
+                <h3 className="text-lg font-semibold text-white">Map Threats to Control</h3>
+                <p className="text-sm text-gray-400 mt-0.5">
+                  <span className="font-medium text-gray-300">{mappingControl.name}</span> — select threats this control mitigates
                 </p>
               </div>
-              <button onClick={closeThreatMapper} className="p-1 text-gray-400 hover:text-gray-600">
+              <button onClick={closeThreatMapper} className="p-1 text-gray-400 hover:text-gray-400">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Toolbar: Search + Auto-Map */}
-            <div className="flex items-center gap-3 px-6 py-3 border-b bg-gray-50">
+            <div className="flex items-center gap-3 px-6 py-3 border-b bg-gray-800/50">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -873,8 +873,8 @@ export default function SecurityControlsPage() {
             </div>
 
             {/* Selection summary */}
-            <div className="px-6 py-2 bg-purple-50 border-b text-sm">
-              <span className="text-purple-700 font-medium">{selectedThreatIds.size}</span>
+            <div className="px-6 py-2 bg-purple-900/20 border-b text-sm">
+              <span className="text-purple-400 font-medium">{selectedThreatIds.size}</span>
               <span className="text-purple-600"> threat{selectedThreatIds.size !== 1 ? 's' : ''} selected</span>
               {Object.keys(autoMapScores).length > 0 && (
                 <span className="text-purple-500 ml-2">
@@ -899,7 +899,7 @@ export default function SecurityControlsPage() {
                 <div className="space-y-4">
                   {Object.entries(groupedThreats).map(([category, categoryThreats]) => (
                     <div key={category}>
-                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 sticky top-0 bg-white py-1">
+                      <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 sticky top-0 bg-gray-800 py-1">
                         {category} ({categoryThreats.length})
                       </div>
                       <div className="space-y-1">
@@ -913,25 +913,25 @@ export default function SecurityControlsPage() {
                               onClick={() => toggleThreatSelection(threat.id)}
                               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${
                                 isSelected
-                                  ? 'bg-purple-50 border border-purple-200'
-                                  : 'bg-white border border-gray-100 hover:bg-gray-50'
+                                  ? 'bg-purple-900/20 border border-purple-700'
+                                  : 'bg-gray-800 border border-gray-100 hover:bg-gray-700'
                               }`}
                             >
                               {/* Checkbox */}
                               <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                                isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-300'
+                                isSelected ? 'bg-purple-600 border-purple-600' : 'border-gray-600'
                               }`}>
                                 {isSelected && <Check className="w-3.5 h-3.5 text-white" />}
                               </div>
 
                               {/* Severity badge */}
-                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${SEVERITY_COLORS[threat.severity] || 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-medium flex-shrink-0 ${SEVERITY_COLORS[threat.severity] || 'bg-gray-700 text-gray-400'}`}>
                                 {threat.severity}
                               </span>
 
                               {/* Title + component */}
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm text-gray-800 truncate">{threat.title}</div>
+                                <div className="text-sm text-gray-100 truncate">{threat.title}</div>
                                 {threat.component && (
                                   <div className="text-xs text-gray-400 truncate">{threat.component}</div>
                                 )}
@@ -940,7 +940,7 @@ export default function SecurityControlsPage() {
                               {/* Relevance score from AI */}
                               {relevance !== undefined && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
-                                  isSuggested ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                                  isSuggested ? 'bg-green-900/30 text-green-400' : 'bg-gray-700 text-gray-400'
                                 }`}>
                                   {(relevance * 100).toFixed(0)}% match
                                 </span>
@@ -956,17 +956,17 @@ export default function SecurityControlsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-50">
+            <div className="flex items-center justify-between px-6 py-4 border-t bg-gray-800/50">
               <button
                 onClick={() => setSelectedThreatIds(new Set())}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-gray-400 hover:text-gray-300"
               >
                 Clear all
               </button>
               <div className="flex gap-3">
                 <button
                   onClick={closeThreatMapper}
-                  className="px-4 py-2 text-sm text-gray-700 bg-white border rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 text-sm text-gray-300 bg-gray-800 border rounded-lg hover:bg-gray-700"
                 >
                   Cancel
                 </button>

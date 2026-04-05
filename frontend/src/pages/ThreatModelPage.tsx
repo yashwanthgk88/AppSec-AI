@@ -36,17 +36,17 @@ mermaid.initialize({
 
 // Risk level configurations
 const RISK_LEVELS = {
-  critical: { color: 'red', bg: 'bg-red-600', text: 'text-red-600', border: 'border-red-500', light: 'bg-red-50' },
-  high: { color: 'orange', bg: 'bg-orange-500', text: 'text-orange-600', border: 'border-orange-500', light: 'bg-orange-50' },
-  medium: { color: 'yellow', bg: 'bg-yellow-500', text: 'text-yellow-600', border: 'border-yellow-500', light: 'bg-yellow-50' },
-  low: { color: 'green', bg: 'bg-green-500', text: 'text-green-600', border: 'border-green-500', light: 'bg-green-50' }
+  critical: { color: 'red', bg: 'bg-red-600', text: 'text-red-600', border: 'border-red-500', light: 'bg-red-900/20' },
+  high: { color: 'orange', bg: 'bg-orange-900/30', text: 'text-orange-600', border: 'border-orange-500', light: 'bg-orange-900/20' },
+  medium: { color: 'yellow', bg: 'bg-yellow-900/30', text: 'text-yellow-600', border: 'border-yellow-500', light: 'bg-yellow-900/20' },
+  low: { color: 'green', bg: 'bg-green-900/30', text: 'text-green-600', border: 'border-green-500', light: 'bg-green-900/20' }
 }
 
 const SEVERITY_COLORS = {
-  critical: 'text-red-700 bg-red-100 border-red-300',
-  high: 'text-orange-700 bg-orange-100 border-orange-300',
-  medium: 'text-yellow-700 bg-yellow-100 border-yellow-300',
-  low: 'text-green-700 bg-green-100 border-green-300'
+  critical: 'text-red-400 bg-red-900/30 border-red-300',
+  high: 'text-orange-400 bg-orange-900/30 border-orange-300',
+  medium: 'text-yellow-400 bg-yellow-900/30 border-yellow-300',
+  low: 'text-green-400 bg-green-900/30 border-green-300'
 }
 
 // Sample architecture for demo purposes
@@ -599,7 +599,7 @@ export default function ThreatModelPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Analyzing architecture and generating threat model...</p>
+          <p className="text-gray-400">Analyzing architecture and generating threat model...</p>
         </div>
       </div>
     )
@@ -610,14 +610,14 @@ export default function ThreatModelPage() {
     if (regenerating) {
       return (
         <div className="card p-8">
-          <div className="border border-gray-200 rounded-lg p-4 bg-white">
+          <div className="border border-gray-700 rounded-lg p-4 bg-gray-800">
             {generationComplete ? (
               <div className="text-center py-4">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-green-700 mb-2">Threat Model Generated!</h3>
-                <p className="text-gray-600">Loading your threat analysis...</p>
+                <h3 className="text-lg font-semibold text-green-400 mb-2">Threat Model Generated!</h3>
+                <p className="text-gray-400">Loading your threat analysis...</p>
                 <div className="mt-4">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
                 </div>
@@ -626,10 +626,10 @@ export default function ThreatModelPage() {
               <>
                 <div className="mb-4">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="font-medium text-gray-700">Generating Threat Model...</span>
-                    <span className="text-gray-500">{Math.round(generationProgress)}%</span>
+                    <span className="font-medium text-gray-300">Generating Threat Model...</span>
+                    <span className="text-gray-400">{Math.round(generationProgress)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div className="w-full bg-gray-600 rounded-full h-2.5">
                     <div
                       className="bg-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out"
                       style={{ width: `${generationProgress}%` }}
@@ -650,10 +650,10 @@ export default function ThreatModelPage() {
                     >
                       <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                         currentStep > index
-                          ? 'bg-green-100'
+                          ? 'bg-green-900/30'
                           : currentStep === index
-                          ? 'bg-primary-100'
-                          : 'bg-gray-100'
+                          ? 'bg-primary-900/30'
+                          : 'bg-gray-700'
                       }`}>
                         {currentStep > index ? (
                           <CheckCircle className="w-4 h-4" />
@@ -666,7 +666,7 @@ export default function ThreatModelPage() {
                       <div>
                         <span>{step.name}</span>
                         {currentStep === index && (
-                          <span className="text-xs text-gray-500 ml-2">— {step.description}</span>
+                          <span className="text-xs text-gray-400 ml-2">— {step.description}</span>
                         )}
                       </div>
                     </div>
@@ -687,13 +687,13 @@ export default function ThreatModelPage() {
             <div>
               <button
                 onClick={() => setInputMode('select')}
-                className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
+                className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-2"
               >
                 <ArrowLeft className="w-4 h-4 mr-1" />
                 Back to Options
               </button>
-              <h1 className="text-2xl font-bold text-gray-900">Build Your Architecture</h1>
-              <p className="text-gray-600 mt-1">
+              <h1 className="text-2xl font-bold text-white">Build Your Architecture</h1>
+              <p className="text-gray-400 mt-1">
                 Define components, data flows, and security controls for comprehensive threat modeling
               </p>
             </div>
@@ -714,7 +714,7 @@ export default function ThreatModelPage() {
           <div className="flex items-center mb-6">
             <button
               onClick={() => setInputMode('select')}
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center text-sm text-gray-400 hover:text-white"
             >
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to Options
@@ -723,13 +723,13 @@ export default function ThreatModelPage() {
 
           <div className="text-center mb-6">
             <Activity className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Sample E-Commerce Architecture</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="text-lg font-semibold text-white mb-2">Sample E-Commerce Architecture</h3>
+            <p className="text-sm text-gray-400">
               This sample describes a typical e-commerce application with authentication, payment processing, and multiple backend services.
             </p>
           </div>
 
-          <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-xs text-gray-700 max-h-64 overflow-y-auto mb-6 whitespace-pre-wrap">
+          <pre className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 text-xs text-gray-300 max-h-64 overflow-y-auto mb-6 whitespace-pre-wrap">
             {SAMPLE_ARCHITECTURE}
           </pre>
 
@@ -797,8 +797,8 @@ export default function ThreatModelPage() {
       <div className="card p-8">
         <div className="text-center mb-8">
           <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Generate Threat Model</h3>
-          <p className="text-gray-600">
+          <h3 className="text-xl font-semibold text-white mb-2">Generate Threat Model</h3>
+          <p className="text-gray-400">
             Choose how you want to describe your application architecture for AI-powered STRIDE analysis.
           </p>
         </div>
@@ -807,36 +807,36 @@ export default function ThreatModelPage() {
           {/* Option 1: Build Architecture */}
           <div
             onClick={() => setInputMode('builder')}
-            className="border-2 border-gray-200 rounded-xl p-6 hover:border-primary-500 hover:shadow-lg transition cursor-pointer group"
+            className="border-2 border-gray-700 rounded-xl p-6 hover:border-primary-500 hover:shadow-lg transition cursor-pointer group"
           >
-            <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary-200 transition">
+            <div className="w-14 h-14 bg-primary-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:bg-primary-200 transition">
               <Layers className="w-7 h-7 text-primary-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">Build Architecture</h4>
-            <p className="text-sm text-gray-600 mb-4">
+            <h4 className="font-semibold text-white mb-2">Build Architecture</h4>
+            <p className="text-sm text-gray-400 mb-4">
               Use the interactive builder to define components, data flows, and security controls.
               Upload diagrams for AI extraction.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>30+ component types</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>40+ security controls</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Diagram AI extraction</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Validation warnings</span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <span className="text-xs font-medium text-primary-600 group-hover:text-primary-700">
+              <span className="text-xs font-medium text-primary-600 group-hover:text-primary-400">
                 Recommended for comprehensive analysis →
               </span>
             </div>
@@ -845,35 +845,35 @@ export default function ThreatModelPage() {
           {/* Option 2: Upload Documents */}
           <div
             onClick={() => setInputMode('docs')}
-            className="border-2 border-gray-200 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition cursor-pointer group"
+            className="border-2 border-gray-700 rounded-xl p-6 hover:border-blue-500 hover:shadow-lg transition cursor-pointer group"
           >
-            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition">
+            <div className="w-14 h-14 bg-blue-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition">
               <Upload className="w-7 h-7 text-blue-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">Upload Documents</h4>
-            <p className="text-sm text-gray-600 mb-4">
+            <h4 className="font-semibold text-white mb-2">Upload Documents</h4>
+            <p className="text-sm text-gray-400 mb-4">
               Upload design documents, architecture diagrams, or use case documents for AI analysis.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>PDF, PNG, JPG, DOCX</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Multiple file support</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Diagram analysis with AI vision</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Text content extraction</span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <span className="text-xs font-medium text-blue-600 group-hover:text-blue-700">
+              <span className="text-xs font-medium text-blue-600 group-hover:text-blue-400">
                 Best for existing documentation →
               </span>
             </div>
@@ -882,31 +882,31 @@ export default function ThreatModelPage() {
           {/* Option 3: Sample Architecture */}
           <div
             onClick={() => setInputMode('sample')}
-            className="border-2 border-gray-200 rounded-xl p-6 hover:border-green-500 hover:shadow-lg transition cursor-pointer group"
+            className="border-2 border-gray-700 rounded-xl p-6 hover:border-green-500 hover:shadow-lg transition cursor-pointer group"
           >
-            <div className="w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition">
+            <div className="w-14 h-14 bg-green-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition">
               <Activity className="w-7 h-7 text-green-600" />
             </div>
-            <h4 className="font-semibold text-gray-900 mb-2">Try Sample</h4>
-            <p className="text-sm text-gray-600 mb-4">
+            <h4 className="font-semibold text-white mb-2">Try Sample</h4>
+            <p className="text-sm text-gray-400 mb-4">
               See threat modeling in action with a sample e-commerce architecture.
             </p>
             <div className="space-y-2">
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Pre-built example</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Instant demo</span>
               </div>
-              <div className="flex items-center text-xs text-gray-500">
+              <div className="flex items-center text-xs text-gray-400">
                 <CheckCircle className="w-3 h-3 text-green-500 mr-2" />
                 <span>Learn the workflow</span>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <span className="text-xs font-medium text-green-600 group-hover:text-green-700">
+              <span className="text-xs font-medium text-green-600 group-hover:text-green-400">
                 Great for first-time users →
               </span>
             </div>
@@ -914,7 +914,7 @@ export default function ThreatModelPage() {
         </div>
 
         <div className="text-center">
-          <Link to={`/projects/${id}`} className="text-sm text-gray-500 hover:text-gray-700">
+          <Link to={`/projects/${id}`} className="text-sm text-gray-400 hover:text-gray-300">
             ← Back to Project
           </Link>
         </div>
@@ -961,13 +961,13 @@ export default function ThreatModelPage() {
         <div>
           <Link
             to={`/projects/${id}`}
-            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
+            className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-2"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Project
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">{threatModel.name}</h1>
-          <p className="text-gray-600 mt-1">AI-Powered Threat Modeling with STRIDE & MITRE ATT&CK</p>
+          <h1 className="text-3xl font-bold text-white">{threatModel.name}</h1>
+          <p className="text-gray-400 mt-1">AI-Powered Threat Modeling with STRIDE & MITRE ATT&CK</p>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -1003,33 +1003,33 @@ export default function ThreatModelPage() {
               </button>
             </div>
             {showRegenerateMenu && (
-              <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+              <div className="absolute right-0 mt-1 w-64 bg-gray-800 rounded-lg shadow-lg border border-gray-700 z-50">
                 <button
                   onClick={() => { regenerateThreatModel(false, true); setShowRegenerateMenu(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-green-50 rounded-t-lg border-b border-gray-100"
+                  className="w-full px-4 py-3 text-left hover:bg-green-900/20 rounded-t-lg border-b border-gray-100"
                 >
-                  <div className="font-medium text-green-700 flex items-center">
+                  <div className="font-medium text-green-400 flex items-center">
                     <Zap className="w-4 h-4 mr-2" />
                     Quick Mode (Recommended)
                   </div>
-                  <div className="text-xs text-gray-500">Fast generation using templates, skips AI enrichment</div>
+                  <div className="text-xs text-gray-400">Fast generation using templates, skips AI enrichment</div>
                 </button>
                 <button
                   onClick={() => { regenerateThreatModel(false, false); setShowRegenerateMenu(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100"
+                  className="w-full px-4 py-3 text-left hover:bg-gray-700 border-b border-gray-100"
                 >
-                  <div className="font-medium text-gray-900">Full Regenerate</div>
-                  <div className="text-xs text-gray-500">Complete AI-powered analysis (slower)</div>
+                  <div className="font-medium text-white">Full Regenerate</div>
+                  <div className="text-xs text-gray-400">Complete AI-powered analysis (slower)</div>
                 </button>
                 <button
                   onClick={() => { regenerateThreatModel(true); setShowRegenerateMenu(false); }}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 rounded-b-lg"
+                  className="w-full px-4 py-3 text-left hover:bg-gray-700 rounded-b-lg"
                 >
-                  <div className="font-medium text-gray-900 flex items-center">
+                  <div className="font-medium text-white flex items-center">
                     <Sparkles className="w-4 h-4 mr-2 text-purple-500" />
                     Incremental Update
                   </div>
-                  <div className="text-xs text-gray-500">Only analyze changes, track threat lifecycle</div>
+                  <div className="text-xs text-gray-400">Only analyze changes, track threat lifecycle</div>
                 </button>
               </div>
             )}
@@ -1037,7 +1037,7 @@ export default function ThreatModelPage() {
           <button
             onClick={() => setShowDeleteConfirm(true)}
             disabled={regenerating || deleting}
-            className="btn btn-secondary inline-flex items-center space-x-2 text-red-600 hover:text-red-700 hover:border-red-300"
+            className="btn btn-secondary inline-flex items-center space-x-2 text-red-600 hover:text-red-400 hover:border-red-300"
             title="Delete threat model"
           >
             <Trash2 className="w-4 h-4" />
@@ -1052,12 +1052,12 @@ export default function ThreatModelPage() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Risk Score</p>
-              <p className={`text-2xl font-bold ${RISK_LEVELS[riskLevel as keyof typeof RISK_LEVELS]?.text || 'text-gray-900'}`}>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Risk Score</p>
+              <p className={`text-2xl font-bold ${RISK_LEVELS[riskLevel as keyof typeof RISK_LEVELS]?.text || 'text-white'}`}>
                 {riskScore}/100
               </p>
             </div>
-            <div className={`w-12 h-12 rounded-full ${RISK_LEVELS[riskLevel as keyof typeof RISK_LEVELS]?.bg || 'bg-gray-500'} flex items-center justify-center`}>
+            <div className={`w-12 h-12 rounded-full ${RISK_LEVELS[riskLevel as keyof typeof RISK_LEVELS]?.bg || 'bg-gray-700'} flex items-center justify-center`}>
               <Activity className="w-6 h-6 text-white" />
             </div>
           </div>
@@ -1066,8 +1066,8 @@ export default function ThreatModelPage() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Total Threats</p>
-              <p className="text-2xl font-bold text-gray-900">{threatModel.threat_count}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Total Threats</p>
+              <p className="text-2xl font-bold text-white">{threatModel.threat_count}</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-red-500" />
           </div>
@@ -1076,8 +1076,8 @@ export default function ThreatModelPage() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Attack Paths</p>
-              <p className="text-2xl font-bold text-gray-900">{attackPaths.length}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Attack Paths</p>
+              <p className="text-2xl font-bold text-white">{attackPaths.length}</p>
             </div>
             <Route className="w-8 h-8 text-purple-500" />
           </div>
@@ -1086,8 +1086,8 @@ export default function ThreatModelPage() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Components</p>
-              <p className="text-2xl font-bold text-gray-900">{threatModel.components_count || 0}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Components</p>
+              <p className="text-2xl font-bold text-white">{threatModel.components_count || 0}</p>
             </div>
             <Network className="w-8 h-8 text-blue-500" />
           </div>
@@ -1096,8 +1096,8 @@ export default function ThreatModelPage() {
         <div className="card p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">MITRE Techniques</p>
-              <p className="text-2xl font-bold text-gray-900">{mitreMapping.total_techniques || Object.keys(mitreMapping.techniques || mitreMapping).filter(k => !['attack_chain', 'total_techniques', 'tactics_covered'].includes(k)).length}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wide">MITRE Techniques</p>
+              <p className="text-2xl font-bold text-white">{mitreMapping.total_techniques || Object.keys(mitreMapping.techniques || mitreMapping).filter(k => !['attack_chain', 'total_techniques', 'tactics_covered'].includes(k)).length}</p>
             </div>
             <Target className="w-8 h-8 text-orange-500" />
           </div>
@@ -1107,26 +1107,26 @@ export default function ThreatModelPage() {
       {/* Threat Severity Breakdown */}
       <div className="card p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Threat Severity Distribution</h3>
+          <h3 className="font-semibold text-white">Threat Severity Distribution</h3>
           <div className="flex items-center space-x-4 text-sm">
             <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-red-600 mr-1"></span> Critical: {threatsBySeverity.critical}</span>
-            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-orange-500 mr-1"></span> High: {threatsBySeverity.high}</span>
-            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></span> Medium: {threatsBySeverity.medium}</span>
-            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-green-500 mr-1"></span> Low: {threatsBySeverity.low}</span>
+            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-orange-900/30 mr-1"></span> High: {threatsBySeverity.high}</span>
+            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-yellow-900/30 mr-1"></span> Medium: {threatsBySeverity.medium}</span>
+            <span className="flex items-center"><span className="w-3 h-3 rounded-full bg-green-900/30 mr-1"></span> Low: {threatsBySeverity.low}</span>
           </div>
         </div>
-        <div className="flex h-4 rounded-full overflow-hidden bg-gray-200">
+        <div className="flex h-4 rounded-full overflow-hidden bg-gray-600">
           {threatsBySeverity.critical > 0 && (
             <div className="bg-red-600" style={{ width: `${(threatsBySeverity.critical / threatModel.threat_count) * 100}%` }}></div>
           )}
           {threatsBySeverity.high > 0 && (
-            <div className="bg-orange-500" style={{ width: `${(threatsBySeverity.high / threatModel.threat_count) * 100}%` }}></div>
+            <div className="bg-orange-900/30" style={{ width: `${(threatsBySeverity.high / threatModel.threat_count) * 100}%` }}></div>
           )}
           {threatsBySeverity.medium > 0 && (
-            <div className="bg-yellow-500" style={{ width: `${(threatsBySeverity.medium / threatModel.threat_count) * 100}%` }}></div>
+            <div className="bg-yellow-900/30" style={{ width: `${(threatsBySeverity.medium / threatModel.threat_count) * 100}%` }}></div>
           )}
           {threatsBySeverity.low > 0 && (
-            <div className="bg-green-500" style={{ width: `${(threatsBySeverity.low / threatModel.threat_count) * 100}%` }}></div>
+            <div className="bg-green-900/30" style={{ width: `${(threatsBySeverity.low / threatModel.threat_count) * 100}%` }}></div>
           )}
         </div>
       </div>
@@ -1134,18 +1134,18 @@ export default function ThreatModelPage() {
       {/* DFD Visualization */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-white">
             Architecture View
           </h2>
           <div className="flex items-center space-x-4">
             {/* View Toggle */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <div className="flex items-center bg-gray-700 rounded-lg p-1">
               <button
                 onClick={() => setViewMode('explorer')}
                 className={`px-3 py-1.5 text-sm rounded-md transition ${
                   viewMode === 'explorer'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-gray-800 text-indigo-600 shadow-sm'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
                 🗂️ Explorer
@@ -1154,8 +1154,8 @@ export default function ThreatModelPage() {
                 onClick={() => setViewMode('diagram')}
                 className={`px-3 py-1.5 text-sm rounded-md transition ${
                   viewMode === 'diagram'
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-gray-800 text-indigo-600 shadow-sm'
+                    : 'text-gray-400 hover:text-white'
                 }`}
               >
                 📊 Diagram
@@ -1167,8 +1167,8 @@ export default function ThreatModelPage() {
                 onClick={() => setShowThreatMatrix(!showThreatMatrix)}
                 className={`px-3 py-1.5 text-sm rounded-lg transition flex items-center gap-1 ${
                   showThreatMatrix
-                    ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
-                    : 'bg-gray-100 text-gray-600 hover:text-gray-900'
+                    ? 'bg-indigo-900/30 text-indigo-400 border border-indigo-300'
+                    : 'bg-gray-700 text-gray-400 hover:text-white'
                 }`}
                 title="Show Threat Matrix - Grid view of components vs STRIDE categories"
               >
@@ -1179,8 +1179,8 @@ export default function ThreatModelPage() {
                 onClick={() => setShowValidationDashboard(!showValidationDashboard)}
                 className={`px-3 py-1.5 text-sm rounded-lg transition flex items-center gap-1 ${
                   showValidationDashboard
-                    ? 'bg-green-100 text-green-700 border border-green-300'
-                    : 'bg-gray-100 text-gray-600 hover:text-gray-900'
+                    ? 'bg-green-900/30 text-green-400 border border-green-300'
+                    : 'bg-gray-700 text-gray-400 hover:text-white'
                 }`}
                 title="Show Validation Dashboard - Validate threat model completeness"
               >
@@ -1196,7 +1196,7 @@ export default function ThreatModelPage() {
                   className={`px-4 py-2 text-sm rounded-lg transition ${
                     selectedLevel === 0
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
                   Level 0 (Context)
@@ -1206,7 +1206,7 @@ export default function ThreatModelPage() {
                   className={`px-4 py-2 text-sm rounded-lg transition ${
                     selectedLevel === 1
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
                 >
                   Level 1 (Detailed)
@@ -1277,14 +1277,14 @@ export default function ThreatModelPage() {
       {threatModel.eraser_diagrams?.enabled && (
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <h2 className="text-xl font-semibold text-white flex items-center">
               <Zap className="w-5 h-5 mr-2 text-purple-500" />
               Eraser AI Professional Diagrams
-              <span className="ml-2 text-sm font-normal text-gray-500">
+              <span className="ml-2 text-sm font-normal text-gray-400">
                 ({threatModel.eraser_diagrams_count || 0} diagrams)
               </span>
             </h2>
-            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm">
+            <span className="px-3 py-1 bg-purple-900/30 text-purple-400 rounded-full text-sm">
               Powered by Eraser AI
             </span>
           </div>
@@ -1293,12 +1293,12 @@ export default function ThreatModelPage() {
             {Object.entries(threatModel.eraser_diagrams?.diagrams || {}).map(([name, diagram]: [string, any]) => (
               diagram.success && (
                 <div key={name} className="border rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-                  <div className="bg-gray-50 px-4 py-2 border-b">
-                    <h3 className="font-medium text-gray-800 capitalize">
+                  <div className="bg-gray-800/50 px-4 py-2 border-b">
+                    <h3 className="font-medium text-gray-100 capitalize">
                       {name.replace(/_/g, ' ')}
                     </h3>
                   </div>
-                  <div className="relative aspect-video bg-white">
+                  <div className="relative aspect-video bg-gray-800">
                     {diagram.image_url ? (
                       <img
                         src={diagram.image_url}
@@ -1311,13 +1311,13 @@ export default function ThreatModelPage() {
                       </div>
                     )}
                   </div>
-                  <div className="p-3 bg-gray-50 flex justify-between items-center">
+                  <div className="p-3 bg-gray-800/50 flex justify-between items-center">
                     {diagram.editor_url && (
                       <a
                         href={diagram.editor_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
+                        className="text-sm text-indigo-600 hover:text-indigo-300 flex items-center"
                       >
                         <ExternalLink className="w-4 h-4 mr-1" />
                         Edit in Eraser
@@ -1328,7 +1328,7 @@ export default function ThreatModelPage() {
                         href={diagram.image_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-gray-600 hover:text-gray-800 flex items-center"
+                        className="text-sm text-gray-400 hover:text-gray-100 flex items-center"
                       >
                         <Download className="w-4 h-4 mr-1" />
                         Download
@@ -1341,7 +1341,7 @@ export default function ThreatModelPage() {
           </div>
 
           {(!threatModel.eraser_diagrams?.diagrams || Object.keys(threatModel.eraser_diagrams.diagrams).length === 0) && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-400">
               <Network className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>No Eraser diagrams available. Regenerate the threat model to create professional diagrams.</p>
             </div>
@@ -1351,20 +1351,20 @@ export default function ThreatModelPage() {
 
       {/* Main Content Tabs */}
       <div className="card">
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-700">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             <button
               onClick={() => setActiveTab('threats')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'threats'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="w-4 h-4" />
                 <span>STRIDE Threats</span>
-                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-gray-700 text-gray-400 px-2 py-0.5 rounded-full text-xs">
                   {threatModel.threat_count}
                 </span>
               </div>
@@ -1374,13 +1374,13 @@ export default function ThreatModelPage() {
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'attack-paths'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Route className="w-4 h-4" />
                 <span>Attack Paths</span>
-                <span className="bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-purple-900/30 text-purple-600 px-2 py-0.5 rounded-full text-xs">
                   {attackPaths.length}
                 </span>
               </div>
@@ -1390,13 +1390,13 @@ export default function ThreatModelPage() {
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'mitre'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <Target className="w-4 h-4" />
                 <span>MITRE ATT&CK</span>
-                <span className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-orange-900/30 text-orange-600 px-2 py-0.5 rounded-full text-xs">
                   {mitreMapping.total_techniques || Object.keys(mitreMapping.techniques || {}).length}
                 </span>
               </div>
@@ -1406,7 +1406,7 @@ export default function ThreatModelPage() {
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'history'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
               }`}
             >
               <div className="flex items-center space-x-2">
@@ -1453,19 +1453,19 @@ export default function ThreatModelPage() {
       {threatModel.lifecycle_summary && (
         <div className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            <h3 className="font-semibold text-white flex items-center gap-2">
               <Clock className="w-4 h-4" />
               Threat Lifecycle Summary
             </h3>
             {threatModel.is_incremental && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+              <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-1 rounded">
                 Incremental Analysis
               </span>
             )}
           </div>
           <ThreatLifecycleSummary summary={threatModel.lifecycle_summary} />
           {threatModel.architecture_version?.change_description && (
-            <p className="mt-3 text-sm text-gray-600">
+            <p className="mt-3 text-sm text-gray-400">
               <span className="font-medium">Latest changes:</span>{' '}
               {threatModel.architecture_version.change_description}
             </p>
@@ -1477,14 +1477,14 @@ export default function ThreatModelPage() {
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-red-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Delete Threat Model</h3>
+              <h3 className="text-lg font-semibold text-white">Delete Threat Model</h3>
             </div>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-400 mb-6">
               Are you sure you want to delete this threat model? This action cannot be undone.
               You can always regenerate a new threat model later.
             </p>
@@ -1521,15 +1521,15 @@ export default function ThreatModelPage() {
       {/* Architecture Editor Modal */}
       {showArchitectureEditor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gray-800 border-b border-gray-700 px-6 py-4 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Edit Architecture</h3>
-                <p className="text-sm text-gray-500">Modify components and data flows, then save to trigger incremental analysis</p>
+                <h3 className="text-lg font-semibold text-white">Edit Architecture</h3>
+                <p className="text-sm text-gray-400">Modify components and data flows, then save to trigger incremental analysis</p>
               </div>
               <button
                 onClick={() => setShowArchitectureEditor(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-700 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1544,7 +1544,7 @@ export default function ThreatModelPage() {
               />
 
               {pendingArchitectureChanges && (
-                <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                <div className="mt-6 p-4 bg-purple-900/20 border border-purple-700 rounded-lg">
                   <h4 className="font-medium text-purple-900 mb-3">How would you like to apply these changes?</h4>
                   <div className="flex space-x-3">
                     <button
@@ -1568,7 +1568,7 @@ export default function ThreatModelPage() {
                       Cancel
                     </button>
                   </div>
-                  <p className="text-xs text-purple-700 mt-2">
+                  <p className="text-xs text-purple-400 mt-2">
                     <strong>Incremental:</strong> Only analyzes changes, tracks threat lifecycle (new/modified/resolved)
                     <br />
                     <strong>Full:</strong> Reanalyzes entire architecture from scratch
@@ -1598,7 +1598,7 @@ function RiskGauge({ score, level }: { score: number; level: string }) {
   const levelConfig = RISK_LEVELS[level as keyof typeof RISK_LEVELS] || RISK_LEVELS.medium
 
   return (
-    <div className="flex items-center space-x-4 bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
+    <div className="flex items-center space-x-4 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 shadow-sm">
       <div className="relative">
         <svg className="w-16 h-16 transform -rotate-90">
           <circle
@@ -1606,7 +1606,7 @@ function RiskGauge({ score, level }: { score: number; level: string }) {
             cy="32"
             r="28"
             fill="none"
-            stroke="#e5e7eb"
+            stroke="#374151"
             strokeWidth="6"
           />
           <circle
@@ -1621,11 +1621,11 @@ function RiskGauge({ score, level }: { score: number; level: string }) {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-sm font-bold text-gray-900">{score}</span>
+          <span className="text-sm font-bold text-white">{score}</span>
         </div>
       </div>
       <div>
-        <p className="text-xs text-gray-500 uppercase">Risk Level</p>
+        <p className="text-xs text-gray-400 uppercase">Risk Level</p>
         <p className={`text-lg font-bold capitalize ${levelConfig.text}`}>{level}</p>
       </div>
     </div>
@@ -1674,7 +1674,7 @@ function ThreatsTab({
             className={`px-4 py-2 text-sm rounded-lg transition ${
               selectedCategory === 'all'
                 ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
             All
@@ -1686,7 +1686,7 @@ function ThreatsTab({
               className={`px-4 py-2 text-sm rounded-lg transition ${
                 selectedCategory === category
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
               }`}
             >
               {category}
@@ -1697,18 +1697,18 @@ function ThreatsTab({
 
       {/* Status Filter + Search */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+        <div className="flex items-center bg-gray-700 rounded-lg p-0.5">
           {(['all', 'open', 'closed', 'accepted'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
                 statusFilter === s
-                  ? s === 'open' ? 'bg-red-500 text-white' :
-                    s === 'closed' ? 'bg-green-500 text-white' :
-                    s === 'accepted' ? 'bg-blue-500 text-white' :
-                    'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? s === 'open' ? 'bg-red-900/30 text-white' :
+                    s === 'closed' ? 'bg-green-900/30 text-white' :
+                    s === 'accepted' ? 'bg-blue-900/30 text-white' :
+                    'bg-gray-800 text-white shadow-sm'
+                  : 'text-gray-400 hover:text-white'
               }`}
             >
               {s.charAt(0).toUpperCase() + s.slice(1)} ({statusCounts[s]})
@@ -1720,13 +1720,13 @@ function ThreatsTab({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search threats..."
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+          className="flex-1 px-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-600 focus:border-transparent"
         />
       </div>
 
       <div className="space-y-4">
         {displayThreats.length === 0 ? (
-          <p className="text-center text-gray-600 py-8">
+          <p className="text-center text-gray-400 py-8">
             {searchQuery || statusFilter !== 'all' ? 'No threats match your filters' : 'No threats in this category'}
           </p>
         ) : (
@@ -1803,20 +1803,20 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
     return (
       <div className="text-center py-12">
         <Route className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Attack Paths Found</h3>
-        <p className="text-gray-600">Attack path analysis did not identify any critical paths.</p>
+        <h3 className="text-lg font-semibold text-white mb-2">No Attack Paths Found</h3>
+        <p className="text-gray-400">Attack path analysis did not identify any critical paths.</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+      <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-4 mb-6">
         <div className="flex items-start space-x-3">
           <Zap className="w-5 h-5 text-purple-600 mt-0.5" />
           <div>
             <h3 className="font-medium text-purple-900">Attack Path Analysis</h3>
-            <p className="text-sm text-purple-700 mt-1">
+            <p className="text-sm text-purple-400 mt-1">
               These paths show how an attacker could move through your system from entry points to critical assets.
               Each path is sorted by risk score. Click on a path to see detailed attack scenarios and exploitation steps.
             </p>
@@ -1829,22 +1829,22 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
         return (
           <div
             key={idx}
-            className="border border-gray-200 rounded-lg hover:shadow-md transition cursor-pointer"
+            className="border border-gray-700 rounded-lg hover:shadow-md transition cursor-pointer"
             onClick={() => togglePath(idx)}
           >
             <div className="p-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    path.risk_score >= 80 ? 'bg-red-100' : path.risk_score >= 60 ? 'bg-orange-100' : 'bg-yellow-100'
+                    path.risk_score >= 80 ? 'bg-red-900/30' : path.risk_score >= 60 ? 'bg-orange-900/30' : 'bg-yellow-900/30'
                   }`}>
                     <Route className={`w-5 h-5 ${
                       path.risk_score >= 80 ? 'text-red-600' : path.risk_score >= 60 ? 'text-orange-600' : 'text-yellow-600'
                     }`} />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Attack Path #{idx + 1}</h3>
-                    <p className="text-sm text-gray-500">{path.path?.length || 0} hops • {path.difficulty?.level || 'Unknown'} difficulty</p>
+                    <h3 className="font-semibold text-white">Attack Path #{idx + 1}</h3>
+                    <p className="text-sm text-gray-400">{path.path?.length || 0} hops • {path.difficulty?.level || 'Unknown'} difficulty</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
@@ -1856,10 +1856,10 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                     disabled={generatingDiagram === idx || generatedDiagrams[idx]}
                     className={`px-3 py-1 rounded-lg text-sm font-medium flex items-center space-x-1 transition ${
                       generatedDiagrams[idx]
-                        ? 'bg-green-100 text-green-700 cursor-default'
+                        ? 'bg-green-900/30 text-green-400 cursor-default'
                         : generatingDiagram === idx
-                        ? 'bg-purple-100 text-purple-700 cursor-wait'
-                        : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                        ? 'bg-purple-900/30 text-purple-400 cursor-wait'
+                        : 'bg-purple-900/30 text-purple-400 hover:bg-purple-200'
                     }`}
                   >
                     {generatingDiagram === idx ? (
@@ -1880,9 +1880,9 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                     )}
                   </button>
                   <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    path.risk_score >= 80 ? 'bg-red-100 text-red-700' :
-                    path.risk_score >= 60 ? 'bg-orange-100 text-orange-700' :
-                    'bg-yellow-100 text-yellow-700'
+                    path.risk_score >= 80 ? 'bg-red-900/30 text-red-400' :
+                    path.risk_score >= 60 ? 'bg-orange-900/30 text-orange-400' :
+                    'bg-yellow-900/30 text-yellow-400'
                   }`}>
                     Risk: {path.risk_score}/100
                   </div>
@@ -1895,12 +1895,12 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                 {path.path?.map((node: string, nodeIdx: number) => (
                   <div key={nodeIdx} className="flex items-center">
                     <div className={`px-3 py-2 rounded-lg ${
-                      nodeIdx === 0 ? 'bg-blue-100 border-2 border-blue-400' :
-                      nodeIdx === path.path.length - 1 ? 'bg-red-100 border-2 border-red-400' :
-                      'bg-gray-100 border border-gray-300'
+                      nodeIdx === 0 ? 'bg-blue-900/30 border-2 border-blue-400' :
+                      nodeIdx === path.path.length - 1 ? 'bg-red-900/30 border-2 border-red-400' :
+                      'bg-gray-700 border border-gray-600'
                     }`}>
-                      <p className="text-sm font-medium text-gray-900">{node}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm font-medium text-white">{node}</p>
+                      <p className="text-xs text-gray-400">
                         {nodeIdx === 0 ? 'Entry Point' : nodeIdx === path.path.length - 1 ? 'Target' : 'Hop'}
                       </p>
                     </div>
@@ -1913,18 +1913,18 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
               {/* Attack Scenario Summary */}
               {path.attack_scenario && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+                <div className="bg-amber-900/20 border border-amber-200 rounded-lg p-3 mb-3">
                   <p className="text-sm text-amber-900">{path.attack_scenario}</p>
                 </div>
               )}
 
               {/* Threats Along Path */}
               {path.threats && path.threats.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs font-medium text-gray-600 mb-2">Threats Along This Path:</p>
+                <div className="bg-gray-800/50 rounded-lg p-3">
+                  <p className="text-xs font-medium text-gray-400 mb-2">Threats Along This Path:</p>
                   <div className="flex flex-wrap gap-2">
                     {path.threats.map((threat: string, tIdx: number) => (
-                      <span key={tIdx} className="text-xs px-2 py-1 bg-white border border-gray-200 rounded text-gray-700">
+                      <span key={tIdx} className="text-xs px-2 py-1 bg-gray-800 border border-gray-700 rounded text-gray-300">
                         {threat}
                       </span>
                     ))}
@@ -1935,10 +1935,10 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
             {/* Expanded Details */}
             {isExpanded && (
-              <div className="border-t border-gray-200 p-4 bg-gray-50 space-y-4" onClick={(e) => e.stopPropagation()}>
+              <div className="border-t border-gray-700 p-4 bg-gray-800/50 space-y-4" onClick={(e) => e.stopPropagation()}>
                 {/* Exploitation Steps */}
                 {path.exploitation_steps && path.exploitation_steps.length > 0 && (
-                  <div className="bg-white border border-red-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-red-700 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
                       <AlertTriangle className="w-4 h-4 text-red-600" />
                       <h4 className="font-semibold text-red-900">Exploitation Steps</h4>
@@ -1946,12 +1946,12 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                     <div className="space-y-3">
                       {path.exploitation_steps.map((step: any, stepIdx: number) => (
                         <div key={stepIdx} className="flex items-start space-x-3">
-                          <div className="flex-shrink-0 w-6 h-6 bg-red-100 text-red-700 rounded-full flex items-center justify-center text-sm font-medium">
+                          <div className="flex-shrink-0 w-6 h-6 bg-red-900/30 text-red-400 rounded-full flex items-center justify-center text-sm font-medium">
                             {step.step || stepIdx + 1}
                           </div>
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">{step.action}</p>
-                            <p className="text-sm text-gray-600 mt-1">{step.details}</p>
+                            <p className="font-medium text-white">{step.action}</p>
+                            <p className="text-sm text-gray-400 mt-1">{step.details}</p>
                           </div>
                         </div>
                       ))}
@@ -1961,33 +1961,33 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Potential Impact */}
                 {path.potential_impact && (
-                  <div className="bg-white border border-orange-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-orange-700 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
                       <Zap className="w-4 h-4 text-orange-600" />
                       <h4 className="font-semibold text-orange-900">Potential Impact</h4>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {path.potential_impact.data_exposure && (
-                        <div className="bg-orange-50 rounded p-3">
-                          <p className="text-xs font-medium text-orange-800 mb-1">Data Exposure</p>
+                        <div className="bg-orange-900/20 rounded p-3">
+                          <p className="text-xs font-medium text-orange-300 mb-1">Data Exposure</p>
                           <p className="text-sm text-orange-900">{path.potential_impact.data_exposure}</p>
                         </div>
                       )}
                       {path.potential_impact.system_impact && (
-                        <div className="bg-orange-50 rounded p-3">
-                          <p className="text-xs font-medium text-orange-800 mb-1">System Impact</p>
+                        <div className="bg-orange-900/20 rounded p-3">
+                          <p className="text-xs font-medium text-orange-300 mb-1">System Impact</p>
                           <p className="text-sm text-orange-900">{path.potential_impact.system_impact}</p>
                         </div>
                       )}
                       {path.potential_impact.business_impact && (
-                        <div className="bg-orange-50 rounded p-3">
-                          <p className="text-xs font-medium text-orange-800 mb-1">Business Impact</p>
+                        <div className="bg-orange-900/20 rounded p-3">
+                          <p className="text-xs font-medium text-orange-300 mb-1">Business Impact</p>
                           <p className="text-sm text-orange-900">{path.potential_impact.business_impact}</p>
                         </div>
                       )}
                       {path.potential_impact.compliance_impact && (
-                        <div className="bg-orange-50 rounded p-3">
-                          <p className="text-xs font-medium text-orange-800 mb-1">Compliance Impact</p>
+                        <div className="bg-orange-900/20 rounded p-3">
+                          <p className="text-xs font-medium text-orange-300 mb-1">Compliance Impact</p>
                           <p className="text-sm text-orange-900">{path.potential_impact.compliance_impact}</p>
                         </div>
                       )}
@@ -1997,31 +1997,31 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Difficulty Assessment */}
                 {path.difficulty && (
-                  <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-purple-700 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
                       <Activity className="w-4 h-4 text-purple-600" />
                       <h4 className="font-semibold text-purple-900">Attack Difficulty</h4>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="bg-purple-50 rounded p-3">
-                        <p className="text-xs font-medium text-purple-800 mb-1">Difficulty Level</p>
+                      <div className="bg-purple-900/20 rounded p-3">
+                        <p className="text-xs font-medium text-purple-300 mb-1">Difficulty Level</p>
                         <p className="text-sm font-semibold text-purple-900">{path.difficulty.level}</p>
                       </div>
-                      <div className="bg-purple-50 rounded p-3">
-                        <p className="text-xs font-medium text-purple-800 mb-1">Required Skills</p>
+                      <div className="bg-purple-900/20 rounded p-3">
+                        <p className="text-xs font-medium text-purple-300 mb-1">Required Skills</p>
                         <p className="text-sm text-purple-900">{path.difficulty.required_skills}</p>
                       </div>
-                      <div className="bg-purple-50 rounded p-3">
-                        <p className="text-xs font-medium text-purple-800 mb-1">Estimated Time</p>
+                      <div className="bg-purple-900/20 rounded p-3">
+                        <p className="text-xs font-medium text-purple-300 mb-1">Estimated Time</p>
                         <p className="text-sm text-purple-900">{path.difficulty.time_estimate}</p>
                       </div>
                     </div>
                     {path.difficulty.tools_needed && path.difficulty.tools_needed.length > 0 && (
                       <div className="mt-3">
-                        <p className="text-xs font-medium text-purple-800 mb-2">Tools Needed:</p>
+                        <p className="text-xs font-medium text-purple-300 mb-2">Tools Needed:</p>
                         <div className="flex flex-wrap gap-2">
                           {path.difficulty.tools_needed.map((tool: string, toolIdx: number) => (
-                            <span key={toolIdx} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                            <span key={toolIdx} className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded">
                               {tool}
                             </span>
                           ))}
@@ -2033,25 +2033,25 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Detection Opportunities */}
                 {path.detection_opportunities && path.detection_opportunities.length > 0 && (
-                  <div className="bg-white border border-blue-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-blue-700 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
                       <AlertCircle className="w-4 h-4 text-blue-600" />
                       <h4 className="font-semibold text-blue-900">Detection Opportunities</h4>
                     </div>
                     <div className="space-y-2">
                       {path.detection_opportunities.map((detection: any, detIdx: number) => (
-                        <div key={detIdx} className="bg-blue-50 rounded p-3">
+                        <div key={detIdx} className="bg-blue-900/20 rounded p-3">
                           <div className="flex items-center justify-between mb-1">
                             <p className="font-medium text-blue-900">{detection.point}</p>
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              detection.effectiveness === 'High' ? 'bg-green-100 text-green-700' :
-                              detection.effectiveness === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-gray-100 text-gray-700'
+                              detection.effectiveness === 'High' ? 'bg-green-900/30 text-green-400' :
+                              detection.effectiveness === 'Medium' ? 'bg-yellow-900/30 text-yellow-400' :
+                              'bg-gray-700 text-gray-300'
                             }`}>
                               {detection.effectiveness} Effectiveness
                             </span>
                           </div>
-                          <p className="text-sm text-blue-800">{detection.method}</p>
+                          <p className="text-sm text-blue-300">{detection.method}</p>
                         </div>
                       ))}
                     </div>
@@ -2060,25 +2060,25 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Recommended Controls */}
                 {path.recommended_controls && path.recommended_controls.length > 0 && (
-                  <div className="bg-white border border-green-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-green-700 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-3">
                       <Shield className="w-4 h-4 text-green-600" />
                       <h4 className="font-semibold text-green-900">Recommended Controls</h4>
                     </div>
                     <div className="space-y-2">
                       {path.recommended_controls.map((control: any, ctrlIdx: number) => (
-                        <div key={ctrlIdx} className="bg-green-50 rounded p-3">
+                        <div key={ctrlIdx} className="bg-green-900/20 rounded p-3">
                           <div className="flex items-center justify-between mb-1">
                             <p className="font-medium text-green-900">{control.control}</p>
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              control.priority === 'Critical' ? 'bg-red-100 text-red-700' :
-                              control.priority === 'High' ? 'bg-orange-100 text-orange-700' :
-                              'bg-yellow-100 text-yellow-700'
+                              control.priority === 'Critical' ? 'bg-red-900/30 text-red-400' :
+                              control.priority === 'High' ? 'bg-orange-900/30 text-orange-400' :
+                              'bg-yellow-900/30 text-yellow-400'
                             }`}>
                               {control.priority} Priority
                             </span>
                           </div>
-                          <p className="text-sm text-green-800">{control.implementation}</p>
+                          <p className="text-sm text-green-300">{control.implementation}</p>
                         </div>
                       ))}
                     </div>
@@ -2087,7 +2087,7 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Generated Eraser Diagram */}
                 {generatedDiagrams[idx] && (
-                  <div className="bg-white border border-purple-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-purple-700 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
                         <Zap className="w-4 h-4 text-purple-600" />
@@ -2098,7 +2098,7 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                           href={generatedDiagrams[idx].editUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 flex items-center space-x-1"
+                          className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded hover:bg-purple-200 flex items-center space-x-1"
                         >
                           <ExternalLink className="w-3 h-3" />
                           <span>Edit in Eraser</span>
@@ -2107,7 +2107,7 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
                           href={generatedDiagrams[idx].imageUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center space-x-1"
+                          className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded hover:bg-gray-600 flex items-center space-x-1"
                         >
                           <Download className="w-3 h-3" />
                           <span>Download</span>
@@ -2127,10 +2127,10 @@ function AttackPathsTab({ attackPaths, projectId }: { attackPaths: any[], projec
 
                 {/* Diagram Error */}
                 {diagramError && generatingDiagram === null && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
                     <div className="flex items-center space-x-2">
                       <XCircle className="w-4 h-4 text-red-600" />
-                      <p className="text-sm text-red-700">{diagramError}</p>
+                      <p className="text-sm text-red-400">{diagramError}</p>
                     </div>
                   </div>
                 )}
@@ -2178,14 +2178,14 @@ function HistoryTab({ projectId }: { projectId: number }) {
       </div>
       <div>
         {loadingVersion ? (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-400">
             <Activity className="w-8 h-8 mx-auto mb-3 text-gray-400 animate-spin" />
             <p>Loading version...</p>
           </div>
         ) : versionData ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700">
+              <h3 className="text-sm font-semibold text-gray-300">
                 Version {versionData.version?.version_number} Threats
               </h3>
               <button
@@ -2193,14 +2193,14 @@ function HistoryTab({ projectId }: { projectId: number }) {
                   setVersionData(null)
                   setSelectedVersionId(null)
                 }}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-gray-400 hover:text-gray-300"
               >
                 Clear selection
               </button>
             </div>
 
             {versionData.version?.change_description && (
-              <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+              <p className="text-sm text-gray-400 bg-gray-800/50 p-3 rounded-lg">
                 {versionData.version.change_description}
               </p>
             )}
@@ -2210,28 +2210,28 @@ function HistoryTab({ projectId }: { projectId: number }) {
                 versionData.threats.map((threat: any, idx: number) => (
                   <div
                     key={idx}
-                    className="border rounded-lg p-3 bg-white hover:bg-gray-50"
+                    className="border rounded-lg p-3 bg-gray-800 hover:bg-gray-700"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-white">
                         {threat.threat_data?.name || threat.threat_id}
                       </span>
                       <ThreatStatusBadge status={threat.status as ThreatStatus} size="sm" />
                     </div>
                     {threat.threat_data?.description && (
-                      <p className="text-xs text-gray-600 mb-2">
+                      <p className="text-xs text-gray-400 mb-2">
                         {threat.threat_data.description}
                       </p>
                     )}
                     {threat.change_reason && (
-                      <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      <p className="text-xs text-blue-600 bg-blue-900/20 px-2 py-1 rounded">
                         {threat.change_reason}
                       </p>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-gray-400">
                   <Shield className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                   <p className="text-sm">No threats recorded for this version</p>
                 </div>
@@ -2239,7 +2239,7 @@ function HistoryTab({ projectId }: { projectId: number }) {
             </div>
           </div>
         ) : (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-gray-400">
             <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>Select a version from the left to view its threats</p>
             <p className="text-xs mt-2 text-gray-400">
@@ -2296,8 +2296,8 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
     return (
       <div className="text-center py-12">
         <Target className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No MITRE ATT&CK Mappings</h3>
-        <p className="text-gray-600">MITRE ATT&CK mappings will appear here once threats are analyzed.</p>
+        <h3 className="text-lg font-semibold text-white mb-2">No MITRE ATT&CK Mappings</h3>
+        <p className="text-gray-400">MITRE ATT&CK mappings will appear here once threats are analyzed.</p>
       </div>
     )
   }
@@ -2306,7 +2306,7 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
     <div className="space-y-6">
       {/* Attack Chain Visualization */}
       {attackChain.length > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6 mb-6">
+        <div className="bg-gradient-to-r from-orange-900/20 to-red-900/20 border border-orange-700 rounded-lg p-6 mb-6">
           <div className="flex items-center space-x-2 mb-4">
             <Target className="w-5 h-5 text-orange-600" />
             <h3 className="font-semibold text-orange-900">Potential Attack Chain</h3>
@@ -2314,9 +2314,9 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
           <div className="flex items-center flex-wrap gap-3">
             {attackChain.map((step: any, idx: number) => (
               <div key={idx} className="flex items-center">
-                <div className="bg-white border-2 border-orange-300 rounded-lg p-3 shadow-sm">
+                <div className="bg-gray-800 border-2 border-orange-300 rounded-lg p-3 shadow-sm">
                   <p className="text-xs text-orange-600 font-medium">{step.tactic}</p>
-                  <p className="text-sm font-semibold text-gray-900">{step.technique}</p>
+                  <p className="text-sm font-semibold text-white">{step.technique}</p>
                   <a
                     href={step.url}
                     target="_blank"
@@ -2342,26 +2342,26 @@ function MitreTab({ mitreMapping }: { mitreMapping: any }) {
           if (!techsInTactic || techsInTactic.length === 0) return null
 
           return (
-            <div key={tactic} className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <div key={tactic} className="border border-gray-700 rounded-lg overflow-hidden">
+              <div className="bg-gray-800/50 px-4 py-3 border-b border-gray-700">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-gray-900">{tactic}</h3>
-                  <span className="text-sm text-gray-500">{techsInTactic.length} technique(s)</span>
+                  <h3 className="font-semibold text-white">{tactic}</h3>
+                  <span className="text-sm text-gray-400">{techsInTactic.length} technique(s)</span>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                 {techsInTactic.map((tech: any) => (
-                  <div key={tech.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                  <div key={tech.id} className="border border-gray-700 rounded-lg p-4 hover:shadow-md transition">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-mono bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
+                      <span className="text-xs font-mono bg-orange-900/30 text-orange-400 px-2 py-0.5 rounded">
                         {tech.id}
                       </span>
-                      <span className="text-xs text-gray-500">{tech.threat_count} threats</span>
+                      <span className="text-xs text-gray-400">{tech.threat_count} threats</span>
                     </div>
-                    <h4 className="font-medium text-gray-900 mb-2">{tech.name}</h4>
-                    <p className="text-sm text-gray-600 mb-3 line-clamp-2">{tech.description}</p>
+                    <h4 className="font-medium text-white mb-2">{tech.name}</h4>
+                    <p className="text-sm text-gray-400 mb-3 line-clamp-2">{tech.description}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">STRIDE: {tech.related_stride}</span>
+                      <span className="text-xs text-gray-400">STRIDE: {tech.related_stride}</span>
                       {tech.url && (
                         <a
                           href={tech.url}
@@ -2737,7 +2737,7 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
 
   if (!dfdData?.mermaid) {
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div className="text-center text-gray-400 py-8">
         <Network className="w-16 h-16 text-gray-300 mx-auto mb-4" />
         <p>No DFD data available</p>
       </div>
@@ -2748,8 +2748,8 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
     return (
       <div className="text-center py-8">
         <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-        <p className="text-gray-700 font-medium mb-2">Diagram Rendering Issue</p>
-        <p className="text-gray-500 text-sm">{renderError}</p>
+        <p className="text-gray-300 font-medium mb-2">Diagram Rendering Issue</p>
+        <p className="text-gray-400 text-sm">{renderError}</p>
         <p className="text-gray-400 text-xs mt-2">The threat analysis is still available in the tabs above.</p>
       </div>
     )
@@ -2761,17 +2761,17 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
         <div className="flex items-center space-x-2">
           <button
             onClick={handleZoomOut}
-            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
             title="Zoom Out"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
             </svg>
           </button>
-          <span className="text-sm font-medium text-gray-600 w-16 text-center">{Math.round(zoom * 100)}%</span>
+          <span className="text-sm font-medium text-gray-400 w-16 text-center">{Math.round(zoom * 100)}%</span>
           <button
             onClick={handleZoomIn}
-            className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+            className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition"
             title="Zoom In"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2780,12 +2780,12 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
           </button>
           <button
             onClick={handleResetZoom}
-            className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition"
+            className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition"
             title="Reset View"
           >
             Reset
           </button>
-          <div className="border-l border-gray-300 mx-2"></div>
+          <div className="border-l border-gray-600 mx-2"></div>
           <button
             onClick={() => {
               setFocusMode(!focusMode)
@@ -2795,8 +2795,8 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
             }}
             className={`px-3 py-2 rounded-lg text-sm transition flex items-center gap-1 ${
               focusMode
-                ? 'bg-pink-100 text-pink-700 border border-pink-300'
-                : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                ? 'bg-pink-900/30 text-pink-700 border border-pink-300'
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
             }`}
             title="Focus Mode - Click a component to show only its connections"
           >
@@ -2806,7 +2806,7 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
           {focusMode && focusedNode && (
             <button
               onClick={() => setFocusedNode(null)}
-              className="px-3 py-2 bg-pink-500 text-white rounded-lg text-sm transition hover:bg-pink-600 flex items-center gap-1"
+              className="px-3 py-2 bg-pink-900/30 text-white rounded-lg text-sm transition hover:bg-pink-600 flex items-center gap-1"
               title="Clear focus and show all components"
             >
               <X className="w-4 h-4" />
@@ -2836,7 +2836,7 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
 
       <div
         ref={containerRef}
-        className="bg-white rounded-lg border border-gray-200 overflow-hidden cursor-grab active:cursor-grabbing"
+        className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden cursor-grab active:cursor-grabbing"
         style={{ height: '500px' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -2855,7 +2855,7 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
           dangerouslySetInnerHTML={{ __html: mermaidSvg }}
         />
       </div>
-      <p className="text-xs text-gray-500 mt-2 text-center">
+      <p className="text-xs text-gray-400 mt-2 text-center">
         Use mouse wheel to zoom, drag to pan. Click Reset to restore original view.
         {focusMode && !focusedNode && ' | Focus Mode: Click a component to show only its connections.'}
         {focusMode && focusedNode && ' | Focused on: ' + (focusedNode.label || focusedNode.name || focusedNode.id)}
@@ -2865,24 +2865,24 @@ function MermaidDiagram({ dfdData, level, onComponentClick, nodes = [], edges = 
       <div className="flex items-center justify-center space-x-8 mt-6">
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-blue-200 border-2 border-blue-500 rounded"></div>
-          <span className="text-sm text-gray-600">External Entity</span>
+          <span className="text-sm text-gray-400">External Entity</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-500 rounded"></div>
-          <span className="text-sm text-gray-600">Process</span>
+          <span className="text-sm text-gray-400">Process</span>
         </div>
         <div className="flex items-center space-x-2">
           <div className="w-4 h-4 bg-green-200 border-2 border-green-500 rounded"></div>
-          <span className="text-sm text-gray-600">Data Store</span>
+          <span className="text-sm text-gray-400">Data Store</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-red-100 border-2 border-red-400 rounded"></div>
-          <span className="text-sm text-gray-600">Trust Boundary</span>
+          <div className="w-4 h-4 bg-red-900/30 border-2 border-red-400 rounded"></div>
+          <span className="text-sm text-gray-400">Trust Boundary</span>
         </div>
       </div>
 
-      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
+      <div className="mt-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+        <p className="text-sm text-blue-300">
           <strong>Level {level} DFD:</strong> {level === 0 ?
             'Context diagram showing the system as a single process with external entities' :
             'Detailed diagram showing internal processes, data stores, and data flows with trust boundaries'}
@@ -2934,10 +2934,10 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'external': return 'bg-red-100 text-red-800 border-red-300';
-      case 'process': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'datastore': return 'bg-green-100 text-green-800 border-green-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'external': return 'bg-red-900/30 text-red-300 border-red-300';
+      case 'process': return 'bg-blue-900/30 text-blue-300 border-blue-300';
+      case 'datastore': return 'bg-green-900/30 text-green-300 border-green-300';
+      default: return 'bg-gray-700 text-gray-100 border-gray-600';
     }
   };
 
@@ -2977,14 +2977,14 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
   return (
     <div className="space-y-4">
       {/* Search and Filter */}
-      <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+      <div className="flex items-center space-x-4 p-4 bg-gray-800/50 rounded-lg">
         <div className="flex-1 relative">
           <input
             type="text"
             placeholder="Search components..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
           <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -2993,7 +2993,7 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
         <select
           value={selectedType}
           onChange={(e) => setSelectedType(e.target.value)}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+          className="px-4 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
         >
           {componentTypes.map(type => (
             <option key={type} value={type}>
@@ -3005,21 +3005,21 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-3 rounded-lg text-center">
+        <div className="bg-blue-900/20 p-3 rounded-lg text-center">
           <div className="text-2xl font-bold text-blue-600">{nodes.length}</div>
-          <div className="text-xs text-blue-800">Components</div>
+          <div className="text-xs text-blue-300">Components</div>
         </div>
-        <div className="bg-green-50 p-3 rounded-lg text-center">
+        <div className="bg-green-900/20 p-3 rounded-lg text-center">
           <div className="text-2xl font-bold text-green-600">{edges.length}</div>
-          <div className="text-xs text-green-800">Data Flows</div>
+          <div className="text-xs text-green-300">Data Flows</div>
         </div>
-        <div className="bg-purple-50 p-3 rounded-lg text-center">
+        <div className="bg-purple-900/20 p-3 rounded-lg text-center">
           <div className="text-2xl font-bold text-purple-600">{trustBoundaries.length}</div>
-          <div className="text-xs text-purple-800">Trust Boundaries</div>
+          <div className="text-xs text-purple-300">Trust Boundaries</div>
         </div>
-        <div className="bg-orange-50 p-3 rounded-lg text-center">
+        <div className="bg-orange-900/20 p-3 rounded-lg text-center">
           <div className="text-2xl font-bold text-orange-600">{nodes.filter(n => n.type === 'external').length}</div>
-          <div className="text-xs text-orange-800">External Entities</div>
+          <div className="text-xs text-orange-300">External Entities</div>
         </div>
       </div>
 
@@ -3032,15 +3032,15 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
           const isExpanded = expandedBoundaries.has(boundary.id);
 
           return (
-            <div key={boundary.id} className="border border-indigo-200 rounded-lg overflow-hidden">
+            <div key={boundary.id} className="border border-indigo-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleBoundary(boundary.id)}
-                className="w-full flex items-center justify-between p-3 bg-indigo-50 hover:bg-indigo-100 transition"
+                className="w-full flex items-center justify-between p-3 bg-indigo-900/20 hover:bg-indigo-900/30 transition"
               >
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">🛡️</span>
                   <span className="font-medium text-indigo-900">{boundary.name || boundary.id}</span>
-                  <span className="px-2 py-0.5 bg-indigo-200 text-indigo-800 text-xs rounded-full">
+                  <span className="px-2 py-0.5 bg-indigo-200 text-indigo-300 text-xs rounded-full">
                     {boundaryNodes.length} components
                   </span>
                 </div>
@@ -3050,9 +3050,9 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
               </button>
 
               {isExpanded && (
-                <div className="p-3 space-y-2 bg-white">
+                <div className="p-3 space-y-2 bg-gray-800">
                   {boundaryNodes.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-2">No matching components</p>
+                    <p className="text-gray-400 text-sm text-center py-2">No matching components</p>
                   ) : (
                     boundaryNodes.map(node => {
                       const connections = getConnections(node.id);
@@ -3060,14 +3060,14 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
                         <div
                           key={node.id}
                           onClick={() => onComponentClick?.(node)}
-                          className="p-3 border border-gray-200 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 cursor-pointer transition"
+                          className="p-3 border border-gray-700 rounded-lg hover:border-indigo-400 hover:bg-indigo-900/20 cursor-pointer transition"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               <span className="text-xl">{getComponentIcon(node.type)}</span>
                               <div>
-                                <div className="font-medium text-gray-900">{node.label || node.id}</div>
-                                <div className="text-xs text-gray-500">{node.technology || node.type}</div>
+                                <div className="font-medium text-white">{node.label || node.id}</div>
+                                <div className="text-xs text-gray-400">{node.technology || node.type}</div>
                               </div>
                             </div>
                             <span className={`px-2 py-1 text-xs rounded border ${getTypeColor(node.type)}`}>
@@ -3075,7 +3075,7 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
                             </span>
                           </div>
                           {(connections.incoming.length > 0 || connections.outgoing.length > 0) && (
-                            <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                            <div className="mt-2 flex items-center space-x-4 text-xs text-gray-400">
                               <span>⬅️ {connections.incoming.length} in</span>
                               <span>➡️ {connections.outgoing.length} out</span>
                             </div>
@@ -3099,15 +3099,15 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
 
           const isExpanded = expandedBoundaries.has('external');
           return (
-            <div className="border border-orange-200 rounded-lg overflow-hidden">
+            <div className="border border-orange-700 rounded-lg overflow-hidden">
               <button
                 onClick={() => toggleBoundary('external')}
-                className="w-full flex items-center justify-between p-3 bg-orange-50 hover:bg-orange-100 transition"
+                className="w-full flex items-center justify-between p-3 bg-orange-900/20 hover:bg-orange-900/30 transition"
               >
                 <div className="flex items-center space-x-2">
                   <span className="text-lg">🌐</span>
                   <span className="font-medium text-orange-900">External Entities</span>
-                  <span className="px-2 py-0.5 bg-orange-200 text-orange-800 text-xs rounded-full">
+                  <span className="px-2 py-0.5 bg-orange-200 text-orange-300 text-xs rounded-full">
                     {externalNodes.length} components
                   </span>
                 </div>
@@ -3117,21 +3117,21 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
               </button>
 
               {isExpanded && (
-                <div className="p-3 space-y-2 bg-white">
+                <div className="p-3 space-y-2 bg-gray-800">
                   {externalNodes.map(node => {
                     const connections = getConnections(node.id);
                     return (
                       <div
                         key={node.id}
                         onClick={() => onComponentClick?.(node)}
-                        className="p-3 border border-gray-200 rounded-lg hover:border-orange-400 hover:bg-orange-50 cursor-pointer transition"
+                        className="p-3 border border-gray-700 rounded-lg hover:border-orange-400 hover:bg-orange-900/20 cursor-pointer transition"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
                             <span className="text-xl">{getComponentIcon(node.type)}</span>
                             <div>
-                              <div className="font-medium text-gray-900">{node.label || node.id}</div>
-                              <div className="text-xs text-gray-500">{node.technology || node.type}</div>
+                              <div className="font-medium text-white">{node.label || node.id}</div>
+                              <div className="text-xs text-gray-400">{node.technology || node.type}</div>
                             </div>
                           </div>
                           <span className={`px-2 py-1 text-xs rounded border ${getTypeColor(node.type)}`}>
@@ -3139,7 +3139,7 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
                           </span>
                         </div>
                         {(connections.incoming.length > 0 || connections.outgoing.length > 0) && (
-                          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                          <div className="mt-2 flex items-center space-x-4 text-xs text-gray-400">
                             <span>⬅️ {connections.incoming.length} in</span>
                             <span>➡️ {connections.outgoing.length} out</span>
                           </div>
@@ -3154,7 +3154,7 @@ function ComponentExplorer({ nodes, edges, trustBoundaries, onComponentClick }: 
         })()}
       </div>
 
-      <p className="text-xs text-gray-500 text-center">
+      <p className="text-xs text-gray-400 text-center">
         Click on any component to view its security details and associated threats.
       </p>
     </div>
@@ -3213,16 +3213,16 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-end z-50">
-      <div className="bg-white w-full max-w-lg h-full overflow-y-auto shadow-xl">
+      <div className="bg-gray-800 w-full max-w-lg h-full overflow-y-auto shadow-xl">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">{component.label || component.name}</h3>
-            <p className="text-sm text-gray-500 capitalize">{component.type} - {component.category}</p>
+            <h3 className="text-lg font-semibold text-white">{component.label || component.name}</h3>
+            <p className="text-sm text-gray-400 capitalize">{component.type} - {component.category}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="p-2 hover:bg-gray-700 rounded-lg transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -3231,27 +3231,27 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
         <div className="p-4 space-y-6">
           {/* Component Properties */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               <Info className="w-4 h-4" />
               Component Properties
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <span className="text-xs text-gray-500">Technology</span>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <span className="text-xs text-gray-400">Technology</span>
                 <p className="text-sm font-medium">{component.technology || 'Not specified'}</p>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <span className="text-xs text-gray-500">Trust Level</span>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <span className="text-xs text-gray-400">Trust Level</span>
                 <p className="text-sm font-medium capitalize">{component.trust_level || 'Unknown'}</p>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <span className="text-xs text-gray-500">Internet Facing</span>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <span className="text-xs text-gray-400">Internet Facing</span>
                 <p className={`text-sm font-medium ${component.internet_facing ? 'text-red-600' : 'text-green-600'}`}>
                   {component.internet_facing ? 'Yes' : 'No'}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <span className="text-xs text-gray-500">Sensitive Data</span>
+              <div className="bg-gray-800/50 p-3 rounded-lg">
+                <span className="text-xs text-gray-400">Sensitive Data</span>
                 <p className={`text-sm font-medium ${component.handles_sensitive_data ? 'text-orange-600' : 'text-green-600'}`}>
                   {component.handles_sensitive_data ? 'Yes' : 'No'}
                 </p>
@@ -3261,32 +3261,32 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
 
           {/* Current Security Controls */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               <Shield className="w-4 h-4" />
               Current Security Controls
             </h4>
             {securityControls.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {securityControls.map((control, idx) => (
-                  <span key={idx} className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                  <span key={idx} className="px-3 py-1 bg-green-900/30 text-green-400 text-sm rounded-full">
                     {control}
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 italic">No security controls detected</p>
+              <p className="text-sm text-gray-400 italic">No security controls detected</p>
             )}
           </section>
 
           {/* Recommended Controls */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
               Recommended Controls
             </h4>
             <div className="flex flex-wrap gap-2">
               {recommendedControls.map((control, idx) => (
-                <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full">
+                <span key={idx} className="px-3 py-1 bg-blue-900/30 text-blue-400 text-sm rounded-full">
                   {control}
                 </span>
               ))}
@@ -3296,13 +3296,13 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
           {/* Data Flows */}
           {relatedFlows.length > 0 && (
             <section>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
                 <Route className="w-4 h-4" />
                 Data Flows ({relatedFlows.length})
               </h4>
               <div className="space-y-2">
                 {relatedFlows.map((flow, idx) => (
-                  <div key={idx} className="bg-gray-50 p-3 rounded-lg">
+                  <div key={idx} className="bg-gray-800/50 p-3 rounded-lg">
                     <div className="flex items-center gap-2 text-sm">
                       <span className={flow.source === component.id ? 'font-semibold' : ''}>
                         {flow.source}
@@ -3313,15 +3313,15 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{flow.label}</span>
-                      <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{flow.protocol}</span>
+                      <span className="text-xs bg-gray-600 px-2 py-0.5 rounded">{flow.label}</span>
+                      <span className="text-xs bg-gray-600 px-2 py-0.5 rounded">{flow.protocol}</span>
                       {flow.encrypted && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
+                        <span className="text-xs bg-green-900/30 text-green-400 px-2 py-0.5 rounded flex items-center gap-1">
                           <Lock className="w-3 h-3" /> Encrypted
                         </span>
                       )}
                       {flow.authenticated && (
-                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                        <span className="text-xs bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded">
                           Authenticated
                         </span>
                       )}
@@ -3334,41 +3334,41 @@ function ComponentDetailsPanel({ component, threats, edges, onClose }: Component
 
           {/* Associated Threats */}
           <section>
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
               <AlertTriangle className="w-4 h-4" />
               Associated Threats ({componentThreats.length})
             </h4>
             {componentThreats.length > 0 ? (
               <div className="space-y-2">
                 {componentThreats.slice(0, 10).map((threat, idx) => (
-                  <div key={idx} className="border border-gray-200 rounded-lg p-3">
+                  <div key={idx} className="border border-gray-700 rounded-lg p-3">
                     <div className="flex items-start justify-between">
                       <span className="text-sm font-medium">{threat.name || threat.threat}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
-                        threat.severity === 'critical' ? 'bg-red-100 text-red-700' :
-                        threat.severity === 'high' ? 'bg-orange-100 text-orange-700' :
-                        threat.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-green-100 text-green-700'
+                        threat.severity === 'critical' ? 'bg-red-900/30 text-red-400' :
+                        threat.severity === 'high' ? 'bg-orange-900/30 text-orange-400' :
+                        threat.severity === 'medium' ? 'bg-yellow-900/30 text-yellow-400' :
+                        'bg-green-900/30 text-green-400'
                       }`}>
                         {threat.severity}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{threat.description}</p>
                     {threat.stride_category && (
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mt-2 inline-block">
+                      <span className="text-xs bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded mt-2 inline-block">
                         {threat.stride_category}
                       </span>
                     )}
                   </div>
                 ))}
                 {componentThreats.length > 10 && (
-                  <p className="text-sm text-gray-500 text-center">
+                  <p className="text-sm text-gray-400 text-center">
                     +{componentThreats.length - 10} more threats
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 italic">No specific threats identified for this component</p>
+              <p className="text-sm text-gray-400 italic">No specific threats identified for this component</p>
             )}
           </section>
         </div>
@@ -3424,9 +3424,9 @@ function ThreatCard({
   return (
     <div
       className={`border rounded-lg p-4 hover:shadow-md transition cursor-pointer ${
-        reviewStatus === 'closed' ? 'border-green-200 bg-green-50/30' :
-        reviewStatus === 'accepted' ? 'border-blue-200 bg-blue-50/30' :
-        'border-gray-200'
+        reviewStatus === 'closed' ? 'border-green-700 bg-green-900/20/30' :
+        reviewStatus === 'accepted' ? 'border-blue-700 bg-blue-900/20/30' :
+        'border-gray-700'
       }`}
       onClick={onToggle}
     >
@@ -3438,20 +3438,20 @@ function ThreatCard({
               reviewStatus === 'accepted' ? 'text-blue-500' :
               'text-red-400'
             }`} />
-            <h3 className={`font-semibold ${reviewStatus === 'closed' ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{threat.threat}</h3>
+            <h3 className={`font-semibold ${reviewStatus === 'closed' ? 'text-gray-400 line-through' : 'text-white'}`}>{threat.threat}</h3>
             <span className={`text-xs px-2 py-1 rounded-full border ${severityColor}`}>
               {severity.charAt(0).toUpperCase() + severity.slice(1)}
             </span>
             {/* Review Status Badge */}
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-              reviewStatus === 'closed' ? 'bg-green-100 text-green-700' :
-              reviewStatus === 'accepted' ? 'bg-blue-100 text-blue-700' :
-              'bg-red-100 text-red-700'
+              reviewStatus === 'closed' ? 'bg-green-900/30 text-green-400' :
+              reviewStatus === 'accepted' ? 'bg-blue-900/30 text-blue-400' :
+              'bg-red-900/30 text-red-400'
             }`}>
               {reviewStatus.toUpperCase()}
             </span>
             {hasMitigatingControls && (
-              <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
+              <span className="text-xs px-2 py-0.5 bg-emerald-900/30 text-emerald-700 rounded-full font-medium">
                 {mappedControls.length} control{mappedControls.length !== 1 ? 's' : ''}
               </span>
             )}
@@ -3463,28 +3463,28 @@ function ThreatCard({
                 href={`https://cwe.mitre.org/data/definitions/${threat.cwe.replace('CWE-', '')}.html`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"
+                className="text-xs px-2 py-0.5 bg-purple-900/30 text-purple-400 rounded hover:bg-purple-200"
                 onClick={(e) => e.stopPropagation()}
               >
                 {threat.cwe}
               </a>
             )}
             {threat.risk_score && (
-              <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+              <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-400 rounded">
                 Risk: {threat.risk_score}
               </span>
             )}
             {threat.attack_complexity && (
               <span className={`text-xs px-2 py-0.5 rounded ${
-                threat.attack_complexity.skill_level === 'Advanced' ? 'bg-red-100 text-red-700' :
-                threat.attack_complexity.skill_level === 'Intermediate' ? 'bg-orange-100 text-orange-700' :
-                'bg-green-100 text-green-700'
+                threat.attack_complexity.skill_level === 'Advanced' ? 'bg-red-900/30 text-red-400' :
+                threat.attack_complexity.skill_level === 'Intermediate' ? 'bg-orange-900/30 text-orange-400' :
+                'bg-green-900/30 text-green-400'
               }`}>
                 {threat.attack_complexity.skill_level}
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-600">{threat.component}</p>
+          <p className="text-sm text-gray-400">{threat.component}</p>
         </div>
         <div className="flex items-center space-x-2">
           {/* Status Actions */}
@@ -3520,23 +3520,23 @@ function ThreatCard({
               </button>
             )}
           </div>
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-gray-400">
             {isExpanded ? '▼' : '▶'}
           </span>
         </div>
       </div>
 
-      <p className="text-sm text-gray-700 mb-3">{threat.description}</p>
+      <p className="text-sm text-gray-300 mb-3">{threat.description}</p>
 
       {/* Mapped Controls Summary (always visible) */}
       {hasMitigatingControls && (
         <div className="flex flex-wrap gap-1.5 mb-3">
           {mappedControls.map((ctrl: any) => (
             <span key={ctrl.id} className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border ${
-              ctrl.status === 'implemented' ? 'bg-green-50 text-green-700 border-green-200' :
-              ctrl.status === 'planned' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-              ctrl.status === 'partial' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-              'bg-gray-50 text-gray-600 border-gray-200'
+              ctrl.status === 'implemented' ? 'bg-green-900/20 text-green-400 border-green-700' :
+              ctrl.status === 'planned' ? 'bg-blue-900/20 text-blue-400 border-blue-700' :
+              ctrl.status === 'partial' ? 'bg-yellow-900/20 text-yellow-400 border-yellow-700' :
+              'bg-gray-800/50 text-gray-400 border-gray-700'
             }`}>
               <Shield className="w-3 h-3" />
               {ctrl.name}
@@ -3562,7 +3562,7 @@ function ThreatCard({
                 href={`https://attack.mitre.org/techniques/${technique.replace('.', '/')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs px-2 py-0.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200"
+                className="text-xs px-2 py-0.5 bg-orange-900/30 text-orange-400 rounded hover:bg-orange-200"
                 onClick={(e) => e.stopPropagation()}
               >
                 {technique}
@@ -3573,27 +3573,27 @@ function ThreatCard({
       )}
 
       {isExpanded && (
-        <div className="space-y-3 mt-4 pt-4 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-3 mt-4 pt-4 border-t border-gray-700" onClick={(e) => e.stopPropagation()}>
           {/* STRIDE Category */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-xs font-medium text-blue-800 mb-1">STRIDE Category:</p>
+          <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
+            <p className="text-xs font-medium text-blue-300 mb-1">STRIDE Category:</p>
             <p className="text-sm text-blue-900">{threat.category || 'N/A'}</p>
           </div>
 
           {/* Attack Vector */}
           {threat.attack_vector && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <div className="bg-red-900/20 border border-red-700 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <AlertTriangle className="w-4 h-4 text-red-600" />
-                <p className="text-xs font-medium text-red-800">Attack Vector</p>
+                <p className="text-xs font-medium text-red-300">Attack Vector</p>
               </div>
               <p className="text-sm text-red-900 mb-2">{threat.attack_vector.description}</p>
               {threat.attack_vector.entry_points && threat.attack_vector.entry_points.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs font-medium text-red-800 mb-1">Entry Points:</p>
+                  <p className="text-xs font-medium text-red-300 mb-1">Entry Points:</p>
                   <div className="flex flex-wrap gap-1">
                     {threat.attack_vector.entry_points.map((point: string, idx: number) => (
-                      <span key={idx} className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">
+                      <span key={idx} className="text-xs px-2 py-0.5 bg-red-900/30 text-red-400 rounded">
                         {point}
                       </span>
                     ))}
@@ -3602,8 +3602,8 @@ function ThreatCard({
               )}
               {threat.attack_vector.techniques && threat.attack_vector.techniques.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs font-medium text-red-800 mb-1">Techniques:</p>
-                  <ul className="text-xs text-red-700 list-disc list-inside">
+                  <p className="text-xs font-medium text-red-300 mb-1">Techniques:</p>
+                  <ul className="text-xs text-red-400 list-disc list-inside">
                     {threat.attack_vector.techniques.map((tech: string, idx: number) => (
                       <li key={idx}>{tech}</li>
                     ))}
@@ -3615,34 +3615,34 @@ function ThreatCard({
 
           {/* Business Impact */}
           {threat.business_impact && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+            <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <TrendingUp className="w-4 h-4 text-orange-600" />
-                <p className="text-xs font-medium text-orange-800">Business Impact</p>
+                <p className="text-xs font-medium text-orange-300">Business Impact</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {threat.business_impact.financial && (
-                  <div className="bg-orange-100 rounded p-2">
-                    <p className="text-xs font-medium text-orange-800">Financial</p>
-                    <p className="text-xs text-orange-700">{threat.business_impact.financial}</p>
+                  <div className="bg-orange-900/30 rounded p-2">
+                    <p className="text-xs font-medium text-orange-300">Financial</p>
+                    <p className="text-xs text-orange-400">{threat.business_impact.financial}</p>
                   </div>
                 )}
                 {threat.business_impact.reputational && (
-                  <div className="bg-orange-100 rounded p-2">
-                    <p className="text-xs font-medium text-orange-800">Reputational</p>
-                    <p className="text-xs text-orange-700">{threat.business_impact.reputational}</p>
+                  <div className="bg-orange-900/30 rounded p-2">
+                    <p className="text-xs font-medium text-orange-300">Reputational</p>
+                    <p className="text-xs text-orange-400">{threat.business_impact.reputational}</p>
                   </div>
                 )}
                 {threat.business_impact.operational && (
-                  <div className="bg-orange-100 rounded p-2">
-                    <p className="text-xs font-medium text-orange-800">Operational</p>
-                    <p className="text-xs text-orange-700">{threat.business_impact.operational}</p>
+                  <div className="bg-orange-900/30 rounded p-2">
+                    <p className="text-xs font-medium text-orange-300">Operational</p>
+                    <p className="text-xs text-orange-400">{threat.business_impact.operational}</p>
                   </div>
                 )}
                 {threat.business_impact.compliance && (
-                  <div className="bg-orange-100 rounded p-2">
-                    <p className="text-xs font-medium text-orange-800">Compliance</p>
-                    <p className="text-xs text-orange-700">{threat.business_impact.compliance}</p>
+                  <div className="bg-orange-900/30 rounded p-2">
+                    <p className="text-xs font-medium text-orange-300">Compliance</p>
+                    <p className="text-xs text-orange-400">{threat.business_impact.compliance}</p>
                   </div>
                 )}
               </div>
@@ -3651,11 +3651,11 @@ function ThreatCard({
 
           {/* Affected Assets */}
           {threat.affected_assets && threat.affected_assets.length > 0 && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs font-medium text-purple-800 mb-2">Affected Assets:</p>
+            <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-3">
+              <p className="text-xs font-medium text-purple-300 mb-2">Affected Assets:</p>
               <div className="flex flex-wrap gap-2">
                 {threat.affected_assets.map((asset: string, idx: number) => (
-                  <span key={idx} className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                  <span key={idx} className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded">
                     {asset}
                   </span>
                 ))}
@@ -3665,20 +3665,20 @@ function ThreatCard({
 
           {/* Prerequisites */}
           {threat.prerequisites && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <Lock className="w-4 h-4 text-yellow-600" />
-                <p className="text-xs font-medium text-yellow-800">Attack Prerequisites</p>
+                <p className="text-xs font-medium text-yellow-300">Attack Prerequisites</p>
               </div>
               {threat.prerequisites.access_required && (
-                <p className="text-xs text-yellow-700 mb-1">
+                <p className="text-xs text-yellow-400 mb-1">
                   <span className="font-medium">Access Required:</span> {threat.prerequisites.access_required}
                 </p>
               )}
               {threat.prerequisites.conditions && threat.prerequisites.conditions.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-yellow-800 mb-1">Conditions:</p>
-                  <ul className="text-xs text-yellow-700 list-disc list-inside">
+                  <p className="text-xs font-medium text-yellow-300 mb-1">Conditions:</p>
+                  <ul className="text-xs text-yellow-400 list-disc list-inside">
                     {threat.prerequisites.conditions.map((cond: string, idx: number) => (
                       <li key={idx}>{cond}</li>
                     ))}
@@ -3690,19 +3690,19 @@ function ThreatCard({
 
           {/* Attack Complexity */}
           {threat.attack_complexity && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3">
+            <div className="bg-indigo-900/20 border border-indigo-700 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <Activity className="w-4 h-4 text-indigo-600" />
-                <p className="text-xs font-medium text-indigo-800">Attack Complexity</p>
+                <p className="text-xs font-medium text-indigo-300">Attack Complexity</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-indigo-100 rounded p-2">
-                  <p className="text-xs font-medium text-indigo-800">Skill Level</p>
-                  <p className="text-xs text-indigo-700">{threat.attack_complexity.skill_level}</p>
+                <div className="bg-indigo-900/30 rounded p-2">
+                  <p className="text-xs font-medium text-indigo-300">Skill Level</p>
+                  <p className="text-xs text-indigo-400">{threat.attack_complexity.skill_level}</p>
                 </div>
-                <div className="bg-indigo-100 rounded p-2">
-                  <p className="text-xs font-medium text-indigo-800">Time Required</p>
-                  <p className="text-xs text-indigo-700">{threat.attack_complexity.time_required}</p>
+                <div className="bg-indigo-900/30 rounded p-2">
+                  <p className="text-xs font-medium text-indigo-300">Time Required</p>
+                  <p className="text-xs text-indigo-400">{threat.attack_complexity.time_required}</p>
                 </div>
               </div>
             </div>
@@ -3710,8 +3710,8 @@ function ThreatCard({
 
           {/* Legacy Attack Vectors (for backwards compatibility) */}
           {threat.attack_vectors && !threat.attack_vector && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-              <p className="text-xs font-medium text-purple-800 mb-1">Attack Vectors:</p>
+            <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-3">
+              <p className="text-xs font-medium text-purple-300 mb-1">Attack Vectors:</p>
               <ul className="text-sm text-purple-900 list-disc list-inside">
                 {threat.attack_vectors.map((vector: string, idx: number) => (
                   <li key={idx}>{vector}</li>
@@ -3721,25 +3721,25 @@ function ThreatCard({
           )}
 
           {/* Recommended Mitigation */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
             <div className="flex items-center space-x-2 mb-2">
               <Shield className="w-4 h-4 text-green-600" />
-              <p className="text-xs font-medium text-green-800">Recommended Mitigation</p>
+              <p className="text-xs font-medium text-green-300">Recommended Mitigation</p>
             </div>
             <p className="text-sm text-green-900">{threat.mitigation}</p>
           </div>
 
           {/* References */}
           {threat.references && (
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <p className="text-xs font-medium text-gray-700 mb-2">References:</p>
+            <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-300 mb-2">References:</p>
               <div className="flex flex-wrap gap-2">
                 {threat.references.cwe && (
                   <a
                     href={threat.references.cwe}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs px-2 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 flex items-center"
+                    className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded hover:bg-purple-200 flex items-center"
                   >
                     CWE <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
@@ -3749,7 +3749,7 @@ function ThreatCard({
                     href={threat.references.mitre}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 flex items-center"
+                    className="text-xs px-2 py-1 bg-orange-900/30 text-orange-400 rounded hover:bg-orange-200 flex items-center"
                   >
                     MITRE ATT&CK <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
@@ -3759,7 +3759,7 @@ function ThreatCard({
                     href={threat.references.owasp}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center"
+                    className="text-xs px-2 py-1 bg-blue-900/30 text-blue-400 rounded hover:bg-blue-200 flex items-center"
                   >
                     OWASP <ExternalLink className="w-3 h-3 ml-1" />
                   </a>
@@ -3769,29 +3769,29 @@ function ThreatCard({
           )}
 
           {hasMitigatingControls && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+            <div className="bg-emerald-900/20 border border-emerald-200 rounded-lg p-3">
               <div className="flex items-center space-x-2 mb-2">
                 <Shield className="w-4 h-4 text-emerald-600" />
                 <p className="text-xs font-medium text-emerald-800">Mapped Security Controls ({mappedControls.length})</p>
               </div>
               <div className="space-y-1.5">
                 {mappedControls.map((ctrl: any) => (
-                  <div key={ctrl.id} className="flex items-center justify-between bg-white rounded-md px-3 py-1.5 border border-emerald-100">
+                  <div key={ctrl.id} className="flex items-center justify-between bg-gray-800 rounded-md px-3 py-1.5 border border-emerald-100">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${
-                        ctrl.status === 'implemented' ? 'bg-green-500' :
-                        ctrl.status === 'planned' ? 'bg-blue-500' :
-                        ctrl.status === 'partial' ? 'bg-yellow-500' : 'bg-red-500'
+                        ctrl.status === 'implemented' ? 'bg-green-900/30' :
+                        ctrl.status === 'planned' ? 'bg-blue-900/30' :
+                        ctrl.status === 'partial' ? 'bg-yellow-900/30' : 'bg-red-900/30'
                       }`} />
-                      <span className="text-sm text-gray-800">{ctrl.name}</span>
+                      <span className="text-sm text-gray-100">{ctrl.name}</span>
                       <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        ctrl.status === 'implemented' ? 'bg-green-100 text-green-700' :
-                        ctrl.status === 'planned' ? 'bg-blue-100 text-blue-700' :
-                        ctrl.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-red-100 text-red-700'
+                        ctrl.status === 'implemented' ? 'bg-green-900/30 text-green-400' :
+                        ctrl.status === 'planned' ? 'bg-blue-900/30 text-blue-400' :
+                        ctrl.status === 'partial' ? 'bg-yellow-900/30 text-yellow-400' :
+                        'bg-red-900/30 text-red-400'
                       }`}>{ctrl.status}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
                       <span>{ctrl.control_type}</span>
                       <span className="font-medium">{(ctrl.effectiveness * 100).toFixed(0)}% effective</span>
                       {ctrl.owner && <span>({ctrl.owner})</span>}
@@ -3803,7 +3803,7 @@ function ThreatCard({
           )}
 
           {!hasMitigatingControls && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <div className="bg-amber-900/20 border border-amber-200 rounded-lg p-3">
               <div className="flex items-center space-x-2">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
                 <p className="text-xs font-medium text-amber-800">No security controls mapped to this threat</p>
@@ -3815,8 +3815,8 @@ function ThreatCard({
       )}
 
       {!isExpanded && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <p className="text-xs font-medium text-green-800 mb-1">Recommended Mitigation:</p>
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-3">
+          <p className="text-xs font-medium text-green-300 mb-1">Recommended Mitigation:</p>
           <p className="text-sm text-green-900">{threat.mitigation}</p>
         </div>
       )}
@@ -3905,7 +3905,7 @@ function DocumentUploadSection({
   const getFileIcon = (type: string) => {
     if (type.startsWith('image/')) return <FileImage className="w-5 h-5 text-blue-500" />
     if (type === 'application/pdf') return <File className="w-5 h-5 text-red-500" />
-    return <FileText className="w-5 h-5 text-gray-500" />
+    return <FileText className="w-5 h-5 text-gray-400" />
   }
 
   const formatFileSize = (bytes: number) => {
@@ -3975,7 +3975,7 @@ function DocumentUploadSection({
       <div className="flex items-center mb-6">
         <button
           onClick={onBack}
-          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+          className="inline-flex items-center text-sm text-gray-400 hover:text-white"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Options
@@ -3984,8 +3984,8 @@ function DocumentUploadSection({
 
       <div className="text-center mb-6">
         <Upload className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Project Documents</h3>
-        <p className="text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-white mb-2">Upload Project Documents</h3>
+        <p className="text-sm text-gray-400">
           Upload architecture diagrams, design documents, or use case documents.
           Our AI will analyze them to understand your system architecture.
         </p>
@@ -3995,8 +3995,8 @@ function DocumentUploadSection({
       <div
         className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
           dragActive
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-blue-500 bg-blue-900/20'
+            : 'border-gray-600 hover:border-gray-400'
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -4012,17 +4012,17 @@ function DocumentUploadSection({
           className="hidden"
         />
         <div className="space-y-3">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 bg-gray-700 rounded-full flex items-center justify-center mx-auto">
             <Upload className="w-8 h-8 text-gray-400" />
           </div>
           <div>
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="text-blue-600 hover:text-blue-700 font-medium"
+              className="text-blue-600 hover:text-blue-400 font-medium"
             >
               Click to upload
             </button>
-            <span className="text-gray-500"> or drag and drop</span>
+            <span className="text-gray-400"> or drag and drop</span>
           </div>
           <p className="text-xs text-gray-400">
             PDF, PNG, JPG, WEBP, or DOCX (max 20MB each)
@@ -4033,20 +4033,20 @@ function DocumentUploadSection({
       {/* Uploaded Files List */}
       {uploadedDocs.length > 0 && (
         <div className="mt-6 space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Uploaded Documents ({uploadedDocs.length})</h4>
+          <h4 className="text-sm font-medium text-gray-300">Uploaded Documents ({uploadedDocs.length})</h4>
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {uploadedDocs.map((file, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2"
+                className="flex items-center justify-between bg-gray-800/50 rounded-lg px-4 py-2"
               >
                 <div className="flex items-center space-x-3">
                   {getFileIcon(file.type)}
                   <div>
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                    <p className="text-sm font-medium text-white truncate max-w-xs">
                       {file.name}
                     </p>
-                    <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                    <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
                   </div>
                 </div>
                 <button
@@ -4063,9 +4063,9 @@ function DocumentUploadSection({
 
       {/* Analysis Progress */}
       {analyzingDocs && (
-        <div className="mt-6 bg-blue-50 rounded-lg p-4">
+        <div className="mt-6 bg-blue-900/20 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-blue-700">Analyzing documents...</span>
+            <span className="text-sm font-medium text-blue-400">Analyzing documents...</span>
             <span className="text-sm text-blue-600">{docAnalysisProgress}%</span>
           </div>
           <div className="w-full bg-blue-200 rounded-full h-2">
@@ -4086,62 +4086,62 @@ function DocumentUploadSection({
 
       {/* Extracted Architecture Preview */}
       {extractedFromDocs && (
-        <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="mt-6 bg-green-900/20 border border-green-700 rounded-lg p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               <CheckCircle className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-800">Architecture Extracted</span>
+              <span className="font-medium text-green-300">Architecture Extracted</span>
             </div>
             <button
               onClick={() => setExtractedFromDocs(null)}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-400"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="bg-white rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-white">
                 {extractedFromDocs.components?.length || 0}
               </p>
-              <p className="text-xs text-gray-500">Components</p>
+              <p className="text-xs text-gray-400">Components</p>
             </div>
-            <div className="bg-white rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-white">
                 {extractedFromDocs.data_flows?.length || 0}
               </p>
-              <p className="text-xs text-gray-500">Data Flows</p>
+              <p className="text-xs text-gray-400">Data Flows</p>
             </div>
-            <div className="bg-white rounded-lg p-3 text-center">
-              <p className="text-2xl font-bold text-gray-900">
+            <div className="bg-gray-800 rounded-lg p-3 text-center">
+              <p className="text-2xl font-bold text-white">
                 {extractedFromDocs.trust_boundaries?.length || 0}
               </p>
-              <p className="text-xs text-gray-500">Trust Boundaries</p>
+              <p className="text-xs text-gray-400">Trust Boundaries</p>
             </div>
           </div>
 
           {extractedFromDocs.description && (
-            <div className="bg-white rounded-lg p-3 mb-4">
-              <p className="text-xs font-medium text-gray-500 mb-1">System Overview</p>
-              <p className="text-sm text-gray-700">{extractedFromDocs.description}</p>
+            <div className="bg-gray-800 rounded-lg p-3 mb-4">
+              <p className="text-xs font-medium text-gray-400 mb-1">System Overview</p>
+              <p className="text-sm text-gray-300">{extractedFromDocs.description}</p>
             </div>
           )}
 
           {extractedFromDocs.components && extractedFromDocs.components.length > 0 && (
-            <div className="bg-white rounded-lg p-3">
-              <p className="text-xs font-medium text-gray-500 mb-2">Identified Components</p>
+            <div className="bg-gray-800 rounded-lg p-3">
+              <p className="text-xs font-medium text-gray-400 mb-2">Identified Components</p>
               <div className="flex flex-wrap gap-2">
                 {extractedFromDocs.components.slice(0, 10).map((comp: any, idx: number) => (
                   <span
                     key={idx}
-                    className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+                    className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded"
                   >
                     {comp.name}
                   </span>
                 ))}
                 {extractedFromDocs.components.length > 10 && (
-                  <span className="px-2 py-1 bg-gray-200 text-gray-600 text-xs rounded">
+                  <span className="px-2 py-1 bg-gray-600 text-gray-400 text-xs rounded">
                     +{extractedFromDocs.components.length - 10} more
                   </span>
                 )}
@@ -4175,21 +4175,21 @@ function DocumentUploadSection({
           <>
             {/* Show warning if no components extracted */}
             {(!extractedFromDocs.components || extractedFromDocs.components.length === 0) && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-lg">
                 <div className="flex items-start space-x-3">
                   <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-yellow-800">No Components Extracted</p>
-                    <p className="text-sm text-yellow-700 mt-1">
+                    <p className="text-sm font-medium text-yellow-300">No Components Extracted</p>
+                    <p className="text-sm text-yellow-400 mt-1">
                       The AI couldn't automatically extract architecture components from your document.
                       This can happen with:
                     </p>
-                    <ul className="text-sm text-yellow-700 mt-2 list-disc list-inside space-y-1">
+                    <ul className="text-sm text-yellow-400 mt-2 list-disc list-inside space-y-1">
                       <li>Hand-drawn or low-quality diagrams</li>
                       <li>Non-standard diagram formats</li>
                       <li>Documents without clear component labels</li>
                     </ul>
-                    <p className="text-sm text-yellow-800 font-medium mt-3">
+                    <p className="text-sm text-yellow-300 font-medium mt-3">
                       You can use the Architecture Builder to manually define your components:
                     </p>
                   </div>
@@ -4246,22 +4246,22 @@ function DocumentUploadSection({
       </div>
 
       {/* Supported Formats Info */}
-      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Supported Document Types</h4>
+      <div className="mt-6 p-4 bg-gray-800/50 rounded-lg">
+        <h4 className="text-sm font-medium text-gray-300 mb-3">Supported Document Types</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <div className="flex items-center space-x-2 text-sm text-gray-400">
             <FileImage className="w-4 h-4 text-blue-500" />
             <span>Architecture Diagrams</span>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <div className="flex items-center space-x-2 text-sm text-gray-400">
             <File className="w-4 h-4 text-red-500" />
             <span>PDF Documents</span>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <div className="flex items-center space-x-2 text-sm text-gray-400">
             <FileImage className="w-4 h-4 text-green-500" />
             <span>Use Case Diagrams</span>
           </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
+          <div className="flex items-center space-x-2 text-sm text-gray-400">
             <FileText className="w-4 h-4 text-purple-500" />
             <span>Design Documents</span>
           </div>

@@ -163,8 +163,8 @@ export default function ProjectDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{project.name}</h1>
-          <p className="text-gray-600 mt-1">{project.description || 'No description'}</p>
+          <h1 className="text-3xl font-bold text-white">{project.name}</h1>
+          <p className="text-gray-400 mt-1">{project.description || 'No description'}</p>
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -180,22 +180,22 @@ export default function ProjectDetailPage() {
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition z-10">
+            <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg shadow-lg border border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition z-10">
               <button
                 onClick={() => downloadReport('excel')}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
               >
                 Download Excel
               </button>
               <button
                 onClick={() => downloadReport('pdf')}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
               >
                 Download PDF
               </button>
               <button
                 onClick={() => downloadReport('xml')}
-                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
               >
                 Download XML
               </button>
@@ -287,13 +287,13 @@ export default function ProjectDetailPage() {
 
       {/* Scan History */}
       <div className="card p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Scan History</h2>
+        <h2 className="text-xl font-semibold text-white mb-4">Scan History</h2>
 
         {scans.length === 0 ? (
           <div className="text-center py-12">
             <Shield className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No scans yet</h3>
-            <p className="text-gray-600 mb-6">Run your first security scan to see results here</p>
+            <h3 className="text-lg font-semibold text-white mb-2">No scans yet</h3>
+            <p className="text-gray-400 mb-6">Run your first security scan to see results here</p>
             <button onClick={runSecurityScan} className="btn btn-primary">
               Run Security Scans
             </button>
@@ -303,19 +303,19 @@ export default function ProjectDetailPage() {
             {scans.map((scan) => (
               <div
                 key={scan.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg hover:bg-gray-700 transition"
               >
                 <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-primary-900/30 rounded-lg flex items-center justify-center">
                     {scan.scan_type === 'sast' && <Bug className="w-6 h-6 text-primary-600" />}
                     {scan.scan_type === 'sca' && <Package className="w-6 h-6 text-primary-600" />}
                     {scan.scan_type === 'secret' && <Key className="w-6 h-6 text-primary-600" />}
                   </div>
                   <div>
-                    <h3 className="font-medium text-gray-900">
+                    <h3 className="font-medium text-white">
                       {scan.scan_type.toUpperCase()} Scan
                     </h3>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-400">
                       {new Date(scan.started_at).toLocaleString()}
                     </p>
                   </div>
@@ -323,8 +323,8 @@ export default function ProjectDetailPage() {
 
                 <div className="flex items-center space-x-6">
                   <div className="text-center">
-                    <div className="text-sm text-gray-500">Total</div>
-                    <div className="text-lg font-semibold text-gray-900">{scan.total_findings}</div>
+                    <div className="text-sm text-gray-400">Total</div>
+                    <div className="text-lg font-semibold text-white">{scan.total_findings}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-sm text-red-600">Critical</div>
@@ -348,7 +348,7 @@ export default function ProjectDetailPage() {
                       e.stopPropagation()
                       deleteScan(scan.id, scan.scan_type)
                     }}
-                    className="ml-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    className="ml-4 p-2 text-gray-400 hover:text-red-600 hover:bg-red-900/20 rounded-lg transition"
                     title="Delete this scan"
                   >
                     <Trash2 className="w-5 h-5" />
@@ -362,22 +362,22 @@ export default function ProjectDetailPage() {
 
       {/* Project Details */}
       <div className="card p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Project Details</h2>
+        <h2 className="text-xl font-semibold text-white mb-4">Project Details</h2>
         <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <dt className="text-sm font-medium text-gray-500">Repository URL</dt>
-            <dd className="mt-1 text-sm text-gray-900">
+            <dt className="text-sm font-medium text-gray-400">Repository URL</dt>
+            <dd className="mt-1 text-sm text-white">
               {project.repository_url || 'Not provided'}
             </dd>
           </div>
           <div>
-            <dt className="text-sm font-medium text-gray-500">Created At</dt>
-            <dd className="mt-1 text-sm text-gray-900">
+            <dt className="text-sm font-medium text-gray-400">Created At</dt>
+            <dd className="mt-1 text-sm text-white">
               {new Date(project.created_at).toLocaleString()}
             </dd>
           </div>
           <div className="md:col-span-2">
-            <dt className="text-sm font-medium text-gray-500">Compliance Targets</dt>
+            <dt className="text-sm font-medium text-gray-400">Compliance Targets</dt>
             <dd className="mt-1 flex flex-wrap gap-2">
               {project.compliance_targets?.map((target: string) => (
                 <span key={target} className="badge badge-info">
@@ -394,18 +394,18 @@ export default function ProjectDetailPage() {
 
 function StatCard({ title, value, icon, color }: any) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    red: 'bg-red-100 text-red-600',
-    orange: 'bg-orange-100 text-orange-600',
-    green: 'bg-green-100 text-green-600',
+    blue: 'bg-blue-900/30 text-blue-600',
+    red: 'bg-red-900/30 text-red-600',
+    orange: 'bg-orange-900/30 text-orange-600',
+    green: 'bg-green-900/30 text-green-600',
   }
 
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-600 mb-1">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm text-gray-400 mb-1">{title}</p>
+          <p className="text-2xl font-bold text-white">{value}</p>
         </div>
         <div className={`p-3 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
           {icon}
@@ -417,11 +417,11 @@ function StatCard({ title, value, icon, color }: any) {
 
 function QuickLink({ to, icon, title, description, color }: any) {
   const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    red: 'bg-red-100 text-red-600',
-    orange: 'bg-orange-100 text-orange-600',
-    purple: 'bg-purple-100 text-purple-600',
-    green: 'bg-green-100 text-green-600',
+    blue: 'bg-blue-900/30 text-blue-600',
+    red: 'bg-red-900/30 text-red-600',
+    orange: 'bg-orange-900/30 text-orange-600',
+    purple: 'bg-purple-900/30 text-purple-600',
+    green: 'bg-green-900/30 text-green-600',
   }
 
   return (
@@ -433,8 +433,8 @@ function QuickLink({ to, icon, title, description, color }: any) {
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <h3 className="font-medium text-gray-900 truncate">{title}</h3>
-        <p className="text-sm text-gray-600 truncate">{description}</p>
+        <h3 className="font-medium text-white truncate">{title}</h3>
+        <p className="text-sm text-gray-400 truncate">{description}</p>
       </div>
     </Link>
   )

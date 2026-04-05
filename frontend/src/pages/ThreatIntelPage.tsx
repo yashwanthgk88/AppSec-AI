@@ -157,11 +157,11 @@ export default function ThreatIntelPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center space-x-3">
+          <h1 className="text-3xl font-bold text-white flex items-center space-x-3">
             <Shield className="w-8 h-8 text-primary-600" />
             <span>Live Threat Intelligence</span>
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-400 mt-1">
             Real-time threat data from CISA KEV, NVD, MISP Galaxy, and Exploit-DB
           </p>
         </div>
@@ -180,7 +180,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-red-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Actively Exploited</p>
+                <p className="text-xs text-gray-400">Actively Exploited</p>
                 <p className="text-2xl font-bold text-red-600">{stats.actively_exploited}</p>
               </div>
               <Zap className="w-8 h-8 text-red-500 opacity-20" />
@@ -190,7 +190,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-orange-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Critical Threats</p>
+                <p className="text-xs text-gray-400">Critical Threats</p>
                 <p className="text-2xl font-bold text-orange-600">{stats.critical_threats || stats.by_severity?.critical || 0}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-orange-500 opacity-20" />
@@ -200,7 +200,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-purple-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Threat Actors</p>
+                <p className="text-xs text-gray-400">Threat Actors</p>
                 <p className="text-2xl font-bold text-purple-600">{stats.threat_actors || 0}</p>
               </div>
               <Users className="w-8 h-8 text-purple-500 opacity-20" />
@@ -210,7 +210,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-pink-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Ransomware</p>
+                <p className="text-xs text-gray-400">Ransomware</p>
                 <p className="text-2xl font-bold text-pink-600">{stats.ransomware_families || 0}</p>
               </div>
               <Lock className="w-8 h-8 text-pink-500 opacity-20" />
@@ -220,7 +220,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-indigo-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Exploit Kits</p>
+                <p className="text-xs text-gray-400">Exploit Kits</p>
                 <p className="text-2xl font-bold text-indigo-600">{stats.exploit_kits || 0}</p>
               </div>
               <Bug className="w-8 h-8 text-indigo-500 opacity-20" />
@@ -230,7 +230,7 @@ export default function ThreatIntelPage() {
           <div className="card p-4 border-l-4 border-blue-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600">Total Threats</p>
+                <p className="text-xs text-gray-400">Total Threats</p>
                 <p className="text-2xl font-bold text-blue-600">{stats.total_threats}</p>
               </div>
               <Globe className="w-8 h-8 text-blue-500 opacity-20" />
@@ -242,7 +242,7 @@ export default function ThreatIntelPage() {
       {/* Source Breakdown */}
       {stats?.by_source && (
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Threat Sources</h3>
+          <h3 className="text-sm font-semibold text-gray-300 mb-3">Threat Sources</h3>
           <div className="flex flex-wrap gap-3">
             {Object.entries(stats.by_source).map(([source, count]: [string, any]) => (
               <button
@@ -250,11 +250,11 @@ export default function ThreatIntelPage() {
                 onClick={() => setSourceFilter(sourceFilter === source ? 'all' : source)}
                 className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-colors cursor-pointer ${
                   sourceFilter === source
-                    ? 'bg-primary-100 border-2 border-primary-500'
-                    : 'bg-gray-100 hover:bg-gray-200'
+                    ? 'bg-primary-900/30 border-2 border-primary-500'
+                    : 'bg-gray-700 hover:bg-gray-600'
                 }`}
               >
-                <span className="text-xs font-medium text-gray-700">{source}</span>
+                <span className="text-xs font-medium text-gray-300">{source}</span>
                 <span className="text-xs font-bold text-primary-600">{count}</span>
               </button>
             ))}
@@ -265,12 +265,12 @@ export default function ThreatIntelPage() {
       {/* Filters */}
       <div className="card p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Filter className="w-4 h-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-700">Filters</h3>
+          <Filter className="w-4 h-4 text-gray-400" />
+          <h3 className="text-sm font-semibold text-gray-300">Filters</h3>
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="ml-auto flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
+              className="ml-auto flex items-center gap-1 text-xs text-red-600 hover:text-red-400"
             >
               <X className="w-3 h-3" />
               Clear all
@@ -288,7 +288,7 @@ export default function ThreatIntelPage() {
                 placeholder="Search threats, CVEs, descriptions..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
           </div>
@@ -298,7 +298,7 @@ export default function ThreatIntelPage() {
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">All Sources</option>
               {sources.map(source => (
@@ -312,7 +312,7 @@ export default function ThreatIntelPage() {
             <select
               value={severityFilter}
               onChange={(e) => setSeverityFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">All Severities</option>
               <option value="critical">Critical</option>
@@ -327,7 +327,7 @@ export default function ThreatIntelPage() {
             <select
               value={threatTypeFilter}
               onChange={(e) => setThreatTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">All Types</option>
               <option value="cve">CVE / Vulnerability</option>
@@ -338,21 +338,21 @@ export default function ThreatIntelPage() {
           </div>
 
           {/* Actively Exploited Toggle */}
-          <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+          <label className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-lg cursor-pointer hover:bg-gray-700">
             <input
               type="checkbox"
               checked={exploitedOnly}
               onChange={(e) => setExploitedOnly(e.target.checked)}
-              className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+              className="w-4 h-4 text-red-600 border-gray-600 rounded focus:ring-red-500"
             />
             <Zap className="w-4 h-4 text-red-500" />
-            <span className="text-sm text-gray-700">Actively Exploited Only</span>
+            <span className="text-sm text-gray-300">Actively Exploited Only</span>
           </label>
         </div>
 
         {/* Active filters summary */}
         {hasActiveFilters && (
-          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 text-sm text-gray-600">
+          <div className="mt-3 pt-3 border-t border-gray-700 flex items-center gap-2 text-sm text-gray-400">
             <span>Showing {filteredThreats.length} of {threats.length} threats</span>
           </div>
         )}
@@ -360,14 +360,14 @@ export default function ThreatIntelPage() {
 
       {/* Tabs */}
       <div className="card">
-        <div className="border-b border-gray-200">
+        <div className="border-b border-gray-700">
           <div className="flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('threats')}
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'threats'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               Active Threats ({filteredThreats.length})
@@ -377,7 +377,7 @@ export default function ThreatIntelPage() {
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'correlations'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               Correlated Vulnerabilities ({correlations.length})
@@ -387,7 +387,7 @@ export default function ThreatIntelPage() {
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'rules'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               Auto-Generated Rules
@@ -397,7 +397,7 @@ export default function ThreatIntelPage() {
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'custom'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -410,7 +410,7 @@ export default function ThreatIntelPage() {
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'api-keys'
                   ? 'border-primary-600 text-primary-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-white'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -428,10 +428,10 @@ export default function ThreatIntelPage() {
               {filteredThreats.length === 0 ? (
                 <div className="text-center py-12">
                   <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-white mb-2">
                     No Threats Found
                   </h3>
-                  <p className="text-gray-600 mb-4">
+                  <p className="text-gray-400 mb-4">
                     {hasActiveFilters
                       ? 'No threats match your current filters. Try adjusting your search criteria.'
                       : 'No threat data available. Click Refresh Feed to fetch the latest threats.'}
@@ -465,10 +465,10 @@ export default function ThreatIntelPage() {
               {correlations.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-white mb-2">
                     No Correlated Threats Found
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-400">
                     Your current vulnerabilities don't match any active threats. Keep monitoring!
                   </p>
                 </div>
@@ -486,10 +486,10 @@ export default function ThreatIntelPage() {
               {!generatedRule ? (
                 <div className="text-center py-12">
                   <Sparkles className="w-16 h-16 text-primary-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <h3 className="text-lg font-semibold text-white mb-2">
                     AI-Powered Rule Generation
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-gray-400">
                     Select a threat from the Active Threats tab to auto-generate a custom detection rule
                   </p>
                 </div>
@@ -696,10 +696,10 @@ function CustomIntelTab() {
   entries.forEach(e => { typeCounts[e.intel_type] = (typeCounts[e.intel_type] || 0) + 1 })
 
   const severityColors: any = {
-    critical: 'bg-red-100 text-red-800',
-    high: 'bg-orange-100 text-orange-800',
-    medium: 'bg-yellow-100 text-yellow-800',
-    low: 'bg-blue-100 text-blue-800',
+    critical: 'bg-red-900/30 text-red-300',
+    high: 'bg-orange-900/30 text-orange-300',
+    medium: 'bg-yellow-900/30 text-yellow-300',
+    low: 'bg-blue-900/30 text-blue-300',
   }
 
   const typeLabels: any = {
@@ -718,11 +718,11 @@ function CustomIntelTab() {
       {/* Project Selector + Actions */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Project</label>
+          <label className="block text-xs font-semibold text-gray-400 mb-1">Project</label>
           <select
             value={selectedProjectId || ''}
             onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
           >
             <option value="">Select a project...</option>
             {projects.map((p: any) => (
@@ -766,34 +766,34 @@ function CustomIntelTab() {
 
       {/* Upload Result */}
       {uploadResult && (
-        <div className={`p-4 rounded-lg border ${uploadResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className={`p-4 rounded-lg border ${uploadResult.success ? 'bg-green-900/20 border-green-700' : 'bg-red-900/20 border-red-700'}`}>
           <div className="flex items-center gap-2">
             {uploadResult.success ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
-            <span className={`font-medium ${uploadResult.success ? 'text-green-800' : 'text-red-800'}`}>
+            <span className={`font-medium ${uploadResult.success ? 'text-green-300' : 'text-red-300'}`}>
               {uploadResult.message}
             </span>
           </div>
           {uploadResult.success && (
-            <p className="text-sm text-green-700 mt-1">
+            <p className="text-sm text-green-400 mt-1">
               {uploadResult.created} entries imported from {uploadResult.file_type} file ({uploadResult.filename})
             </p>
           )}
-          <button onClick={() => setUploadResult(null)} className="mt-2 text-xs underline text-gray-500">Dismiss</button>
+          <button onClick={() => setUploadResult(null)} className="mt-2 text-xs underline text-gray-400">Dismiss</button>
         </div>
       )}
 
       {/* Upload Info */}
-      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
         <div className="flex items-start gap-3">
           <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-blue-900">Supported Upload Formats</p>
-            <ul className="text-sm text-blue-800 mt-1 space-y-0.5">
+            <ul className="text-sm text-blue-300 mt-1 space-y-0.5">
               <li><strong>CSV</strong> — Use semicolons to separate list values. Download the template for the expected format.</li>
               <li><strong>JSON</strong> — Array of objects with title, description, severity, intel_type, mitre_techniques, tags, etc.</li>
               <li><strong>STIX 2.1</strong> — Standard bundle format. Supported types: indicator, malware, threat-actor, attack-pattern, vulnerability, campaign, intrusion-set.</li>
             </ul>
-            <p className="text-xs text-blue-700 mt-2">Uploaded intel is automatically included in threat model generation for the selected project.</p>
+            <p className="text-xs text-blue-400 mt-2">Uploaded intel is automatically included in threat model generation for the selected project.</p>
           </div>
         </div>
       </div>
@@ -802,42 +802,42 @@ function CustomIntelTab() {
       {showForm && (
         <div className="card p-6 border-2 border-primary-200">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-white">
               {editingEntry ? 'Edit Threat Intel Entry' : 'Add Threat Intel Entry'}
             </h3>
-            <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+            <button onClick={resetForm} className="text-gray-400 hover:text-gray-400">
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Title *</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Title *</label>
               <input
                 value={form.title}
                 onChange={e => setForm({ ...form, title: e.target.value })}
                 placeholder="e.g., SQL Injection in Authentication Module"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Description</label>
               <textarea
                 value={form.description}
                 onChange={e => setForm({ ...form, description: e.target.value })}
                 rows={3}
                 placeholder="Detailed description of the threat, vulnerability, or intelligence..."
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Type</label>
               <select
                 value={form.intel_type}
                 onChange={e => setForm({ ...form, intel_type: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 <option value="scenario">Threat Scenario</option>
                 <option value="threat_actor">Threat Actor</option>
@@ -851,11 +851,11 @@ function CustomIntelTab() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Severity</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Severity</label>
               <select
                 value={form.severity}
                 onChange={e => setForm({ ...form, severity: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 <option value="critical">Critical</option>
                 <option value="high">High</option>
@@ -865,11 +865,11 @@ function CustomIntelTab() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">STRIDE Category</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">STRIDE Category</label>
               <select
                 value={form.threat_category}
                 onChange={e => setForm({ ...form, threat_category: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               >
                 <option value="">None</option>
                 <option value="Spoofing">Spoofing</option>
@@ -882,60 +882,60 @@ function CustomIntelTab() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Source</label>
+              <label className="block text-xs font-semibold text-gray-400 mb-1">Source</label>
               <input
                 value={form.source}
                 onChange={e => setForm({ ...form, source: e.target.value })}
                 placeholder="e.g., internal_pentest, vendor_report"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-400 mb-1">
                 MITRE ATT&CK Techniques <span className="text-gray-400 font-normal">(semicolon-separated)</span>
               </label>
               <input
                 value={form.mitre_techniques}
                 onChange={e => setForm({ ...form, mitre_techniques: e.target.value })}
                 placeholder="e.g., T1190; T1059.001; T1078"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-400 mb-1">
                 Regulatory Impact <span className="text-gray-400 font-normal">(semicolon-separated)</span>
               </label>
               <input
                 value={form.regulatory_impact}
                 onChange={e => setForm({ ...form, regulatory_impact: e.target.value })}
                 placeholder="e.g., PCI-DSS v4.0 Req 6.2; OWASP Top 10 A03"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-400 mb-1">
                 Recommended Controls <span className="text-gray-400 font-normal">(semicolon-separated)</span>
               </label>
               <input
                 value={form.recommended_controls}
                 onChange={e => setForm({ ...form, recommended_controls: e.target.value })}
                 placeholder="e.g., Input validation; Parameterized queries; WAF rules"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-gray-600 mb-1">
+              <label className="block text-xs font-semibold text-gray-400 mb-1">
                 Tags <span className="text-gray-400 font-normal">(semicolon-separated)</span>
               </label>
               <input
                 value={form.tags}
                 onChange={e => setForm({ ...form, tags: e.target.value })}
                 placeholder="e.g., SQLi; authentication; pentest; Q1-2025"
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                className="w-full px-3 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
               />
             </div>
           </div>
@@ -962,14 +962,14 @@ function CustomIntelTab() {
                   value={intelSearch}
                   onChange={e => setIntelSearch(e.target.value)}
                   placeholder="Search custom intel..."
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setIntelFilter('all')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === 'all' ? 'bg-primary-100 text-primary-800 border border-primary-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === 'all' ? 'bg-primary-900/30 text-primary-800 border border-primary-300' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
               >
                 All ({entries.length})
               </button>
@@ -977,7 +977,7 @@ function CustomIntelTab() {
                 <button
                   key={type}
                   onClick={() => setIntelFilter(intelFilter === type ? 'all' : type)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === type ? 'bg-primary-100 text-primary-800 border border-primary-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === type ? 'bg-primary-900/30 text-primary-800 border border-primary-300' : 'bg-gray-700 text-gray-400 hover:bg-gray-600'}`}
                 >
                   {typeLabels[type] || type} ({count})
                 </button>
@@ -993,10 +993,10 @@ function CustomIntelTab() {
           ) : filteredEntries.length === 0 ? (
             <div className="text-center py-12">
               <Database className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-white mb-2">
                 {entries.length === 0 ? 'No Custom Intel Yet' : 'No Matching Entries'}
               </h3>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-400 mb-4">
                 {entries.length === 0
                   ? 'Add threat intel manually or upload a CSV/JSON/STIX file to enrich your threat models.'
                   : 'Try adjusting your search or filter criteria.'}
@@ -1041,62 +1041,62 @@ function CustomIntelCard({ entry, severityColors, typeLabels, onEdit, onDelete }
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center flex-wrap gap-2 mb-1">
-            <h4 className="font-semibold text-gray-900 truncate">{entry.title}</h4>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${severityColors[entry.severity] || 'bg-gray-100 text-gray-800'}`}>
+            <h4 className="font-semibold text-white truncate">{entry.title}</h4>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${severityColors[entry.severity] || 'bg-gray-700 text-gray-100'}`}>
               {entry.severity?.toUpperCase()}
             </span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
               {typeLabels[entry.intel_type] || entry.intel_type}
             </span>
             {entry.threat_category && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-900/30 text-indigo-400">
                 {entry.threat_category}
               </span>
             )}
-            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-900/30 text-teal-700">
               {entry.source}
             </span>
           </div>
 
           {entry.description && (
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{entry.description}</p>
+            <p className="text-sm text-gray-400 mt-1 line-clamp-2">{entry.description}</p>
           )}
 
           {/* Tags */}
           {entry.tags && entry.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {entry.tags.map((tag: string, i: number) => (
-                <span key={i} className="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-700">{tag}</span>
+                <span key={i} className="px-2 py-0.5 rounded text-xs bg-gray-600 text-gray-300">{tag}</span>
               ))}
             </div>
           )}
 
           {/* Expandable details */}
           {expanded && (
-            <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+            <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
               {entry.mitre_techniques?.length > 0 && (
                 <div>
-                  <span className="text-xs font-semibold text-gray-500">MITRE ATT&CK:</span>
+                  <span className="text-xs font-semibold text-gray-400">MITRE ATT&CK:</span>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {entry.mitre_techniques.map((t: string, i: number) => (
                       <a key={i} href={`https://attack.mitre.org/techniques/${t.replace('.', '/')}/`} target="_blank" rel="noopener noreferrer"
-                         className="px-2 py-0.5 rounded text-xs font-mono bg-red-50 text-red-700 hover:bg-red-100">{t}</a>
+                         className="px-2 py-0.5 rounded text-xs font-mono bg-red-900/20 text-red-400 hover:bg-red-900/30">{t}</a>
                     ))}
                   </div>
                 </div>
               )}
               {entry.regulatory_impact?.length > 0 && (
                 <div>
-                  <span className="text-xs font-semibold text-gray-500">Regulatory Impact:</span>
-                  <ul className="mt-1 text-sm text-gray-700 list-disc list-inside">
+                  <span className="text-xs font-semibold text-gray-400">Regulatory Impact:</span>
+                  <ul className="mt-1 text-sm text-gray-300 list-disc list-inside">
                     {entry.regulatory_impact.map((r: string, i: number) => <li key={i}>{r}</li>)}
                   </ul>
                 </div>
               )}
               {entry.recommended_controls?.length > 0 && (
                 <div>
-                  <span className="text-xs font-semibold text-gray-500">Recommended Controls:</span>
-                  <ul className="mt-1 text-sm text-gray-700 list-disc list-inside">
+                  <span className="text-xs font-semibold text-gray-400">Recommended Controls:</span>
+                  <ul className="mt-1 text-sm text-gray-300 list-disc list-inside">
                     {entry.recommended_controls.map((c: string, i: number) => <li key={i}>{c}</li>)}
                   </ul>
                 </div>
@@ -1109,13 +1109,13 @@ function CustomIntelCard({ entry, severityColors, typeLabels, onEdit, onDelete }
         </div>
 
         <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-          <button onClick={() => setExpanded(!expanded)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+          <button onClick={() => setExpanded(!expanded)} className="p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-400">
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
-          <button onClick={() => onEdit(entry)} className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600">
+          <button onClick={() => onEdit(entry)} className="p-1.5 rounded hover:bg-blue-900/30 text-gray-400 hover:text-blue-600">
             <Edit3 className="w-4 h-4" />
           </button>
-          <button onClick={() => onDelete(entry.id)} className="p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-600">
+          <button onClick={() => onDelete(entry.id)} className="p-1.5 rounded hover:bg-red-900/30 text-gray-400 hover:text-red-600">
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
@@ -1126,17 +1126,17 @@ function CustomIntelCard({ entry, severityColors, typeLabels, onEdit, onDelete }
 
 function ThreatCard({ threat, onGenerateRule, generatingRule }: any) {
   const severityColors: any = {
-    critical: 'bg-red-100 text-red-800 border-red-200',
-    high: 'bg-orange-100 text-orange-800 border-orange-200',
-    medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    low: 'bg-blue-100 text-blue-800 border-blue-200',
+    critical: 'bg-red-900/30 text-red-300 border-red-700',
+    high: 'bg-orange-900/30 text-orange-300 border-orange-700',
+    medium: 'bg-yellow-900/30 text-yellow-300 border-yellow-700',
+    low: 'bg-blue-900/30 text-blue-300 border-blue-700',
   }
 
   const threatTypeColors: any = {
-    threat_actor: 'bg-purple-100 text-purple-800 border-purple-200',
-    ransomware: 'bg-pink-100 text-pink-800 border-pink-200',
-    exploit_kit: 'bg-indigo-100 text-indigo-800 border-indigo-200',
-    indicator: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+    threat_actor: 'bg-purple-900/30 text-purple-300 border-purple-700',
+    ransomware: 'bg-pink-900/30 text-pink-800 border-pink-700',
+    exploit_kit: 'bg-indigo-900/30 text-indigo-300 border-indigo-700',
+    indicator: 'bg-cyan-900/30 text-cyan-800 border-cyan-200',
   }
 
   const threatTypeLabels: any = {
@@ -1151,14 +1151,14 @@ function ThreatCard({ threat, onGenerateRule, generatingRule }: any) {
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center flex-wrap gap-2 mb-2">
-            <h3 className="text-lg font-semibold text-gray-900">{threat.name || threat.cve_id}</h3>
+            <h3 className="text-lg font-semibold text-white">{threat.name || threat.cve_id}</h3>
             {threat.threat_type && threatTypeLabels[threat.threat_type] && (
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${threatTypeColors[threat.threat_type]}`}>
                 {threatTypeLabels[threat.threat_type]}
               </span>
             )}
             {threat.actively_exploited && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/30 text-red-300 border border-red-700">
                 <Zap className="w-3 h-3 mr-1" />
                 Actively Exploited
               </span>
@@ -1168,9 +1168,9 @@ function ThreatCard({ threat, onGenerateRule, generatingRule }: any) {
             </span>
           </div>
 
-          <p className="text-sm text-gray-700 mb-3">{threat.description}</p>
+          <p className="text-sm text-gray-300 mb-3">{threat.description}</p>
 
-          <div className="flex items-center flex-wrap gap-4 text-sm text-gray-600">
+          <div className="flex items-center flex-wrap gap-4 text-sm text-gray-400">
             {threat.cve_id && (
               <span className="font-mono font-semibold text-primary-600">{threat.cve_id}</span>
             )}
@@ -1188,11 +1188,11 @@ function ThreatCard({ threat, onGenerateRule, generatingRule }: any) {
                   <span
                     key={idx}
                     className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      src === 'NVD' ? 'bg-blue-100 text-blue-800' :
-                      src === 'CISA KEV' ? 'bg-red-100 text-red-800' :
-                      src === 'MISP Galaxy' ? 'bg-purple-100 text-purple-800' :
-                      src === 'Exploit-DB' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
+                      src === 'NVD' ? 'bg-blue-900/30 text-blue-300' :
+                      src === 'CISA KEV' ? 'bg-red-900/30 text-red-300' :
+                      src === 'MISP Galaxy' ? 'bg-purple-900/30 text-purple-300' :
+                      src === 'Exploit-DB' ? 'bg-orange-900/30 text-orange-300' :
+                      'bg-gray-700 text-gray-100'
                     }`}
                   >
                     {src}
@@ -1203,7 +1203,7 @@ function ThreatCard({ threat, onGenerateRule, generatingRule }: any) {
           </div>
 
           {threat.required_action && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-700 rounded-lg">
               <p className="text-sm font-medium text-yellow-900">
                 <strong>Required Action:</strong> {threat.required_action}
               </p>
@@ -1241,16 +1241,16 @@ function CorrelationCard({ correlation }: any) {
   const { vulnerability, threat, risk_elevation, match_confidence } = correlation
 
   return (
-    <div className={`card p-6 border-l-4 ${risk_elevation ? 'border-red-500 bg-red-50' : 'border-yellow-500 bg-yellow-50'}`}>
+    <div className={`card p-6 border-l-4 ${risk_elevation ? 'border-red-500 bg-red-900/20' : 'border-yellow-500 bg-yellow-900/20'}`}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
             <AlertTriangle className={`w-5 h-5 ${risk_elevation ? 'text-red-600' : 'text-yellow-600'}`} />
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-white">
               {vulnerability.title}
             </h3>
             {risk_elevation && (
-              <span className="badge bg-red-100 text-red-800 border-red-200">
+              <span className="badge bg-red-900/30 text-red-300 border-red-700">
                 HIGH RISK - ACTIVELY EXPLOITED
               </span>
             )}
@@ -1258,21 +1258,21 @@ function CorrelationCard({ correlation }: any) {
 
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div>
-              <p className="text-xs font-semibold text-gray-600 uppercase">Your Vulnerability</p>
-              <p className="text-sm text-gray-700">File: {vulnerability.file_path}</p>
-              <p className="text-sm text-gray-700">Severity: {vulnerability.severity}</p>
-              <p className="text-sm text-gray-700">CWE: {vulnerability.cwe_id}</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase">Your Vulnerability</p>
+              <p className="text-sm text-gray-300">File: {vulnerability.file_path}</p>
+              <p className="text-sm text-gray-300">Severity: {vulnerability.severity}</p>
+              <p className="text-sm text-gray-300">CWE: {vulnerability.cwe_id}</p>
             </div>
             <div>
-              <p className="text-xs font-semibold text-gray-600 uppercase">Matching Threat</p>
-              <p className="text-sm text-gray-700">{threat.name || threat.cve_id}</p>
-              <p className="text-sm text-gray-700">CVSS: {threat.cvss_score || 'N/A'}</p>
-              <p className="text-sm text-gray-700">Match Confidence: {match_confidence}</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase">Matching Threat</p>
+              <p className="text-sm text-gray-300">{threat.name || threat.cve_id}</p>
+              <p className="text-sm text-gray-300">CVSS: {threat.cvss_score || 'N/A'}</p>
+              <p className="text-sm text-gray-300">Match Confidence: {match_confidence}</p>
             </div>
           </div>
 
-          <div className="p-3 bg-white border border-gray-200 rounded-lg">
-            <p className="text-sm text-gray-700">
+          <div className="p-3 bg-gray-800 border border-gray-700 rounded-lg">
+            <p className="text-sm text-gray-300">
               <strong>Recommendation:</strong> {threat.required_action || 'Remediate immediately as this vulnerability matches an active threat.'}
             </p>
           </div>
@@ -1294,21 +1294,21 @@ function GeneratedRuleDisplay({ rule, threat }: any) {
 
   return (
     <div className="space-y-4">
-      <div className="card p-6 bg-green-50 border-green-200">
+      <div className="card p-6 bg-green-900/20 border-green-700">
         <div className="flex items-center space-x-3 mb-4">
           <CheckCircle2 className="w-6 h-6 text-green-600" />
           <h3 className="text-lg font-semibold text-green-900">
             Rule Generated Successfully
           </h3>
         </div>
-        <p className="text-sm text-green-800">
+        <p className="text-sm text-green-300">
           Auto-generated detection rule for <strong>{threat?.name || threat?.cve_id}</strong>
         </p>
       </div>
 
       <div className="card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-semibold text-gray-900">Rule Details</h4>
+          <h4 className="font-semibold text-white">Rule Details</h4>
           <button
             onClick={handleCopy}
             className="btn btn-secondary btn-sm inline-flex items-center space-x-2"
@@ -1320,56 +1320,56 @@ function GeneratedRuleDisplay({ rule, threat }: any) {
 
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase">Rule Name</label>
-            <p className="text-sm text-gray-900 font-medium">{rule.name}</p>
+            <label className="text-xs font-semibold text-gray-400 uppercase">Rule Name</label>
+            <p className="text-sm text-white font-medium">{rule.name}</p>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase">Description</label>
-            <p className="text-sm text-gray-700">{rule.description}</p>
+            <label className="text-xs font-semibold text-gray-400 uppercase">Description</label>
+            <p className="text-sm text-gray-300">{rule.description}</p>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase">Severity</label>
+              <label className="text-xs font-semibold text-gray-400 uppercase">Severity</label>
               <span className={`badge badge-${rule.severity} mt-1`}>{rule.severity}</span>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase">CWE ID</label>
-              <p className="text-sm text-gray-900">{rule.cwe_id || 'N/A'}</p>
+              <label className="text-xs font-semibold text-gray-400 uppercase">CWE ID</label>
+              <p className="text-sm text-white">{rule.cwe_id || 'N/A'}</p>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-600 uppercase">CVE ID</label>
-              <p className="text-sm text-gray-900">{rule.cve_id}</p>
+              <label className="text-xs font-semibold text-gray-400 uppercase">CVE ID</label>
+              <p className="text-sm text-white">{rule.cve_id}</p>
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase">Detection Pattern</label>
+            <label className="text-xs font-semibold text-gray-400 uppercase">Detection Pattern</label>
             <pre className="mt-1 p-3 bg-gray-900 text-green-400 rounded-lg text-xs font-mono overflow-x-auto">
               {rule.pattern}
             </pre>
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-gray-600 uppercase">Remediation</label>
-            <p className="text-sm text-gray-700 mt-1">{rule.remediation}</p>
+            <label className="text-xs font-semibold text-gray-400 uppercase">Remediation</label>
+            <p className="text-sm text-gray-300 mt-1">{rule.remediation}</p>
           </div>
 
-          <div className="pt-3 border-t border-gray-200">
-            <p className="text-xs text-gray-500">
+          <div className="pt-3 border-t border-gray-700">
+            <p className="text-xs text-gray-400">
               Source: {rule.source} | Generated: {new Date(rule.generated_at).toLocaleString()}
             </p>
           </div>
         </div>
       </div>
 
-      <div className="card p-4 bg-blue-50 border-blue-200">
+      <div className="card p-4 bg-blue-900/20 border-blue-700">
         <div className="flex items-start space-x-3">
           <Sparkles className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-blue-900 mb-1">Next Steps</p>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+            <ul className="text-sm text-blue-300 space-y-1 list-disc list-inside">
               <li>Review the generated pattern for accuracy</li>
               <li>Test the rule against your codebase</li>
               <li>Add to Custom Rules page for automated scanning</li>
@@ -1461,8 +1461,8 @@ function APIKeysTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">API Keys</h3>
-          <p className="text-sm text-gray-500 mt-1">
+          <h3 className="text-lg font-semibold text-white">API Keys</h3>
+          <p className="text-sm text-gray-400 mt-1">
             Generate API keys for external systems to push threat intel into your projects.
           </p>
         </div>
@@ -1486,19 +1486,19 @@ function APIKeysTab() {
 
       {/* Newly created key banner */}
       {newlyCreatedKey && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-medium text-green-900">API Key Created</p>
-              <p className="text-xs text-green-700 mt-1 mb-2">
+              <p className="text-xs text-green-400 mt-1 mb-2">
                 Copy this key now — it will not be shown again.
               </p>
-              <div className="flex items-center gap-2 bg-white border border-green-300 rounded-md px-3 py-2">
-                <code className="text-sm text-gray-800 flex-1 font-mono break-all">{newlyCreatedKey}</code>
+              <div className="flex items-center gap-2 bg-gray-800 border border-green-300 rounded-md px-3 py-2">
+                <code className="text-sm text-gray-100 flex-1 font-mono break-all">{newlyCreatedKey}</code>
                 <button
                   onClick={() => copyToClipboard(newlyCreatedKey)}
-                  className="text-green-600 hover:text-green-800 p-1"
+                  className="text-green-600 hover:text-green-300 p-1"
                   title="Copy to clipboard"
                 >
                   {copiedKey ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -1514,11 +1514,11 @@ function APIKeysTab() {
 
       {/* Create key form */}
       {showCreate && !newlyCreatedKey && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">New API Key</h4>
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-white mb-3">New API Key</h4>
           <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="block text-xs text-gray-600 mb-1">Key Name</label>
+              <label className="block text-xs text-gray-400 mb-1">Key Name</label>
               <input
                 type="text"
                 value={newKeyName}
@@ -1528,7 +1528,7 @@ function APIKeysTab() {
               />
             </div>
             <div className="w-40">
-              <label className="block text-xs text-gray-600 mb-1">Expires In (days)</label>
+              <label className="block text-xs text-gray-400 mb-1">Expires In (days)</label>
               <input
                 type="number"
                 value={newKeyExpiry}
@@ -1557,30 +1557,30 @@ function APIKeysTab() {
 
       {/* API Documentation */}
       {showDocs && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+        <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 space-y-4">
           <h4 className="text-sm font-semibold text-blue-900">Integration Guide</h4>
 
           <div>
             <p className="text-xs font-medium text-blue-900 mb-1">Authentication</p>
-            <p className="text-xs text-blue-800">
-              Include your API key in the <code className="bg-blue-100 px-1 rounded">X-API-Key</code> header with every request.
+            <p className="text-xs text-blue-300">
+              Include your API key in the <code className="bg-blue-900/30 px-1 rounded">X-API-Key</code> header with every request.
             </p>
           </div>
 
           <div>
             <p className="text-xs font-medium text-blue-900 mb-2">Endpoints</p>
             <div className="space-y-2">
-              <div className="bg-white rounded p-2 border border-blue-100">
-                <code className="text-xs text-gray-800">POST /api/threat-intel/external/ingest</code>
-                <p className="text-xs text-gray-500 mt-1">Push a single threat intel entry</p>
+              <div className="bg-gray-800 rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-100">POST /api/threat-intel/external/ingest</code>
+                <p className="text-xs text-gray-400 mt-1">Push a single threat intel entry</p>
               </div>
-              <div className="bg-white rounded p-2 border border-blue-100">
-                <code className="text-xs text-gray-800">POST /api/threat-intel/external/ingest/bulk</code>
-                <p className="text-xs text-gray-500 mt-1">Push multiple entries at once</p>
+              <div className="bg-gray-800 rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-100">POST /api/threat-intel/external/ingest/bulk</code>
+                <p className="text-xs text-gray-400 mt-1">Push multiple entries at once</p>
               </div>
-              <div className="bg-white rounded p-2 border border-blue-100">
-                <code className="text-xs text-gray-800">GET /api/threat-intel/external/intel/{'<project_id>'}</code>
-                <p className="text-xs text-gray-500 mt-1">Read intel entries for a project</p>
+              <div className="bg-gray-800 rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-100">GET /api/threat-intel/external/intel/{'<project_id>'}</code>
+                <p className="text-xs text-gray-400 mt-1">Read intel entries for a project</p>
               </div>
             </div>
           </div>
@@ -1619,7 +1619,7 @@ function APIKeysTab() {
             <p className="text-xs font-medium text-blue-900 mb-1">Supported intel_type values</p>
             <div className="flex flex-wrap gap-1">
               {['incident', 'threat_actor', 'asset', 'scenario', 'regulation', 'control', 'pentest_finding', 'risk_appetite'].map(t => (
-                <span key={t} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-mono">{t}</span>
+                <span key={t} className="px-2 py-0.5 bg-blue-900/30 text-blue-300 rounded text-xs font-mono">{t}</span>
               ))}
             </div>
           </div>
@@ -1628,7 +1628,7 @@ function APIKeysTab() {
 
       {/* Keys list */}
       {loading ? (
-        <div className="text-center py-8 text-gray-500">Loading API keys...</div>
+        <div className="text-center py-8 text-gray-400">Loading API keys...</div>
       ) : keys.length === 0 ? (
         <div className="text-center py-12 text-gray-400">
           <Key className="w-12 h-12 mx-auto mb-3 opacity-50" />
@@ -1640,21 +1640,21 @@ function APIKeysTab() {
           {keys.map((key) => (
             <div
               key={key.id}
-              className={`border rounded-lg p-4 ${key.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'}`}
+              className={`border rounded-lg p-4 ${key.is_active ? 'bg-gray-800 border-gray-700' : 'bg-gray-800/50 border-gray-700 opacity-60'}`}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Key className={`w-5 h-5 ${key.is_active ? 'text-primary-600' : 'text-gray-400'}`} />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-900">{key.name}</span>
+                      <span className="font-medium text-white">{key.name}</span>
                       {key.is_active ? (
-                        <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Active</span>
+                        <span className="px-2 py-0.5 bg-green-900/30 text-green-300 rounded-full text-xs">Active</span>
                       ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">Revoked</span>
+                        <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded-full text-xs">Revoked</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
                       <span>Key: <code className="font-mono">{key.key_prefix}...</code></span>
                       <span>Created: {new Date(key.created_at).toLocaleDateString()}</span>
                       {key.last_used_at && (
@@ -1672,7 +1672,7 @@ function APIKeysTab() {
                 {key.is_active && (
                   <button
                     onClick={() => handleRevoke(key.id)}
-                    className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                    className="text-red-500 hover:text-red-400 text-sm flex items-center gap-1"
                   >
                     <Trash2 className="w-4 h-4" />
                     Revoke

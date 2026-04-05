@@ -495,13 +495,13 @@ Try asking:
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex bg-white/20 rounded-lg p-1">
+          <div className="flex bg-gray-800/20 rounded-lg p-1">
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-md transition ${
                 activeTab === 'chat'
-                  ? 'bg-white text-primary-700'
-                  : 'text-white hover:bg-white/10'
+                  ? 'bg-gray-800 text-primary-400'
+                  : 'text-white hover:bg-gray-800/10'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
@@ -511,8 +511,8 @@ Try asking:
               onClick={() => setActiveTab('training')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-md transition ${
                 activeTab === 'training'
-                  ? 'bg-white text-primary-700'
-                  : 'text-white hover:bg-white/10'
+                  ? 'bg-gray-800 text-primary-400'
+                  : 'text-white hover:bg-gray-800/10'
               }`}
             >
               <BookOpen className="w-4 h-4" />
@@ -526,18 +526,18 @@ Try asking:
         <>
           {/* Vulnerability Context Card */}
           {vulnerabilityContext && (
-            <div className="bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-500 p-4 mx-6 mt-4 rounded-r-lg">
+            <div className="bg-gradient-to-r from-orange-900/20 to-red-900/20 border-l-4 border-orange-500 p-4 mx-6 mt-4 rounded-r-lg">
               <div className="flex items-start space-x-3">
                 <AlertTriangle className="w-6 h-6 text-orange-600 mt-1" />
                 <div className="flex-1">
                   <h3 className="text-sm font-bold text-orange-900 mb-2">Analyzing Vulnerability</h3>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="font-medium text-orange-800">Title:</span>
+                      <span className="font-medium text-orange-300">Title:</span>
                       <span className="text-orange-900 ml-2">{vulnerabilityContext.title}</span>
                     </div>
                     <div>
-                      <span className="font-medium text-orange-800">Severity:</span>
+                      <span className="font-medium text-orange-300">Severity:</span>
                       <span className={`ml-2 px-2 py-0.5 rounded text-xs font-bold ${
                         vulnerabilityContext.severity === 'critical' ? 'bg-red-200 text-red-900' :
                         vulnerabilityContext.severity === 'high' ? 'bg-orange-200 text-orange-900' :
@@ -549,14 +549,14 @@ Try asking:
                     </div>
                     {vulnerabilityContext.cweId && (
                       <div>
-                        <span className="font-medium text-orange-800">CWE:</span>
+                        <span className="font-medium text-orange-300">CWE:</span>
                         <span className="text-orange-900 ml-2">{vulnerabilityContext.cweId}</span>
                       </div>
                     )}
                     {vulnerabilityContext.filePath && (
                       <div className="col-span-2">
-                        <span className="font-medium text-orange-800">Location:</span>
-                        <code className="text-orange-900 ml-2 text-xs bg-orange-100 px-2 py-1 rounded">
+                        <span className="font-medium text-orange-300">Location:</span>
+                        <code className="text-orange-900 ml-2 text-xs bg-orange-900/30 px-2 py-1 rounded">
                           {vulnerabilityContext.filePath}
                           {vulnerabilityContext.lineNumber && `:${vulnerabilityContext.lineNumber}`}
                         </code>
@@ -569,7 +569,7 @@ Try asking:
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto bg-gray-800/50 p-6 space-y-6">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -585,7 +585,7 @@ Try asking:
                     className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                       message.role === 'user'
                         ? 'bg-primary-600 text-white'
-                        : 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+                        : 'bg-gradient-to-br from-purple-900/30 to-pink-900/30 text-white'
                     }`}
                   >
                     {message.role === 'user' ? (
@@ -600,7 +600,7 @@ Try asking:
                     className={`flex-1 rounded-lg p-4 ${
                       message.role === 'user'
                         ? 'bg-primary-600 text-white'
-                        : 'bg-white border border-gray-200'
+                        : 'bg-gray-800 border border-gray-700'
                     }`}
                   >
                     {message.role === 'user' ? (
@@ -611,7 +611,7 @@ Try asking:
                       </div>
                     )}
 
-                    <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-primary-100' : 'text-gray-500'}`}>
+                    <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-primary-100' : 'text-gray-400'}`}>
                       {message.timestamp.toLocaleTimeString()}
                     </p>
                   </div>
@@ -622,10 +622,10 @@ Try asking:
             {loading && (
               <div className="flex justify-start">
                 <div className="flex space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-900/30 to-pink-900/30 flex items-center justify-center">
                     <Bot className="w-5 h-5 text-white" />
                   </div>
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
                     <div className="flex space-x-2">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100"></div>
@@ -641,14 +641,14 @@ Try asking:
 
           {/* Sample Questions */}
           {messages.length <= 1 && (
-            <div className="bg-white border-t border-gray-200 p-4">
-              <p className="text-sm text-gray-600 mb-3">Try these example questions:</p>
+            <div className="bg-gray-800 border-t border-gray-700 p-4">
+              <p className="text-sm text-gray-400 mb-3">Try these example questions:</p>
               <div className="flex flex-wrap gap-2">
                 {sampleQuestions.map((question, idx) => (
                   <button
                     key={idx}
                     onClick={() => setInput(question)}
-                    className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg transition"
+                    className="text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 px-3 py-2 rounded-lg transition"
                   >
                     {question}
                   </button>
@@ -658,7 +658,7 @@ Try asking:
           )}
 
           {/* Input */}
-          <div className="bg-white border-t border-gray-200 p-4">
+          <div className="bg-gray-800 border-t border-gray-700 p-4">
             <div className="max-w-4xl mx-auto flex items-end space-x-3">
               <div className="flex-1">
                 <textarea
@@ -666,7 +666,7 @@ Try asking:
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask a security question..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  className="w-full px-4 py-3 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                   rows={2}
                   disabled={loading}
                 />
@@ -680,34 +680,34 @@ Try asking:
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 mt-2 text-center">
+            <p className="text-xs text-gray-400 mt-2 text-center">
               Press Enter to send • Shift+Enter for new line
             </p>
           </div>
         </>
       ) : (
         /* Training Tab */
-        <div className="flex-1 overflow-y-auto bg-gray-50">
+        <div className="flex-1 overflow-y-auto bg-gray-800/50">
           {/* Training Header */}
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-200 p-6">
+          <div className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border-b border-indigo-700 p-6">
             <div className="max-w-6xl mx-auto">
               <div className="flex items-center space-x-3 mb-2">
                 <BookOpen className="w-8 h-8 text-indigo-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Security Awareness Training</h2>
+                <h2 className="text-2xl font-bold text-white">Security Awareness Training</h2>
               </div>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 Interactive learning modules to master application security concepts. Click on any topic to get detailed explanations, examples, and remediation guidance.
               </p>
 
               {/* Overall Progress */}
-              <div className="mt-4 bg-white rounded-lg p-4 border border-indigo-200">
+              <div className="mt-4 bg-gray-800 rounded-lg p-4 border border-indigo-700">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Overall Progress</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm font-medium text-gray-300">Overall Progress</span>
+                  <span className="text-sm text-gray-400">
                     {completedTopics.size} / {trainingModules.reduce((acc, m) => acc + m.topics.length, 0)} topics completed
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-600 rounded-full h-2">
                   <div
                     className="bg-indigo-600 h-2 rounded-full transition-all"
                     style={{
@@ -729,10 +729,10 @@ Try asking:
                 return (
                   <div
                     key={module.id}
-                    className={`bg-white rounded-lg border-2 transition-all cursor-pointer ${
+                    className={`bg-gray-800 rounded-lg border-2 transition-all cursor-pointer ${
                       isSelected
                         ? 'border-indigo-500 shadow-lg'
-                        : 'border-gray-200 hover:border-indigo-300 hover:shadow'
+                        : 'border-gray-700 hover:border-indigo-300 hover:shadow'
                     }`}
                     onClick={() => setSelectedModule(isSelected ? null : module.id)}
                   >
@@ -740,8 +740,8 @@ Try asking:
                       <div className="flex items-start justify-between mb-3">
                         <div className={`p-3 rounded-lg ${
                           progress.percentage === 100
-                            ? 'bg-green-100 text-green-600'
-                            : 'bg-indigo-100 text-indigo-600'
+                            ? 'bg-green-900/30 text-green-600'
+                            : 'bg-indigo-900/30 text-indigo-600'
                         }`}>
                           {module.icon}
                         </div>
@@ -753,19 +753,19 @@ Try asking:
                         )}
                       </div>
 
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{module.title}</h3>
-                      <p className="text-sm text-gray-600 mb-3">{module.description}</p>
+                      <h3 className="text-lg font-semibold text-white mb-1">{module.title}</h3>
+                      <p className="text-sm text-gray-400 mb-3">{module.description}</p>
 
                       {/* Module Progress */}
                       <div className="mb-3">
-                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                        <div className="flex justify-between text-xs text-gray-400 mb-1">
                           <span>{progress.completed} / {progress.total} topics</span>
                           <span>{progress.percentage}%</span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="w-full bg-gray-600 rounded-full h-1.5">
                           <div
                             className={`h-1.5 rounded-full transition-all ${
-                              progress.percentage === 100 ? 'bg-green-500' : 'bg-indigo-500'
+                              progress.percentage === 100 ? 'bg-green-900/30' : 'bg-indigo-900/30'
                             }`}
                             style={{ width: `${progress.percentage}%` }}
                           ></div>
@@ -780,7 +780,7 @@ Try asking:
 
                     {/* Expanded Topics */}
                     {isSelected && (
-                      <div className="border-t border-gray-200 bg-gray-50 p-4">
+                      <div className="border-t border-gray-700 bg-gray-800/50 p-4">
                         <div className="space-y-2">
                           {module.topics.map((topic) => {
                             const isCompleted = completedTopics.has(topic.id)
@@ -794,19 +794,19 @@ Try asking:
                                 }}
                                 className={`w-full text-left p-3 rounded-lg border transition-all ${
                                   isCompleted
-                                    ? 'bg-green-50 border-green-200 hover:bg-green-100'
-                                    : 'bg-white border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+                                    ? 'bg-green-900/20 border-green-700 hover:bg-green-900/30'
+                                    : 'bg-gray-800 border-gray-700 hover:border-indigo-300 hover:bg-indigo-900/20'
                                 }`}
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center space-x-2">
-                                      <h4 className="font-medium text-gray-900 text-sm">{topic.title}</h4>
+                                      <h4 className="font-medium text-white text-sm">{topic.title}</h4>
                                       {isCompleted && (
                                         <CheckCircle className="w-4 h-4 text-green-500" />
                                       )}
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-1">{topic.description}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{topic.description}</p>
                                   </div>
                                   <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1" />
                                 </div>
@@ -822,21 +822,21 @@ Try asking:
             </div>
 
             {/* Quick Start Section */}
-            <div className="mt-8 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Quick Start Learning Paths</h3>
+            <div className="mt-8 bg-gradient-to-r from-purple-900/20 to-pink-900/20 rounded-lg border border-purple-700 p-6">
+              <h3 className="text-lg font-semibold text-white mb-3">Quick Start Learning Paths</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button
                   onClick={() => {
                     const module = trainingModules.find(m => m.id === 'owasp-top-10')
                     if (module) handleTopicClick(module.topics[0])
                   }}
-                  className="p-4 bg-white rounded-lg border border-purple-200 hover:border-purple-400 transition text-left"
+                  className="p-4 bg-gray-800 rounded-lg border border-purple-700 hover:border-purple-400 transition text-left"
                 >
                   <div className="flex items-center space-x-3 mb-2">
                     <Shield className="w-5 h-5 text-purple-600" />
-                    <span className="font-medium text-gray-900">New to Security?</span>
+                    <span className="font-medium text-white">New to Security?</span>
                   </div>
-                  <p className="text-sm text-gray-600">Start with OWASP Top 10 basics</p>
+                  <p className="text-sm text-gray-400">Start with OWASP Top 10 basics</p>
                 </button>
 
                 <button
@@ -844,13 +844,13 @@ Try asking:
                     const module = trainingModules.find(m => m.id === 'secure-coding')
                     if (module) handleTopicClick(module.topics[0])
                   }}
-                  className="p-4 bg-white rounded-lg border border-purple-200 hover:border-purple-400 transition text-left"
+                  className="p-4 bg-gray-800 rounded-lg border border-purple-700 hover:border-purple-400 transition text-left"
                 >
                   <div className="flex items-center space-x-3 mb-2">
                     <Code className="w-5 h-5 text-purple-600" />
-                    <span className="font-medium text-gray-900">Developer?</span>
+                    <span className="font-medium text-white">Developer?</span>
                   </div>
-                  <p className="text-sm text-gray-600">Learn secure coding practices</p>
+                  <p className="text-sm text-gray-400">Learn secure coding practices</p>
                 </button>
 
                 <button
@@ -858,13 +858,13 @@ Try asking:
                     const module = trainingModules.find(m => m.id === 'threat-modeling')
                     if (module) handleTopicClick(module.topics[0])
                   }}
-                  className="p-4 bg-white rounded-lg border border-purple-200 hover:border-purple-400 transition text-left"
+                  className="p-4 bg-gray-800 rounded-lg border border-purple-700 hover:border-purple-400 transition text-left"
                 >
                   <div className="flex items-center space-x-3 mb-2">
                     <Target className="w-5 h-5 text-purple-600" />
-                    <span className="font-medium text-gray-900">Security Architect?</span>
+                    <span className="font-medium text-white">Security Architect?</span>
                   </div>
-                  <p className="text-sm text-gray-600">Master threat modeling with STRIDE</p>
+                  <p className="text-sm text-gray-400">Master threat modeling with STRIDE</p>
                 </button>
               </div>
             </div>
