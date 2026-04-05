@@ -4115,6 +4115,22 @@ async def delete_project(
     # Delete threat models
     db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
 
+    # Clean up SQLite tables that reference this project
+    try:
+        import sqlite3
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        for table in ("client_threat_intel", "threat_intel_correlations", "custom_rules"):
+            try:
+                cursor.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
+            except Exception:
+                pass
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
     # Delete the project
     db.delete(project)
     db.commit()
