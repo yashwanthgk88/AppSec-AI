@@ -242,6 +242,13 @@ export default function ProjectDetailPage() {
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <QuickLink
+          to={`/projects/${id}/security-requirements`}
+          icon={<ClipboardCheck className="w-6 h-6" />}
+          title="SecureReq"
+          description="Security requirements"
+          color="green"
+        />
+        <QuickLink
           to={`/projects/${id}/threat-model`}
           icon={<Network className="w-6 h-6" />}
           title="Threat Model"
@@ -268,13 +275,6 @@ export default function ProjectDetailPage() {
           title="Secrets"
           description="Detected credentials"
           color="purple"
-        />
-        <QuickLink
-          to={`/projects/${id}/security-requirements`}
-          icon={<ClipboardCheck className="w-6 h-6" />}
-          title="SecureReq"
-          description="Security requirements"
-          color="green"
         />
         <QuickLink
           to={`/projects/${id}/security-controls`}
