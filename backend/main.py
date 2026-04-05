@@ -124,6 +124,25 @@ app.include_router(github_monitor.router)
 app.include_router(threat_intel.router)
 app.include_router(security_controls.router)
 
+
+# ---------------------------------------------------------------------------
+# One-time seed endpoint for demo data (Apex Banking)
+# ---------------------------------------------------------------------------
+@app.post("/api/seed-demo")
+async def seed_demo_data(current_user: User = Depends(get_current_user)):
+    """Run Apex Banking seed script. Admin only. Safe to call multiple times (idempotent)."""
+    if not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    import subprocess, sys
+    result = subprocess.run(
+        [sys.executable, "seed_apex_banking.py"],
+        capture_output=True, text=True, cwd=os.path.dirname(__file__) or ".",
+    )
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail=result.stderr)
+    return {"status": "ok", "output": result.stdout}
+
+
 # Initialize AI configuration from database at startup
 def load_ai_config_from_database():
     """Load AI configuration from database and set as global config"""
