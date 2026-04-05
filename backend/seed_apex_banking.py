@@ -443,20 +443,152 @@ c.execute("""
     NOW,
 ))
 
-# Add basic analyses for remaining stories
-for i, sid in enumerate(story_ids[2:], start=2):
-    risk = 75 + (i * 3 % 20)
+# Detailed analyses for remaining stories (APEX-103 through APEX-108)
+remaining_analyses = [
+    # APEX-103: Account balance and transaction history API
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "IDOR — Access other customers' account balances", "actor": "Authenticated User", "description": "Attacker enumerates sequential account IDs to view balances and transaction history of other customers.", "impact": "high", "likelihood": "high", "stride_category": "Information Disclosure", "mitre_technique": "T1530"},
+            {"id": "AC-002", "threat": "Data scraping via unrestricted pagination", "actor": "External Attacker", "description": "Attacker uses API pagination to bulk-extract transaction history for data mining or competitive intelligence.", "impact": "medium", "likelihood": "medium", "stride_category": "Information Disclosure"},
+            {"id": "AC-003", "threat": "Account number exposure in API responses", "actor": "External Attacker", "description": "Full account numbers returned in transaction API responses can be intercepted or cached by proxies.", "impact": "high", "likelihood": "medium", "stride_category": "Information Disclosure"},
+        ],
+        "stride_threats": {
+            "Information Disclosure": [{"id": "I-001", "threat": "IDOR leaking account balances to unauthorized users", "severity": "high", "mitigation": "Verify account ownership before returning data"}],
+            "Tampering": [{"id": "T-001", "threat": "Parameter manipulation to bypass pagination limits", "severity": "medium", "mitigation": "Server-side pagination enforcement with max page size"}],
+            "Repudiation": [{"id": "R-001", "threat": "Missing audit log for balance inquiries", "severity": "medium", "mitigation": "Log all account data access with user ID and timestamp"}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "Account balance API MUST verify ownership — user can only access their own accounts", "priority": "critical", "category": "Authorization"},
+            {"id": "SR-002", "requirement": "Account numbers MUST be masked in all API responses (show last 4 digits only)", "priority": "high", "category": "Data Protection"},
+            {"id": "SR-003", "requirement": "Pagination MUST be server-enforced with max 100 transactions per page", "priority": "medium", "category": "Input Validation"},
+            {"id": "SR-004", "requirement": "Response time for balance queries MUST be < 200ms (prevent timing attacks)", "priority": "medium", "category": "Performance"},
+            {"id": "SR-005", "requirement": "All account data access MUST be logged to audit trail", "priority": "high", "category": "Audit"},
+            {"id": "SR-006", "requirement": "CSV/PDF export MUST include watermark with requesting user ID", "priority": "medium", "category": "Data Protection"},
+        ],
+        "risk_score": 78, "risk_factors": {"data_sensitivity": "critical", "attack_surface": "high", "regulatory_impact": "high", "business_criticality": "high"},
+    },
+    # APEX-104: Bill payment scheduling
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "Modify scheduled payment to redirect funds", "actor": "External Attacker", "description": "Attacker gains access to session and modifies pending scheduled payment destination to attacker-controlled account.", "impact": "high", "likelihood": "medium", "stride_category": "Tampering"},
+            {"id": "AC-002", "threat": "Create fraudulent recurring payment", "actor": "Insider Threat", "description": "Compromised account sets up small recurring payment to external account, exploiting the lack of monitoring on low-value recurring transfers.", "impact": "medium", "likelihood": "medium", "stride_category": "Tampering"},
+        ],
+        "stride_threats": {
+            "Tampering": [{"id": "T-001", "threat": "Modification of scheduled payment details after submission", "severity": "high", "mitigation": "Re-authenticate user before any payment modification"}],
+            "Spoofing": [{"id": "S-001", "threat": "Unauthorized payee creation using stolen session", "severity": "high", "mitigation": "Require MFA step-up for adding new payees"}],
+            "Denial of Service": [{"id": "D-001", "threat": "Insufficient funds causing cascading payment failures", "severity": "medium", "mitigation": "Implement retry logic with exponential backoff and user notification"}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "Adding new payees MUST require MFA re-authentication", "priority": "critical", "category": "Authentication"},
+            {"id": "SR-002", "requirement": "Payment modification MUST require re-authentication within 5-minute window", "priority": "high", "category": "Authentication"},
+            {"id": "SR-003", "requirement": "Recurring payment changes MUST trigger email/push notification to account holder", "priority": "high", "category": "Monitoring"},
+            {"id": "SR-004", "requirement": "Payment amounts MUST be validated: positive, max 2 decimals, within daily/weekly limits", "priority": "high", "category": "Input Validation"},
+            {"id": "SR-005", "requirement": "Payee account numbers MUST be validated via micro-deposit verification", "priority": "medium", "category": "Data Integrity"},
+        ],
+        "risk_score": 72, "risk_factors": {"data_sensitivity": "high", "attack_surface": "medium", "regulatory_impact": "medium", "business_criticality": "high"},
+    },
+    # APEX-105: KYC document upload
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "Upload malicious executable as KYC document", "actor": "External Attacker", "description": "Attacker uploads JSP/WAR file disguised as PDF during KYC process. If stored in webroot, achieves remote code execution.", "impact": "critical", "likelihood": "medium", "stride_category": "Tampering", "mitre_technique": "T1105"},
+            {"id": "AC-002", "threat": "Identity fraud via synthetic documents", "actor": "External Attacker", "description": "Attacker submits AI-generated fake ID documents to open fraudulent accounts. Bypasses basic OCR verification.", "impact": "high", "likelihood": "high", "stride_category": "Spoofing"},
+            {"id": "AC-003", "threat": "PII data exfiltration from document storage", "actor": "Insider Threat", "description": "Employee with S3 access bulk-downloads KYC documents containing customer passports and SSN.", "impact": "critical", "likelihood": "low", "stride_category": "Information Disclosure"},
+        ],
+        "stride_threats": {
+            "Tampering": [{"id": "T-001", "threat": "Malicious file upload leading to RCE", "severity": "critical", "mitigation": "Allowlist file types (PDF, JPG, PNG only). Store outside webroot."}],
+            "Spoofing": [{"id": "S-001", "threat": "Synthetic identity fraud via fake documents", "severity": "high", "mitigation": "Liveness detection + face matching with >95% confidence threshold"}],
+            "Information Disclosure": [{"id": "I-001", "threat": "KYC document exfiltration by insider", "severity": "critical", "mitigation": "AES-256 encryption at rest. Access logging. DLP on S3 bucket."}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "File upload MUST validate type against allowlist: PDF, JPG, PNG only", "priority": "critical", "category": "Input Validation"},
+            {"id": "SR-002", "requirement": "Uploaded files MUST be scanned for malware before storage", "priority": "critical", "category": "Security"},
+            {"id": "SR-003", "requirement": "KYC documents MUST be encrypted with AES-256-GCM at rest", "priority": "critical", "category": "Data Protection"},
+            {"id": "SR-004", "requirement": "Liveness detection MUST achieve >95% confidence for selfie verification", "priority": "high", "category": "Authentication"},
+            {"id": "SR-005", "requirement": "Documents MUST be auto-purged after 7-year retention period per GLBA", "priority": "high", "category": "Compliance"},
+            {"id": "SR-006", "requirement": "All document access MUST be logged with accessor identity and business justification", "priority": "high", "category": "Audit"},
+            {"id": "SR-007", "requirement": "PEP and sanctions screening MUST run before account activation", "priority": "critical", "category": "Compliance"},
+        ],
+        "risk_score": 85, "risk_factors": {"data_sensitivity": "critical", "attack_surface": "high", "regulatory_impact": "critical", "business_criticality": "high"},
+    },
+    # APEX-106: Fraud detection engine
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "Model evasion — structuring transactions below threshold", "actor": "External Attacker", "description": "Attacker learns fraud detection thresholds and structures transactions to stay below detection limits, evading ML model.", "impact": "high", "likelihood": "medium", "stride_category": "Tampering"},
+            {"id": "AC-002", "threat": "Alert fatigue via false positive flooding", "actor": "External Attacker", "description": "Attacker triggers high volume of false positive alerts to overwhelm fraud analysts, masking real fraudulent activity.", "impact": "high", "likelihood": "low", "stride_category": "Denial of Service"},
+        ],
+        "stride_threats": {
+            "Tampering": [{"id": "T-001", "threat": "ML model evasion via adversarial inputs", "severity": "high", "mitigation": "Combine ML with rule-based checks. Regularly retrain on new attack patterns."}],
+            "Denial of Service": [{"id": "D-001", "threat": "Alert flooding to create analyst fatigue", "severity": "medium", "mitigation": "Implement alert deduplication and priority scoring"}],
+            "Information Disclosure": [{"id": "I-001", "threat": "Fraud detection rules leaked to attackers", "severity": "high", "mitigation": "Restrict access to fraud rules. Audit all rule change access."}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "Fraud engine MUST process transactions within 500ms latency SLA", "priority": "critical", "category": "Performance"},
+            {"id": "SR-002", "requirement": "Detection rules MUST be auditable — all changes logged with approver", "priority": "high", "category": "Audit"},
+            {"id": "SR-003", "requirement": "False positive rate MUST remain below 1% to prevent alert fatigue", "priority": "high", "category": "Accuracy"},
+            {"id": "SR-004", "requirement": "Velocity checks MUST trigger for >5 transfers/hour from same account", "priority": "high", "category": "Fraud Detection"},
+            {"id": "SR-005", "requirement": "Suspicious activity MUST generate SAR filing within 30 days per BSA/AML", "priority": "critical", "category": "Compliance"},
+        ],
+        "risk_score": 80, "risk_factors": {"data_sensitivity": "high", "attack_surface": "medium", "regulatory_impact": "critical", "business_criticality": "critical"},
+    },
+    # APEX-107: Debit card management
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "Unauthorized card activation via account takeover", "actor": "External Attacker", "description": "Attacker takes over customer account and activates a replacement card shipped to a new address.", "impact": "high", "likelihood": "medium", "stride_category": "Spoofing"},
+            {"id": "AC-002", "threat": "Bypass spending limits via API manipulation", "actor": "External Attacker", "description": "Attacker modifies card limit update request to set daily limit to maximum, then makes large unauthorized purchases.", "impact": "high", "likelihood": "low", "stride_category": "Tampering"},
+        ],
+        "stride_threats": {
+            "Spoofing": [{"id": "S-001", "threat": "Account takeover leading to unauthorized card activation", "severity": "high", "mitigation": "Require in-person or video KYC for address changes + card activation"}],
+            "Tampering": [{"id": "T-001", "threat": "API parameter manipulation to bypass card limits", "severity": "high", "mitigation": "Server-side limit enforcement. Admin approval for limits >$5K/day."}],
+            "Information Disclosure": [{"id": "I-001", "threat": "Card number exposure in API responses or logs", "severity": "high", "mitigation": "PCI-DSS compliant masking. Show only last 4 digits."}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "Card activation MUST require MFA + last 4 digits of SSN verification", "priority": "critical", "category": "Authentication"},
+            {"id": "SR-002", "requirement": "Spending limit changes >$5,000/day MUST require supervisor approval", "priority": "high", "category": "Authorization"},
+            {"id": "SR-003", "requirement": "Card numbers MUST be masked per PCI-DSS — show last 4 digits only", "priority": "critical", "category": "PCI Compliance"},
+            {"id": "SR-004", "requirement": "Card freeze/unfreeze MUST take effect within 30 seconds", "priority": "high", "category": "Performance"},
+            {"id": "SR-005", "requirement": "Address change + card reissue MUST trigger fraud review", "priority": "high", "category": "Fraud Detection"},
+        ],
+        "risk_score": 76, "risk_factors": {"data_sensitivity": "critical", "attack_surface": "medium", "regulatory_impact": "critical", "business_criticality": "high"},
+    },
+    # APEX-108: Admin portal with RBAC
+    {
+        "abuse_cases": [
+            {"id": "AC-001", "threat": "Privilege escalation via role manipulation", "actor": "Insider Threat", "description": "Admin user modifies their own role to grant additional privileges, bypassing separation of duties controls.", "impact": "critical", "likelihood": "low", "stride_category": "Elevation of Privilege", "mitre_technique": "T1098"},
+            {"id": "AC-002", "threat": "Bulk customer data export by rogue admin", "actor": "Insider Threat", "description": "Admin with database access exports customer PII in bulk for identity theft or sale on dark web.", "impact": "critical", "likelihood": "low", "stride_category": "Information Disclosure", "mitre_technique": "T1567"},
+            {"id": "AC-003", "threat": "Audit log tampering to cover tracks", "actor": "Insider Threat", "description": "Malicious admin modifies or deletes audit logs to conceal unauthorized actions.", "impact": "high", "likelihood": "low", "stride_category": "Repudiation"},
+        ],
+        "stride_threats": {
+            "Elevation of Privilege": [{"id": "E-001", "threat": "Self-assignment of elevated roles by admin", "severity": "critical", "mitigation": "Role changes require approval from a different admin. No self-service role elevation."}],
+            "Information Disclosure": [{"id": "I-001", "threat": "Bulk PII export by privileged insider", "severity": "critical", "mitigation": "DLP controls on data exports. Alert on bulk queries >100 records."}],
+            "Repudiation": [{"id": "R-001", "threat": "Audit log tampering by admin", "severity": "high", "mitigation": "Immutable audit logs (append-only). Ship to external SIEM in real-time."}],
+        },
+        "requirements": [
+            {"id": "SR-001", "requirement": "Role changes MUST require approval from a different administrator", "priority": "critical", "category": "Authorization"},
+            {"id": "SR-002", "requirement": "Admin sessions MUST have 15-minute idle timeout and 4-hour absolute timeout", "priority": "high", "category": "Session Security"},
+            {"id": "SR-003", "requirement": "All admin actions MUST be logged to immutable, append-only audit trail", "priority": "critical", "category": "Audit"},
+            {"id": "SR-004", "requirement": "Bulk data export (>100 records) MUST trigger DLP alert and require justification", "priority": "critical", "category": "Data Protection"},
+            {"id": "SR-005", "requirement": "Admin portal MUST be accessible only from corporate VPN/zero-trust network", "priority": "high", "category": "Network Security"},
+            {"id": "SR-006", "requirement": "Quarterly access reviews MUST verify least-privilege for all admin accounts", "priority": "high", "category": "Compliance"},
+            {"id": "SR-007", "requirement": "Admin authentication MUST use hardware security key (FIDO2) — no SMS OTP", "priority": "critical", "category": "Authentication"},
+        ],
+        "risk_score": 82, "risk_factors": {"data_sensitivity": "critical", "attack_surface": "medium", "regulatory_impact": "critical", "business_criticality": "critical"},
+    },
+]
+
+for i, analysis in enumerate(remaining_analyses):
+    sid = story_ids[i + 2]  # stories 3-8 (index 2-7)
     c.execute("""
-        INSERT INTO security_analyses (user_story_id, version, abuse_cases, stride_threats, security_requirements, risk_score, ai_model_used, analysis_duration_ms, created_at)
-        VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO security_analyses (user_story_id, version, abuse_cases, stride_threats, security_requirements, risk_score, risk_factors, ai_model_used, analysis_duration_ms, created_at)
+        VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         sid,
-        json.dumps([{"id": f"AC-001", "threat": f"Primary threat for {stories[i]['external_id']}", "actor": "External Attacker", "impact": "high", "likelihood": "medium", "stride_category": "Tampering"}]),
-        json.dumps({"Tampering": [{"id": "T-001", "threat": f"Core threat for {stories[i]['external_id']}", "severity": "high"}]}),
-        json.dumps([{"id": "SR-001", "requirement": f"Primary security requirement for {stories[i]['external_id']}", "priority": "high", "category": "Security"}]),
-        risk,
+        json.dumps(analysis["abuse_cases"]),
+        json.dumps(analysis["stride_threats"]),
+        json.dumps(analysis["requirements"]),
+        analysis["risk_score"],
+        json.dumps(analysis["risk_factors"]),
         "claude-sonnet-4-20250514",
-        12000 + (i * 1000),
+        14000 + (i * 800),
         NOW,
     ))
 
