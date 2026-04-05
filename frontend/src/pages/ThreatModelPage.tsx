@@ -17,6 +17,7 @@ import { ThreatHistoryPanel, ThreatTimeline } from '../components/ThreatHistory'
 import { Toast, useToast } from '../components/Toast'
 import ThreatMatrixView from '../components/ThreatMatrixView'
 import ValidationDashboard from '../components/ValidationDashboard'
+import SecurityControlsPage from './SecurityControlsPage'
 
 // Initialize mermaid with enhanced config
 mermaid.initialize({
@@ -122,7 +123,7 @@ export default function ThreatModelPage() {
   const [newControl, setNewControl] = useState('')
   const [expandedThreats, setExpandedThreats] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre' | 'history'>('threats')
+  const [activeTab, setActiveTab] = useState<'threats' | 'attack-paths' | 'mitre' | 'controls' | 'history'>('threats')
   const [regenerating, setRegenerating] = useState(false)
   const [showHistoryPanel, setShowHistoryPanel] = useState(false)
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
@@ -1402,6 +1403,19 @@ export default function ThreatModelPage() {
               </div>
             </button>
             <button
+              onClick={() => setActiveTab('controls')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'controls'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4" />
+                <span>Controls</span>
+              </div>
+            </button>
+            <button
               onClick={() => setActiveTab('history')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'history'
@@ -1441,6 +1455,10 @@ export default function ThreatModelPage() {
 
           {activeTab === 'mitre' && (
             <MitreTab mitreMapping={mitreMapping} />
+          )}
+
+          {activeTab === 'controls' && (
+            <SecurityControlsPage embedded embeddedProjectId={id} />
           )}
 
           {activeTab === 'history' && (

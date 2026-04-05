@@ -74,8 +74,9 @@ const STATUS_ICONS: Record<string, any> = {
   not_implemented: XCircle,
 }
 
-export default function SecurityControlsPage() {
-  const { id: projectId } = useParams<{ id: string }>()
+export default function SecurityControlsPage({ embedded, embeddedProjectId }: { embedded?: boolean; embeddedProjectId?: string } = {}) {
+  const params = useParams<{ id: string }>()
+  const projectId = embeddedProjectId || params.id
   const [controls, setControls] = useState<SecurityControl[]>([])
   const [coverage, setCoverage] = useState<CoverageSummary | null>(null)
   const [threats, setThreats] = useState<ProjectThreat[]>([])
@@ -328,8 +329,9 @@ export default function SecurityControlsPage() {
   const mappingControl = controls.find(c => c.id === mappingControlId)
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className={embedded ? '' : 'max-w-7xl mx-auto px-4 py-6'}>
       {/* Header */}
+      {!embedded && (
       <div className="flex items-center gap-3 mb-6">
         <Link to={`/projects/${projectId}`} className="text-gray-500 hover:text-gray-700">
           <ArrowLeft className="w-5 h-5" />
@@ -337,6 +339,7 @@ export default function SecurityControlsPage() {
         <Shield className="w-6 h-6 text-blue-600" />
         <h1 className="text-2xl font-bold text-gray-900">Security Controls Registry</h1>
       </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (
