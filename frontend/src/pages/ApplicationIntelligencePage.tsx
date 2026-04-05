@@ -429,8 +429,8 @@ const ApplicationIntelligencePage: React.FC = () => {
               {fw.version && <span className="text-gray-500 text-xs">{fw.version}</span>}
               {fw.type && (
                 <span className={`text-xs px-1.5 py-0.5 rounded ${
-                  fw.type === 'backend' ? 'bg-blue-500/20 text-blue-600' :
-                  fw.type === 'frontend' ? 'bg-green-500/20 text-green-600' : 'bg-gray-200 text-gray-500'
+                  fw.type === 'backend' ? 'bg-blue-100 text-blue-700' :
+                  fw.type === 'frontend' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'
                 }`}>
                   {fw.type}
                 </span>
@@ -448,7 +448,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-500 mb-2">Databases</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.databases?.map((db, idx) => (
-                <span key={idx} className="px-3 py-1 bg-purple-500/20 text-purple-600 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm">
                   {db}
                 </span>
               ))}
@@ -461,7 +461,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-500 mb-2">ORM Libraries</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.orm_libraries?.map((orm, idx) => (
-                <span key={idx} className="px-3 py-1 bg-cyan-500/20 text-cyan-600 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-cyan-100 text-cyan-700 rounded-lg text-sm">
                   {orm}
                 </span>
               ))}
@@ -481,7 +481,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-500 mb-2">Services</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.external_integrations?.map((int, idx) => (
-                <span key={idx} className="px-3 py-1 bg-orange-500/20 text-orange-600 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm">
                   {int}
                 </span>
               ))}
@@ -494,7 +494,7 @@ const ApplicationIntelligencePage: React.FC = () => {
             <h4 className="text-sm text-gray-500 mb-2">Cloud Providers</h4>
             <div className="flex flex-wrap gap-2">
               {profile?.cloud_services?.map((cloud, idx) => (
-                <span key={idx} className="px-3 py-1 bg-blue-500/20 text-blue-600 rounded-lg text-sm">
+                <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm">
                   {cloud}
                 </span>
               ))}
@@ -511,7 +511,7 @@ const ApplicationIntelligencePage: React.FC = () => {
         <h3 className="text-lg font-semibold mb-4">Authentication Mechanisms</h3>
         <div className="flex flex-wrap gap-2">
           {profile?.auth_mechanisms?.map((auth, idx) => (
-            <span key={idx} className="px-3 py-1.5 bg-green-500/20 text-green-600 rounded-lg text-sm font-medium">
+            <span key={idx} className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
               {auth}
             </span>
           ))}
@@ -547,10 +547,10 @@ const ApplicationIntelligencePage: React.FC = () => {
             <div key={idx} className="bg-gray-50 rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-                  ep.method === 'GET' ? 'bg-green-500/20 text-green-600' :
-                  ep.method === 'POST' ? 'bg-blue-500/20 text-blue-600' :
-                  ep.method === 'PUT' ? 'bg-yellow-500/20 text-yellow-600' :
-                  ep.method === 'DELETE' ? 'bg-red-500/20 text-red-600' :
+                  ep.method === 'GET' ? 'bg-green-100 text-green-700' :
+                  ep.method === 'POST' ? 'bg-blue-100 text-blue-700' :
+                  ep.method === 'PUT' ? 'bg-yellow-100 text-yellow-700' :
+                  ep.method === 'DELETE' ? 'bg-red-100 text-red-700' :
                   'bg-gray-200 text-gray-500'
                 }`}>
                   {ep.method || 'GET'}
@@ -561,7 +561,7 @@ const ApplicationIntelligencePage: React.FC = () => {
               {ep.risk_indicators && ep.risk_indicators.length > 0 && (
                 <div className="flex gap-1 mt-2">
                   {ep.risk_indicators.map((ri, i) => (
-                    <span key={i} className="text-xs px-2 py-0.5 bg-red-500/20 text-red-600 rounded">
+                    <span key={i} className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded">
                       {ri}
                     </span>
                   ))}
@@ -579,7 +579,7 @@ const ApplicationIntelligencePage: React.FC = () => {
       <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
         <h3 className="text-lg font-semibold mb-4 flex items-center">
           <span className="mr-2">Sensitive Data Fields</span>
-          <span className="text-sm bg-red-500/20 text-red-600 px-2 py-0.5 rounded">
+          <span className="text-sm bg-red-100 text-red-700 px-2 py-0.5 rounded">
             {profile?.sensitive_data_fields?.length || 0}
           </span>
         </h3>
@@ -591,9 +591,9 @@ const ApplicationIntelligencePage: React.FC = () => {
                 <div className="text-xs text-gray-500">{field.file}:{field.line}</div>
               </div>
               <span className={`text-xs px-2 py-0.5 rounded ${
-                field.category === 'credential' ? 'bg-red-500/20 text-red-600' :
-                field.category === 'pii' ? 'bg-orange-500/20 text-orange-600' :
-                field.category === 'financial' ? 'bg-yellow-500/20 text-yellow-600' :
+                field.category === 'credential' ? 'bg-red-100 text-red-700' :
+                field.category === 'pii' ? 'bg-orange-100 text-orange-700' :
+                field.category === 'financial' ? 'bg-yellow-100 text-yellow-700' :
                 'bg-gray-200 text-gray-500'
               }`}>
                 {field.category}
@@ -663,14 +663,14 @@ const ApplicationIntelligencePage: React.FC = () => {
                     {suggestion.category?.replace('_', ' ').toUpperCase()}
                   </span>
                   {suggestion.framework_context && (
-                    <span className="text-xs bg-blue-500/20 text-blue-600 px-2 py-1 rounded">
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
                       {suggestion.framework_context}
                     </span>
                   )}
                   <span className={`text-xs px-2 py-1 rounded ${
-                    suggestion.status === 'accepted' ? 'bg-green-500/20 text-green-600' :
+                    suggestion.status === 'accepted' ? 'bg-green-100 text-green-700' :
                     suggestion.status === 'dismissed' ? 'bg-gray-200 text-gray-500' :
-                    'bg-yellow-500/20 text-yellow-600'
+                    'bg-yellow-100 text-yellow-700'
                   }`}>
                     {suggestion.status}
                   </span>
@@ -694,12 +694,12 @@ const ApplicationIntelligencePage: React.FC = () => {
             {/* CWE and OWASP Tags */}
             <div className="flex flex-wrap gap-2 mb-4">
               {suggestion.cwe_ids?.map((cwe, idx) => (
-                <span key={idx} className="text-xs bg-purple-500/20 text-purple-600 px-2 py-1 rounded">
+                <span key={idx} className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
                   {cwe}
                 </span>
               ))}
               {suggestion.owasp_categories?.map((owasp, idx) => (
-                <span key={idx} className="text-xs bg-orange-500/20 text-orange-600 px-2 py-1 rounded">
+                <span key={idx} className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
                   {owasp}
                 </span>
               ))}
@@ -767,7 +767,7 @@ const ApplicationIntelligencePage: React.FC = () => {
     if (!selectedSuggestion || !showRuleModal) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl">
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-start">
@@ -804,7 +804,7 @@ const ApplicationIntelligencePage: React.FC = () => {
 
             {/* Rule Content */}
             <div className="bg-gray-900 rounded-lg p-4">
-              <pre className="text-sm text-gray-600 overflow-x-auto whitespace-pre-wrap">
+              <pre className="text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap">
                 {exportFormat === 'semgrep' && selectedSuggestion.semgrep_rule}
                 {exportFormat === 'codeql' && selectedSuggestion.codeql_rule}
                 {exportFormat === 'checkmarx' && selectedSuggestion.checkmarx_rule}
