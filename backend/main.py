@@ -1431,10 +1431,29 @@ def _migrate_threat_intel_tables():
     if "industry_sector" not in project_cols:
         cursor.execute("ALTER TABLE projects ADD COLUMN industry_sector TEXT DEFAULT 'technology'")
 
+    # API keys for external integrations
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS api_keys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key_hash TEXT NOT NULL UNIQUE,
+            key_prefix TEXT NOT NULL,
+            name TEXT NOT NULL,
+            scopes TEXT DEFAULT '["threat_intel"]',
+            created_by_user_id INTEGER NOT NULL,
+            created_by_email TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1,
+            last_used_at TEXT,
+            expires_at TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
     # Indexes
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cti_project ON client_threat_intel(project_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_cti_type ON client_threat_intel(intel_type)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_trl_project ON threat_requirement_links(project_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix)")
 
     conn.commit()
     conn.close()

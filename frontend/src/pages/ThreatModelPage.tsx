@@ -118,6 +118,7 @@ export default function ThreatModelPage() {
   const [selectedLevel, setSelectedLevel] = useState<number>(0)
   const [viewMode, setViewMode] = useState<'explorer' | 'diagram'>('explorer')
   const [controls, setControls] = useState<string[]>([])
+  const [securityControls, setSecurityControls] = useState<any[]>([])
   const [newControl, setNewControl] = useState('')
   const [expandedThreats, setExpandedThreats] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
@@ -144,6 +145,7 @@ export default function ThreatModelPage() {
 
   useEffect(() => {
     fetchThreatModel()
+    fetchSecurityControls()
   }, [id])
 
   const fetchThreatModel = async () => {
@@ -158,6 +160,27 @@ export default function ThreatModelPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchSecurityControls = async () => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(`/api/security-controls/projects/${id}/controls`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setSecurityControls(response.data || [])
+    } catch (error) {
+      // Controls may not exist yet — that's fine
+      setSecurityControls([])
+    }
+  }
+
+  // Build a map of threat_id → controls that link to it
+  const getControlsForThreat = (threatId: string) => {
+    if (!threatId || securityControls.length === 0) return []
+    return securityControls.filter((ctrl: any) =>
+      ctrl.linked_threat_ids && ctrl.linked_threat_ids.includes(threatId)
+    )
   }
 
   // Helper to get all threats from stride_analysis
@@ -1408,6 +1431,7 @@ export default function ThreatModelPage() {
               controls={controls}
               projectId={id || ''}
               onThreatStatusChange={fetchThreatModel}
+              getControlsForThreat={getControlsForThreat}
             />
           )}
 
@@ -1673,7 +1697,8 @@ function ThreatsTab({
   toggleThreat,
   controls,
   projectId,
-  onThreatStatusChange
+  onThreatStatusChange,
+  getControlsForThreat = (_id: string) => []
 }: any) {
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -1765,7 +1790,7 @@ function ThreatsTab({
                 isExpanded={expandedThreats.has(idx)}
                 onToggle={() => toggleThreat(idx)}
                 controls={controls}
-                mappedControls={threat._mapped_controls || []}
+                mappedControls={getControlsForThreat(threat.id)}
                 projectId={projectId}
                 onStatusChange={onThreatStatusChange}
               />

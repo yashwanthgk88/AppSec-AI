@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Shield, AlertTriangle, TrendingUp, Zap, ExternalLink, Download, Sparkles, Target, Clock, CheckCircle2, XCircle, Users, Lock, Bug, Globe, Search, Filter, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Shield, AlertTriangle, TrendingUp, Zap, ExternalLink, Download, Sparkles, Target, Clock, CheckCircle2, XCircle, Users, Lock, Bug, Globe, Search, Filter, X, Upload, Plus, Trash2, Edit3, FileText, Database, ChevronDown, ChevronUp, Save, Key, Copy, Eye, EyeOff } from 'lucide-react'
 import axios from 'axios'
 
 export default function ThreatIntelPage() {
@@ -7,7 +7,7 @@ export default function ThreatIntelPage() {
   const [stats, setStats] = useState<any>(null)
   const [correlations, setCorrelations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'threats' | 'correlations' | 'rules'>('threats')
+  const [activeTab, setActiveTab] = useState<'threats' | 'correlations' | 'rules' | 'custom' | 'api-keys'>('threats')
   const [selectedThreat, setSelectedThreat] = useState<any>(null)
   const [generatingRule, setGeneratingRule] = useState(false)
   const [generatedRule, setGeneratedRule] = useState<any>(null)
@@ -392,6 +392,32 @@ export default function ThreatIntelPage() {
             >
               Auto-Generated Rules
             </button>
+            <button
+              onClick={() => setActiveTab('custom')}
+              className={`py-4 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'custom'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Database className="w-4 h-4" />
+                Custom Intel
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('api-keys')}
+              className={`py-4 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'api-keys'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Key className="w-4 h-4" />
+                API Keys
+              </span>
+            </button>
           </div>
         </div>
 
@@ -472,6 +498,626 @@ export default function ThreatIntelPage() {
               )}
             </div>
           )}
+
+          {/* Custom Intel Tab */}
+          {activeTab === 'custom' && (
+            <CustomIntelTab />
+          )}
+
+          {/* API Keys Tab */}
+          {activeTab === 'api-keys' && (
+            <APIKeysTab />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Custom Intel Tab — Upload, manage, and view client threat intel
+// ---------------------------------------------------------------------------
+function CustomIntelTab() {
+  const [projects, setProjects] = useState<any[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+  const [entries, setEntries] = useState<any[]>([])
+  const [loadingEntries, setLoadingEntries] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<any>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<any>(null)
+  const [intelFilter, setIntelFilter] = useState<string>('all')
+  const [intelSearch, setIntelSearch] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Form state
+  const [form, setForm] = useState({
+    intel_type: 'scenario',
+    title: '',
+    description: '',
+    severity: 'medium',
+    threat_category: '',
+    mitre_techniques: '',
+    regulatory_impact: '',
+    recommended_controls: '',
+    tags: '',
+    source: 'client_upload',
+  })
+
+  const token = localStorage.getItem('token')
+  const authHeader = { Authorization: `Bearer ${token}` }
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  useEffect(() => {
+    if (selectedProjectId) fetchEntries()
+  }, [selectedProjectId])
+
+  const fetchProjects = async () => {
+    try {
+      const res = await axios.get('/api/projects', { headers: authHeader })
+      const list = res.data.projects || res.data || []
+      setProjects(list)
+      if (list.length > 0 && !selectedProjectId) {
+        setSelectedProjectId(list[0].id)
+      }
+    } catch (e) { console.error('Failed to fetch projects', e) }
+  }
+
+  const fetchEntries = async () => {
+    if (!selectedProjectId) return
+    setLoadingEntries(true)
+    try {
+      const res = await axios.get(`/api/threat-intel/${selectedProjectId}`, {
+        headers: authHeader,
+        params: { active_only: false },
+      })
+      setEntries(res.data.entries || [])
+    } catch (e) { console.error('Failed to fetch entries', e) }
+    finally { setLoadingEntries(false) }
+  }
+
+  const resetForm = () => {
+    setForm({
+      intel_type: 'scenario', title: '', description: '', severity: 'medium',
+      threat_category: '', mitre_techniques: '', regulatory_impact: '',
+      recommended_controls: '', tags: '', source: 'client_upload',
+    })
+    setEditingEntry(null)
+    setShowForm(false)
+  }
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return alert('Title is required.')
+    if (!selectedProjectId) return alert('Select a project first.')
+
+    const payload = {
+      ...form,
+      project_id: selectedProjectId,
+      mitre_techniques: form.mitre_techniques ? form.mitre_techniques.split(';').map(s => s.trim()).filter(Boolean) : [],
+      regulatory_impact: form.regulatory_impact ? form.regulatory_impact.split(';').map(s => s.trim()).filter(Boolean) : [],
+      recommended_controls: form.recommended_controls ? form.recommended_controls.split(';').map(s => s.trim()).filter(Boolean) : [],
+      tags: form.tags ? form.tags.split(';').map(s => s.trim()).filter(Boolean) : [],
+      threat_category: form.threat_category || null,
+    }
+
+    try {
+      if (editingEntry) {
+        const { project_id, source, ...updatePayload } = payload
+        await axios.put(`/api/threat-intel/${editingEntry.id}`, updatePayload, { headers: authHeader })
+      } else {
+        await axios.post('/api/threat-intel', payload, { headers: authHeader })
+      }
+      resetForm()
+      fetchEntries()
+    } catch (e: any) {
+      alert(e.response?.data?.detail || 'Failed to save entry')
+    }
+  }
+
+  const handleEdit = (entry: any) => {
+    setForm({
+      intel_type: entry.intel_type || 'scenario',
+      title: entry.title || '',
+      description: entry.description || '',
+      severity: entry.severity || 'medium',
+      threat_category: entry.threat_category || '',
+      mitre_techniques: (entry.mitre_techniques || []).join('; '),
+      regulatory_impact: (entry.regulatory_impact || []).join('; '),
+      recommended_controls: (entry.recommended_controls || []).join('; '),
+      tags: (entry.tags || []).join('; '),
+      source: entry.source || 'client_upload',
+    })
+    setEditingEntry(entry)
+    setShowForm(true)
+  }
+
+  const handleDelete = async (entryId: number) => {
+    if (!confirm('Delete this threat intel entry?')) return
+    try {
+      await axios.delete(`/api/threat-intel/${entryId}`, { headers: authHeader })
+      fetchEntries()
+    } catch (e) { console.error('Failed to delete', e) }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !selectedProjectId) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('project_id', String(selectedProjectId))
+
+    setUploading(true)
+    setUploadResult(null)
+    try {
+      const res = await axios.post('/api/threat-intel/upload-file', formData, {
+        headers: { ...authHeader, 'Content-Type': 'multipart/form-data' },
+      })
+      setUploadResult({ success: true, ...res.data })
+      fetchEntries()
+    } catch (e: any) {
+      setUploadResult({ success: false, message: e.response?.data?.detail || 'Upload failed' })
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await axios.get('/api/threat-intel/download-template', {
+        headers: authHeader,
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'threat_intel_template.csv'
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) { console.error('Failed to download template', e) }
+  }
+
+  const filteredEntries = entries.filter(entry => {
+    if (intelFilter !== 'all' && entry.intel_type !== intelFilter) return false
+    if (intelSearch) {
+      const q = intelSearch.toLowerCase()
+      return (entry.title?.toLowerCase().includes(q)) ||
+             (entry.description?.toLowerCase().includes(q)) ||
+             (entry.tags || []).some((t: string) => t.toLowerCase().includes(q))
+    }
+    return true
+  })
+
+  const typeCounts: any = {}
+  entries.forEach(e => { typeCounts[e.intel_type] = (typeCounts[e.intel_type] || 0) + 1 })
+
+  const severityColors: any = {
+    critical: 'bg-red-100 text-red-800',
+    high: 'bg-orange-100 text-orange-800',
+    medium: 'bg-yellow-100 text-yellow-800',
+    low: 'bg-blue-100 text-blue-800',
+  }
+
+  const typeLabels: any = {
+    scenario: 'Threat Scenario',
+    threat_actor: 'Threat Actor',
+    incident: 'Incident',
+    regulation: 'Regulation',
+    control: 'Control',
+    asset: 'Asset',
+    pentest_finding: 'Pentest Finding',
+    risk_appetite: 'Risk Appetite',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Project Selector + Actions */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-semibold text-gray-600 mb-1">Project</label>
+          <select
+            value={selectedProjectId || ''}
+            onChange={(e) => setSelectedProjectId(Number(e.target.value))}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">Select a project...</option>
+            {projects.map((p: any) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-end gap-2">
+          <button
+            onClick={() => { setShowForm(true); setEditingEntry(null) }}
+            disabled={!selectedProjectId}
+            className="btn btn-primary btn-sm inline-flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Add Entry
+          </button>
+
+          <label className={`btn btn-secondary btn-sm inline-flex items-center gap-2 cursor-pointer ${!selectedProjectId || uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            <Upload className="w-4 h-4" />
+            {uploading ? 'Uploading...' : 'Upload File'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.json"
+              onChange={handleFileUpload}
+              className="hidden"
+              disabled={!selectedProjectId || uploading}
+            />
+          </label>
+
+          <button
+            onClick={handleDownloadTemplate}
+            className="btn btn-secondary btn-sm inline-flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            CSV Template
+          </button>
+        </div>
+      </div>
+
+      {/* Upload Result */}
+      {uploadResult && (
+        <div className={`p-4 rounded-lg border ${uploadResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+          <div className="flex items-center gap-2">
+            {uploadResult.success ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+            <span className={`font-medium ${uploadResult.success ? 'text-green-800' : 'text-red-800'}`}>
+              {uploadResult.message}
+            </span>
+          </div>
+          {uploadResult.success && (
+            <p className="text-sm text-green-700 mt-1">
+              {uploadResult.created} entries imported from {uploadResult.file_type} file ({uploadResult.filename})
+            </p>
+          )}
+          <button onClick={() => setUploadResult(null)} className="mt-2 text-xs underline text-gray-500">Dismiss</button>
+        </div>
+      )}
+
+      {/* Upload Info */}
+      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-start gap-3">
+          <FileText className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-blue-900">Supported Upload Formats</p>
+            <ul className="text-sm text-blue-800 mt-1 space-y-0.5">
+              <li><strong>CSV</strong> — Use semicolons to separate list values. Download the template for the expected format.</li>
+              <li><strong>JSON</strong> — Array of objects with title, description, severity, intel_type, mitre_techniques, tags, etc.</li>
+              <li><strong>STIX 2.1</strong> — Standard bundle format. Supported types: indicator, malware, threat-actor, attack-pattern, vulnerability, campaign, intrusion-set.</li>
+            </ul>
+            <p className="text-xs text-blue-700 mt-2">Uploaded intel is automatically included in threat model generation for the selected project.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Manual Entry Form */}
+      {showForm && (
+        <div className="card p-6 border-2 border-primary-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {editingEntry ? 'Edit Threat Intel Entry' : 'Add Threat Intel Entry'}
+            </h3>
+            <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Title *</label>
+              <input
+                value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                placeholder="e.g., SQL Injection in Authentication Module"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                rows={3}
+                placeholder="Detailed description of the threat, vulnerability, or intelligence..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
+              <select
+                value={form.intel_type}
+                onChange={e => setForm({ ...form, intel_type: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="scenario">Threat Scenario</option>
+                <option value="threat_actor">Threat Actor</option>
+                <option value="incident">Incident</option>
+                <option value="regulation">Regulation</option>
+                <option value="control">Control</option>
+                <option value="asset">Asset</option>
+                <option value="pentest_finding">Pentest Finding</option>
+                <option value="risk_appetite">Risk Appetite</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Severity</label>
+              <select
+                value={form.severity}
+                onChange={e => setForm({ ...form, severity: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">STRIDE Category</label>
+              <select
+                value={form.threat_category}
+                onChange={e => setForm({ ...form, threat_category: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">None</option>
+                <option value="Spoofing">Spoofing</option>
+                <option value="Tampering">Tampering</option>
+                <option value="Repudiation">Repudiation</option>
+                <option value="Information Disclosure">Information Disclosure</option>
+                <option value="Denial of Service">Denial of Service</option>
+                <option value="Elevation of Privilege">Elevation of Privilege</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Source</label>
+              <input
+                value={form.source}
+                onChange={e => setForm({ ...form, source: e.target.value })}
+                placeholder="e.g., internal_pentest, vendor_report"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                MITRE ATT&CK Techniques <span className="text-gray-400 font-normal">(semicolon-separated)</span>
+              </label>
+              <input
+                value={form.mitre_techniques}
+                onChange={e => setForm({ ...form, mitre_techniques: e.target.value })}
+                placeholder="e.g., T1190; T1059.001; T1078"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                Regulatory Impact <span className="text-gray-400 font-normal">(semicolon-separated)</span>
+              </label>
+              <input
+                value={form.regulatory_impact}
+                onChange={e => setForm({ ...form, regulatory_impact: e.target.value })}
+                placeholder="e.g., PCI-DSS v4.0 Req 6.2; OWASP Top 10 A03"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                Recommended Controls <span className="text-gray-400 font-normal">(semicolon-separated)</span>
+              </label>
+              <input
+                value={form.recommended_controls}
+                onChange={e => setForm({ ...form, recommended_controls: e.target.value })}
+                placeholder="e.g., Input validation; Parameterized queries; WAF rules"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">
+                Tags <span className="text-gray-400 font-normal">(semicolon-separated)</span>
+              </label>
+              <input
+                value={form.tags}
+                onChange={e => setForm({ ...form, tags: e.target.value })}
+                placeholder="e.g., SQLi; authentication; pentest; Q1-2025"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t">
+            <button onClick={resetForm} className="btn btn-secondary btn-sm">Cancel</button>
+            <button onClick={handleSubmit} className="btn btn-primary btn-sm inline-flex items-center gap-2">
+              <Save className="w-4 h-4" />
+              {editingEntry ? 'Update Entry' : 'Save Entry'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Entries List */}
+      {selectedProjectId && (
+        <>
+          {/* Filter bar */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  value={intelSearch}
+                  onChange={e => setIntelSearch(e.target.value)}
+                  placeholder="Search custom intel..."
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => setIntelFilter('all')}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === 'all' ? 'bg-primary-100 text-primary-800 border border-primary-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                All ({entries.length})
+              </button>
+              {Object.entries(typeCounts).map(([type, count]: [string, any]) => (
+                <button
+                  key={type}
+                  onClick={() => setIntelFilter(intelFilter === type ? 'all' : type)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${intelFilter === type ? 'bg-primary-100 text-primary-800 border border-primary-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {typeLabels[type] || type} ({count})
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Entries */}
+          {loadingEntries ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+            </div>
+          ) : filteredEntries.length === 0 ? (
+            <div className="text-center py-12">
+              <Database className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {entries.length === 0 ? 'No Custom Intel Yet' : 'No Matching Entries'}
+              </h3>
+              <p className="text-gray-600 mb-4">
+                {entries.length === 0
+                  ? 'Add threat intel manually or upload a CSV/JSON/STIX file to enrich your threat models.'
+                  : 'Try adjusting your search or filter criteria.'}
+              </p>
+              {entries.length === 0 && (
+                <div className="flex items-center justify-center gap-3">
+                  <button onClick={() => { setShowForm(true); setEditingEntry(null) }} className="btn btn-primary btn-sm inline-flex items-center gap-2">
+                    <Plus className="w-4 h-4" /> Add Entry
+                  </button>
+                  <label className="btn btn-secondary btn-sm inline-flex items-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4" /> Upload File
+                    <input ref={fileInputRef} type="file" accept=".csv,.json" onChange={handleFileUpload} className="hidden" />
+                  </label>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredEntries.map((entry: any) => (
+                <CustomIntelCard
+                  key={entry.id}
+                  entry={entry}
+                  severityColors={severityColors}
+                  typeLabels={typeLabels}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function CustomIntelCard({ entry, severityColors, typeLabels, onEdit, onDelete }: any) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div className="card p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center flex-wrap gap-2 mb-1">
+            <h4 className="font-semibold text-gray-900 truncate">{entry.title}</h4>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${severityColors[entry.severity] || 'bg-gray-100 text-gray-800'}`}>
+              {entry.severity?.toUpperCase()}
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+              {typeLabels[entry.intel_type] || entry.intel_type}
+            </span>
+            {entry.threat_category && (
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+                {entry.threat_category}
+              </span>
+            )}
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
+              {entry.source}
+            </span>
+          </div>
+
+          {entry.description && (
+            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{entry.description}</p>
+          )}
+
+          {/* Tags */}
+          {entry.tags && entry.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {entry.tags.map((tag: string, i: number) => (
+                <span key={i} className="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-700">{tag}</span>
+              ))}
+            </div>
+          )}
+
+          {/* Expandable details */}
+          {expanded && (
+            <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+              {entry.mitre_techniques?.length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-gray-500">MITRE ATT&CK:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {entry.mitre_techniques.map((t: string, i: number) => (
+                      <a key={i} href={`https://attack.mitre.org/techniques/${t.replace('.', '/')}/`} target="_blank" rel="noopener noreferrer"
+                         className="px-2 py-0.5 rounded text-xs font-mono bg-red-50 text-red-700 hover:bg-red-100">{t}</a>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {entry.regulatory_impact?.length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-gray-500">Regulatory Impact:</span>
+                  <ul className="mt-1 text-sm text-gray-700 list-disc list-inside">
+                    {entry.regulatory_impact.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                  </ul>
+                </div>
+              )}
+              {entry.recommended_controls?.length > 0 && (
+                <div>
+                  <span className="text-xs font-semibold text-gray-500">Recommended Controls:</span>
+                  <ul className="mt-1 text-sm text-gray-700 list-disc list-inside">
+                    {entry.recommended_controls.map((c: string, i: number) => <li key={i}>{c}</li>)}
+                  </ul>
+                </div>
+              )}
+              <div className="text-xs text-gray-400 pt-1">
+                Created by {entry.created_by} {entry.created_at && `on ${new Date(entry.created_at).toLocaleDateString()}`}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 ml-3 flex-shrink-0">
+          <button onClick={() => setExpanded(!expanded)} className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          <button onClick={() => onEdit(entry)} className="p-1.5 rounded hover:bg-blue-100 text-gray-400 hover:text-blue-600">
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button onClick={() => onDelete(entry.id)} className="p-1.5 rounded hover:bg-red-100 text-gray-400 hover:text-red-600">
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
@@ -732,6 +1378,311 @@ function GeneratedRuleDisplay({ rule, threat }: any) {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+// API Keys Tab — Create, manage, and view integration API keys
+// ---------------------------------------------------------------------------
+function APIKeysTab() {
+  const [keys, setKeys] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showCreate, setShowCreate] = useState(false)
+  const [newKeyName, setNewKeyName] = useState('')
+  const [newKeyExpiry, setNewKeyExpiry] = useState<string>('')
+  const [creating, setCreating] = useState(false)
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null)
+  const [copiedKey, setCopiedKey] = useState(false)
+  const [showDocs, setShowDocs] = useState(false)
+
+  const fetchKeys = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const res = await axios.get('/api/threat-intel/api-keys', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setKeys(res.data.keys || [])
+    } catch (err) {
+      console.error('Failed to fetch API keys:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { fetchKeys() }, [])
+
+  const handleCreate = async () => {
+    if (!newKeyName.trim()) return
+    try {
+      setCreating(true)
+      const token = localStorage.getItem('token')
+      const res = await axios.post('/api/threat-intel/api-keys', {
+        name: newKeyName.trim(),
+        scopes: ['threat_intel'],
+        expires_in_days: newKeyExpiry ? parseInt(newKeyExpiry) : null,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      setNewlyCreatedKey(res.data.api_key)
+      setNewKeyName('')
+      setNewKeyExpiry('')
+      fetchKeys()
+    } catch (err) {
+      console.error('Failed to create API key:', err)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleRevoke = async (keyId: number) => {
+    if (!confirm('Revoke this API key? External systems using it will lose access.')) return
+    try {
+      const token = localStorage.getItem('token')
+      await axios.delete(`/api/threat-intel/api-keys/${keyId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      fetchKeys()
+    } catch (err) {
+      console.error('Failed to revoke API key:', err)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(true)
+    setTimeout(() => setCopiedKey(false), 2000)
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">API Keys</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Generate API keys for external systems to push threat intel into your projects.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowDocs(!showDocs)}
+            className="btn-secondary text-sm flex items-center gap-2"
+          >
+            <FileText className="w-4 h-4" />
+            {showDocs ? 'Hide' : 'Show'} API Docs
+          </button>
+          <button
+            onClick={() => { setShowCreate(true); setNewlyCreatedKey(null) }}
+            className="btn-primary text-sm flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create API Key
+          </button>
+        </div>
+      </div>
+
+      {/* Newly created key banner */}
+      {newlyCreatedKey && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-green-900">API Key Created</p>
+              <p className="text-xs text-green-700 mt-1 mb-2">
+                Copy this key now — it will not be shown again.
+              </p>
+              <div className="flex items-center gap-2 bg-white border border-green-300 rounded-md px-3 py-2">
+                <code className="text-sm text-gray-800 flex-1 font-mono break-all">{newlyCreatedKey}</code>
+                <button
+                  onClick={() => copyToClipboard(newlyCreatedKey)}
+                  className="text-green-600 hover:text-green-800 p-1"
+                  title="Copy to clipboard"
+                >
+                  {copiedKey ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <button onClick={() => setNewlyCreatedKey(null)} className="text-green-400 hover:text-green-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Create key form */}
+      {showCreate && !newlyCreatedKey && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-900 mb-3">New API Key</h4>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-600 mb-1">Key Name</label>
+              <input
+                type="text"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="e.g., SIEM Integration, CI/CD Pipeline"
+                className="input text-sm w-full"
+              />
+            </div>
+            <div className="w-40">
+              <label className="block text-xs text-gray-600 mb-1">Expires In (days)</label>
+              <input
+                type="number"
+                value={newKeyExpiry}
+                onChange={(e) => setNewKeyExpiry(e.target.value)}
+                placeholder="Never"
+                min="1"
+                className="input text-sm w-full"
+              />
+            </div>
+            <button
+              onClick={handleCreate}
+              disabled={creating || !newKeyName.trim()}
+              className="btn-primary text-sm"
+            >
+              {creating ? 'Creating...' : 'Generate'}
+            </button>
+            <button
+              onClick={() => setShowCreate(false)}
+              className="btn-secondary text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* API Documentation */}
+      {showDocs && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-4">
+          <h4 className="text-sm font-semibold text-blue-900">Integration Guide</h4>
+
+          <div>
+            <p className="text-xs font-medium text-blue-900 mb-1">Authentication</p>
+            <p className="text-xs text-blue-800">
+              Include your API key in the <code className="bg-blue-100 px-1 rounded">X-API-Key</code> header with every request.
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-blue-900 mb-2">Endpoints</p>
+            <div className="space-y-2">
+              <div className="bg-white rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-800">POST /api/threat-intel/external/ingest</code>
+                <p className="text-xs text-gray-500 mt-1">Push a single threat intel entry</p>
+              </div>
+              <div className="bg-white rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-800">POST /api/threat-intel/external/ingest/bulk</code>
+                <p className="text-xs text-gray-500 mt-1">Push multiple entries at once</p>
+              </div>
+              <div className="bg-white rounded p-2 border border-blue-100">
+                <code className="text-xs text-gray-800">GET /api/threat-intel/external/intel/{'<project_id>'}</code>
+                <p className="text-xs text-gray-500 mt-1">Read intel entries for a project</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-blue-900 mb-1">Example: Push a Single Entry</p>
+            <pre className="bg-gray-900 text-green-400 rounded p-3 text-xs overflow-x-auto">{`curl -X POST https://your-instance/api/threat-intel/external/ingest \\
+  -H "X-API-Key: apsk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "project_id": 1,
+    "title": "Supply Chain Attack via npm",
+    "description": "Malicious packages targeting build pipelines",
+    "intel_type": "scenario",
+    "severity": "critical",
+    "mitre_techniques": ["T1195.002"],
+    "source": "internal_ti_team"
+  }'`}</pre>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-blue-900 mb-1">Example: Bulk Upload</p>
+            <pre className="bg-gray-900 text-green-400 rounded p-3 text-xs overflow-x-auto">{`curl -X POST https://your-instance/api/threat-intel/external/ingest/bulk \\
+  -H "X-API-Key: apsk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "project_id": 1,
+    "entries": [
+      {"intel_type": "scenario", "title": "...", "severity": "high"},
+      {"intel_type": "threat_actor", "title": "...", "severity": "critical"}
+    ]
+  }'`}</pre>
+          </div>
+
+          <div>
+            <p className="text-xs font-medium text-blue-900 mb-1">Supported intel_type values</p>
+            <div className="flex flex-wrap gap-1">
+              {['incident', 'threat_actor', 'asset', 'scenario', 'regulation', 'control', 'pentest_finding', 'risk_appetite'].map(t => (
+                <span key={t} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs font-mono">{t}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Keys list */}
+      {loading ? (
+        <div className="text-center py-8 text-gray-500">Loading API keys...</div>
+      ) : keys.length === 0 ? (
+        <div className="text-center py-12 text-gray-400">
+          <Key className="w-12 h-12 mx-auto mb-3 opacity-50" />
+          <p className="font-medium">No API keys yet</p>
+          <p className="text-sm mt-1">Create an API key to allow external systems to integrate with your threat intel.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {keys.map((key) => (
+            <div
+              key={key.id}
+              className={`border rounded-lg p-4 ${key.is_active ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 opacity-60'}`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Key className={`w-5 h-5 ${key.is_active ? 'text-primary-600' : 'text-gray-400'}`} />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">{key.name}</span>
+                      {key.is_active ? (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">Active</span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">Revoked</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                      <span>Key: <code className="font-mono">{key.key_prefix}...</code></span>
+                      <span>Created: {new Date(key.created_at).toLocaleDateString()}</span>
+                      {key.last_used_at && (
+                        <span>Last used: {new Date(key.last_used_at).toLocaleDateString()}</span>
+                      )}
+                      {key.expires_at && (
+                        <span>Expires: {new Date(key.expires_at).toLocaleDateString()}</span>
+                      )}
+                      {key.scopes && (
+                        <span>Scopes: {key.scopes.join(', ')}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {key.is_active && (
+                  <button
+                    onClick={() => handleRevoke(key.id)}
+                    className="text-red-500 hover:text-red-700 text-sm flex items-center gap-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Revoke
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -3,7 +3,11 @@ Security Controls Registry Router
 Project-level controls inventory + per-threat control linking + residual risk scoring.
 """
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+import io
+import json
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel, Field
@@ -581,3 +585,212 @@ async def auto_map_control(
         "suggested_ids": suggested,
         "matched_threats": matched_threats[:20],
     }
+
+
+# ==================== Bulk Upload ====================
+
+VALID_CONTROL_TYPES = {"preventive", "detective", "corrective", "compensating"}
+VALID_CONTROL_STATUSES = {"implemented", "planned", "partial", "not_implemented"}
+VALID_STRIDE_CATEGORIES = {
+    "spoofing", "tampering", "repudiation",
+    "information_disclosure", "denial_of_service", "elevation_of_privilege",
+}
+
+# Column aliases for CSV flexibility
+CSV_ALIASES = {
+    "name": ["name", "control_name", "control", "title"],
+    "description": ["description", "desc", "details", "summary"],
+    "control_type": ["control_type", "type", "category"],
+    "status": ["status", "implementation_status", "impl_status", "state"],
+    "stride_categories": ["stride_categories", "stride", "categories", "stride_coverage"],
+    "effectiveness": ["effectiveness", "eff", "score", "rating"],
+    "owner": ["owner", "responsible", "assigned_to", "assignee"],
+    "evidence": ["evidence", "link", "evidence_link", "reference", "url"],
+}
+
+
+def _resolve_columns(headers: List[str]) -> dict:
+    mapping = {}
+    lower_headers = [h.strip().lower() for h in headers]
+    for field, aliases in CSV_ALIASES.items():
+        for alias in aliases:
+            if alias in lower_headers:
+                mapping[field] = headers[lower_headers.index(alias)]
+                break
+    return mapping
+
+
+def _parse_list(value: str) -> List[str]:
+    if not value or not value.strip():
+        return []
+    for sep in [";", "|", ","]:
+        if sep in value:
+            return [v.strip() for v in value.split(sep) if v.strip()]
+    return [value.strip()]
+
+
+@router.post("/projects/{project_id}/controls/upload")
+async def upload_controls(
+    project_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    """Bulk upload security controls from a CSV file.
+
+    **Required columns**: name, description, stride_categories, owner
+    **Optional columns**: control_type, status, effectiveness, evidence
+
+    - stride_categories: semicolon-separated (e.g., "spoofing;tampering")
+    - status: implemented | planned | partial | not_implemented
+    - effectiveness: 0.0 to 1.0 (default 0.7)
+    """
+    project = db.query(Project).filter(
+        Project.id == project_id,
+        Project.owner_id == current_user.id
+    ).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided.")
+
+    if not file.filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported. Download the template for the correct format.")
+
+    content = await file.read()
+    try:
+        content_str = content.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            content_str = content.decode("latin-1")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Could not decode file.")
+
+    reader = csv.DictReader(io.StringIO(content_str))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV file is empty or has no headers.")
+
+    col_map = _resolve_columns(list(reader.fieldnames))
+    if "name" not in col_map:
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV must have a 'name' column. Found: {reader.fieldnames}",
+        )
+
+    created = 0
+    errors = []
+    for row_num, row in enumerate(reader, start=2):
+        name = row.get(col_map.get("name", ""), "").strip()
+        if not name:
+            continue
+
+        description = row.get(col_map.get("description", ""), "").strip() or ""
+        owner = row.get(col_map.get("owner", ""), "").strip() or "Unassigned"
+
+        # Control type
+        ct_str = row.get(col_map.get("control_type", ""), "preventive").strip().lower()
+        if ct_str not in VALID_CONTROL_TYPES:
+            ct_str = "preventive"
+        try:
+            ct = ControlType(ct_str)
+        except ValueError:
+            ct = ControlType.PREVENTIVE
+
+        # Status
+        status_str = row.get(col_map.get("status", ""), "not_implemented").strip().lower()
+        if status_str not in VALID_CONTROL_STATUSES:
+            status_str = "not_implemented"
+        try:
+            cs = ControlStatus(status_str)
+        except ValueError:
+            cs = ControlStatus.NOT_IMPLEMENTED
+
+        # STRIDE categories
+        stride_raw = row.get(col_map.get("stride_categories", ""), "").strip()
+        stride_cats = [s.lower().replace(" ", "_") for s in _parse_list(stride_raw)]
+        stride_cats = [s for s in stride_cats if s in VALID_STRIDE_CATEGORIES]
+        if not stride_cats:
+            errors.append(f"Row {row_num}: '{name}' skipped — no valid STRIDE categories")
+            continue
+
+        # Effectiveness
+        eff_str = row.get(col_map.get("effectiveness", ""), "0.7").strip()
+        try:
+            effectiveness = max(0.0, min(1.0, float(eff_str)))
+        except (ValueError, TypeError):
+            effectiveness = 0.7
+
+        evidence = row.get(col_map.get("evidence", ""), "").strip() or None
+
+        control = SecurityControl(
+            project_id=project_id,
+            name=name[:500],
+            description=description[:2000],
+            control_type=ct,
+            status=cs,
+            stride_categories=stride_cats,
+            effectiveness=effectiveness,
+            owner=owner,
+            evidence=evidence,
+            created_by=current_user.id,
+        )
+        db.add(control)
+        created += 1
+
+    db.commit()
+
+    return {
+        "created": created,
+        "errors": errors,
+        "filename": file.filename,
+        "message": f"{created} security controls imported." + (f" {len(errors)} rows skipped." if errors else ""),
+    }
+
+
+@router.get("/download-template")
+async def download_controls_template(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Download a CSV template for bulk control upload."""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "name", "description", "control_type", "status",
+        "stride_categories", "effectiveness", "owner", "evidence",
+    ])
+    writer.writerow([
+        "Web Application Firewall",
+        "ModSecurity WAF with OWASP CRS ruleset protecting all public endpoints",
+        "preventive", "implemented",
+        "spoofing;tampering;information_disclosure", "0.85",
+        "Platform Security Team", "https://waf-dashboard.internal/rules",
+    ])
+    writer.writerow([
+        "Database Encryption at Rest",
+        "AES-256 encryption for all PII columns in PostgreSQL using pgcrypto",
+        "preventive", "implemented",
+        "information_disclosure", "0.9",
+        "Data Engineering", "Encryption audit report Q1 2026",
+    ])
+    writer.writerow([
+        "Rate Limiting",
+        "API gateway rate limits: 100 req/min per user, 1000 req/min per IP",
+        "preventive", "partial",
+        "denial_of_service;spoofing", "0.6",
+        "API Platform Team", "",
+    ])
+    writer.writerow([
+        "Security Logging & Monitoring",
+        "Centralized SIEM with alerting on auth failures and privilege escalation",
+        "detective", "planned",
+        "repudiation;elevation_of_privilege", "0.5",
+        "SOC Team", "",
+    ])
+
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=security_controls_template.csv"},
+    )

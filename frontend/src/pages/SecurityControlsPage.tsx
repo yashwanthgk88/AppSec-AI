@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Shield, Plus, Trash2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp, Sparkles, Loader2, Search, Check, Link2 } from 'lucide-react'
+import { Shield, Plus, Trash2, CheckCircle2, AlertTriangle, Clock, XCircle, ArrowLeft, Edit2, Save, X, ChevronDown, ChevronUp, Sparkles, Loader2, Search, Check, Link2, Upload, Download, FileText } from 'lucide-react'
 import axios from 'axios'
 
 interface SecurityControl {
@@ -92,6 +92,11 @@ export default function SecurityControlsPage() {
   const [autoMapLoading, setAutoMapLoading] = useState(false)
   const [autoMapScores, setAutoMapScores] = useState<Record<string, number>>({})
   const [savingMapping, setSavingMapping] = useState(false)
+
+  // Upload state
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadResult, setUploadResult] = useState<{ message: string; errors?: string[]; type: 'success' | 'error' } | null>(null)
 
   // Form state
   const [form, setForm] = useState({
@@ -373,15 +378,130 @@ export default function SecurityControlsPage() {
 
       {activeTab === 'controls' && (
         <>
-          {/* Add Control Button */}
-          <div className="mb-4">
+          {/* Action Buttons */}
+          <div className="mb-4 flex items-center gap-3">
             <button
               onClick={() => { resetForm(); setShowForm(true) }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
             >
               <Plus className="w-4 h-4" /> Add Control
             </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm disabled:opacity-50"
+            >
+              <Upload className="w-4 h-4" /> {uploading ? 'Uploading...' : 'Bulk Upload CSV'}
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await axios.get('/api/security-controls/download-template', {
+                    headers, responseType: 'blob',
+                  })
+                  const url = window.URL.createObjectURL(new Blob([res.data]))
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'security_controls_template.csv'
+                  a.click()
+                  window.URL.revokeObjectURL(url)
+                } catch (err) {
+                  console.error('Failed to download template:', err)
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+            >
+              <Download className="w-4 h-4" /> CSV Template
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                setUploading(true)
+                setUploadResult(null)
+                try {
+                  const formData = new FormData()
+                  formData.append('file', file)
+                  const res = await axios.post(
+                    `/api/security-controls/projects/${projectId}/controls/upload`,
+                    formData,
+                    { headers: { ...headers, 'Content-Type': 'multipart/form-data' } }
+                  )
+                  setUploadResult({
+                    message: res.data.message,
+                    errors: res.data.errors,
+                    type: 'success',
+                  })
+                  fetchData()
+                } catch (err: any) {
+                  setUploadResult({
+                    message: err.response?.data?.detail || 'Upload failed',
+                    type: 'error',
+                  })
+                } finally {
+                  setUploading(false)
+                  if (fileInputRef.current) fileInputRef.current.value = ''
+                }
+              }}
+            />
           </div>
+          <p className="text-xs text-gray-500 mb-4 -mt-2 flex items-center gap-1">
+            <FileText className="w-3 h-3" />
+            To bulk upload controls,{' '}
+            <button
+              onClick={async () => {
+                try {
+                  const res = await axios.get('/api/security-controls/download-template', {
+                    headers, responseType: 'blob',
+                  })
+                  const url = window.URL.createObjectURL(new Blob([res.data]))
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = 'security_controls_template.csv'
+                  a.click()
+                  window.URL.revokeObjectURL(url)
+                } catch (err) {
+                  console.error('Failed to download template:', err)
+                }
+              }}
+              className="text-blue-600 hover:underline font-medium"
+            >
+              download the CSV template
+            </button>
+            , fill in your controls (name, description, type, status, STRIDE categories, effectiveness, owner), then click "Bulk Upload CSV".
+          </p>
+
+          {/* Upload Result Banner */}
+          {uploadResult && (
+            <div className={`mb-4 p-3 rounded-lg border flex items-start gap-2 ${
+              uploadResult.type === 'success'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              {uploadResult.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              )}
+              <div className="flex-1">
+                <p className="text-sm font-medium">{uploadResult.message}</p>
+                {uploadResult.errors && uploadResult.errors.length > 0 && (
+                  <ul className="text-xs mt-1 space-y-0.5">
+                    {uploadResult.errors.map((err, i) => (
+                      <li key={i} className="text-amber-700">{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <button onClick={() => setUploadResult(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Add/Edit Form */}
           {showForm && (
