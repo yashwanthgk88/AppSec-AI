@@ -45,7 +45,7 @@ from services.enhanced_sca_scanner import EnhancedSCAScanner
 from services.chatbot_service import ChatbotService
 from services.report_service import ReportService
 from services.repository_scanner import RepositoryScanner
-from services.threat_intel import threat_intel
+from services.threat_intel import threat_intel as threat_intel_service
 from services.ast_security_analyzer import ASTSecurityAnalyzer, ast_analyzer
 from services.ai_impact_service import AIImpactService, get_ai_impact_service
 from services.interprocedural_analyzer import analyze_code_interprocedural
@@ -7219,7 +7219,7 @@ async def get_threat_intelligence(
 ):
     """Get aggregated threat intelligence from multiple sources"""
     try:
-        threats_data = await threat_intel.get_aggregated_threats()
+        threats_data = await threat_intel_service.get_aggregated_threats()
         return threats_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch threat intelligence: {str(e)}")
@@ -7241,7 +7241,7 @@ async def correlate_threats(
     """
     try:
         # Use the new async correlation engine with improved efficiency
-        result = await threat_intel.correlate_with_vulnerabilities_async(db, project_id)
+        result = await threat_intel_service.correlate_with_vulnerabilities_async(db, project_id)
 
         return {
             "total_correlated": result['summary']['correlated_count'],
@@ -7271,7 +7271,7 @@ async def generate_rule_from_threat(
     """
     try:
         # Get threat data
-        threats_data = await threat_intel.get_aggregated_threats()
+        threats_data = await threat_intel_service.get_aggregated_threats()
         threats = threats_data.get('threats', [])
 
         # Find the specific threat
@@ -7281,7 +7281,7 @@ async def generate_rule_from_threat(
             raise HTTPException(status_code=404, detail="Threat not found")
 
         # Generate rule
-        rule = threat_intel.generate_custom_rule_from_threat(threat)
+        rule = threat_intel_service.generate_custom_rule_from_threat(threat)
 
         return {
             "success": True,
@@ -7300,7 +7300,7 @@ async def get_threat_stats(
 ):
     """Get threat intelligence statistics"""
     try:
-        threats_data = await threat_intel.get_aggregated_threats()
+        threats_data = await threat_intel_service.get_aggregated_threats()
         threats = threats_data.get('threats', [])
 
         # Calculate stats
