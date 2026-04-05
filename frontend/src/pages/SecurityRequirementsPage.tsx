@@ -199,9 +199,9 @@ export default function SecurityRequirementsPage() {
   }
 
   const getRiskColor = (score: number) => {
-    if (score >= 70) return 'text-red-600 bg-red-900/30'
+    if (score >= 70) return 'text-red-600 bg-red-100'
     if (score >= 40) return 'text-amber-600 bg-amber-100'
-    return 'text-green-600 bg-green-900/30'
+    return 'text-green-600 bg-green-100'
   }
 
   const getRiskLabel = (score: number) => {
@@ -225,16 +225,16 @@ export default function SecurityRequirementsPage() {
         <div>
           <Link
             to={`/projects/${id}`}
-            className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-2"
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Project
           </Link>
-          <h1 className="text-2xl font-bold text-white flex items-center">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center">
             <Shield className="w-7 h-7 mr-2 text-indigo-600" />
             Security Requirements
           </h1>
-          <p className="text-gray-400 mt-1">
+          <p className="text-gray-600 mt-1">
             Analyze user stories for security threats and generate requirements
           </p>
         </div>
@@ -246,13 +246,13 @@ export default function SecurityRequirementsPage() {
             className={`inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
               insiderThreatMode
                 ? 'bg-red-600 text-white border-red-600 shadow-md'
-                : 'bg-gray-800 text-gray-400 border-gray-600 hover:border-red-400 hover:text-red-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-red-400 hover:text-red-600'
             }`}
             title="Toggle insider threat analysis mode"
           >
             <UserX className="w-4 h-4 mr-2" />
             Insider Threat
-            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-400'}`}>
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-100 text-gray-500'}`}>
               {insiderThreatMode ? 'ON' : 'OFF'}
             </span>
           </button>
@@ -294,11 +294,11 @@ export default function SecurityRequirementsPage() {
 
       {/* Insider Threat Mode Banner */}
       {insiderThreatMode && (
-        <div className="flex items-center p-3 bg-red-900/20 border border-red-700 rounded-lg">
+        <div className="flex items-center p-3 bg-red-50 border border-red-200 rounded-lg">
           <UserX className="w-5 h-5 text-red-600 mr-2 flex-shrink-0" />
           <div>
-            <span className="text-sm font-semibold text-red-300">Insider Threat Mode Active — </span>
-            <span className="text-sm text-red-400">Analysis will focus on privileged user abuse, data exfiltration by insiders, audit evasion, and access control bypass scenarios.</span>
+            <span className="text-sm font-semibold text-red-800">Insider Threat Mode Active — </span>
+            <span className="text-sm text-red-700">Analysis will focus on privileged user abuse, data exfiltration by insiders, audit evasion, and access control bypass scenarios.</span>
           </div>
         </div>
       )}
@@ -309,9 +309,9 @@ export default function SecurityRequirementsPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Total Stories</p>
-                <p className="text-2xl font-bold text-white">{summary.total_stories}</p>
-                <p className="text-xs text-gray-400">{summary.analyzed_stories} analyzed</p>
+                <p className="text-sm text-gray-600">Total Stories</p>
+                <p className="text-2xl font-bold text-gray-900">{summary.total_stories}</p>
+                <p className="text-xs text-gray-500">{summary.analyzed_stories} analyzed</p>
               </div>
               <FileText className="w-8 h-8 text-indigo-500" />
             </div>
@@ -320,9 +320,9 @@ export default function SecurityRequirementsPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Total Threats</p>
+                <p className="text-sm text-gray-600">Total Threats</p>
                 <p className="text-2xl font-bold text-red-600">{summary.total_threats}</p>
-                <p className="text-xs text-gray-400">STRIDE identified</p>
+                <p className="text-xs text-gray-500">STRIDE identified</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-500" />
             </div>
@@ -331,9 +331,9 @@ export default function SecurityRequirementsPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Requirements</p>
+                <p className="text-sm text-gray-600">Requirements</p>
                 <p className="text-2xl font-bold text-green-600">{summary.total_requirements}</p>
-                <p className="text-xs text-gray-400">Security controls</p>
+                <p className="text-xs text-gray-500">Security controls</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
@@ -342,11 +342,11 @@ export default function SecurityRequirementsPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Avg Risk Score</p>
+                <p className="text-sm text-gray-600">Avg Risk Score</p>
                 <p className={`text-2xl font-bold ${summary.average_risk_score >= 70 ? 'text-red-600' : summary.average_risk_score >= 40 ? 'text-amber-600' : 'text-green-600'}`}>
                   {summary.average_risk_score}
                 </p>
-                <p className="text-xs text-gray-400">{summary.high_risk_stories} high risk</p>
+                <p className="text-xs text-gray-500">{summary.high_risk_stories} high risk</p>
               </div>
               <Target className="w-8 h-8 text-amber-500" />
             </div>
@@ -356,14 +356,14 @@ export default function SecurityRequirementsPage() {
 
       {/* Stories List */}
       <div className="card">
-        <div className="p-4 border-b border-gray-700">
-          <h2 className="text-lg font-semibold text-white">User Stories</h2>
+        <div className="p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">User Stories</h2>
         </div>
 
         {stories.length === 0 ? (
           <div className="p-8 text-center">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-400">No user stories yet</p>
+            <p className="text-gray-500">No user stories yet</p>
             <p className="text-sm text-gray-400 mt-1">Add your first story to begin security analysis</p>
             <button
               onClick={() => setShowAddModal(true)}
@@ -374,7 +374,7 @@ export default function SecurityRequirementsPage() {
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-gray-700">
+          <div className="divide-y divide-gray-100">
             {stories.map((story) => (
               <StoryCard
                 key={story.id}
@@ -394,15 +394,15 @@ export default function SecurityRequirementsPage() {
       {/* Add Story Modal */}
       {showAddModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-4">
-            <div className="p-6 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white">Add User Story</h3>
-              <p className="text-sm text-gray-400 mt-1">Enter the details of your user story for security analysis</p>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Add User Story</h3>
+              <p className="text-sm text-gray-500 mt-1">Enter the details of your user story for security analysis</p>
             </div>
 
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Title <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -410,12 +410,12 @@ export default function SecurityRequirementsPage() {
                   value={newStory.title}
                   onChange={(e) => setNewStory({ ...newStory, title: e.target.value })}
                   placeholder="As a user, I want to..."
-                  className="w-full px-3 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -423,12 +423,12 @@ export default function SecurityRequirementsPage() {
                   onChange={(e) => setNewStory({ ...newStory, description: e.target.value })}
                   placeholder="Detailed description of the feature..."
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Acceptance Criteria
                 </label>
                 <textarea
@@ -436,12 +436,12 @@ export default function SecurityRequirementsPage() {
                   onChange={(e) => setNewStory({ ...newStory, acceptance_criteria: e.target.value })}
                   placeholder="Given... When... Then..."
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-700 flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
                 onClick={() => setShowAddModal(false)}
                 className="btn btn-secondary"
@@ -463,13 +463,13 @@ export default function SecurityRequirementsPage() {
       {/* Sync Stories Modal */}
       {showSyncModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg mx-4">
-            <div className="p-6 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white flex items-center">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Download className="w-5 h-5 mr-2 text-indigo-600" />
                 Sync Stories from External System
               </h3>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 Import user stories from Jira, Azure DevOps, or ServiceNow
               </p>
             </div>
@@ -477,17 +477,17 @@ export default function SecurityRequirementsPage() {
             <div className="p-6 space-y-4">
               {/* Source Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Source</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Source</label>
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setSyncSource('jira')}
                     disabled={!integrationStatus?.jira?.connected}
                     className={`p-3 border rounded-lg text-center transition ${
                       syncSource === 'jira'
-                        ? 'border-indigo-500 bg-indigo-900/20 text-indigo-400'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                         : integrationStatus?.jira?.connected
-                        ? 'border-gray-700 hover:border-gray-600'
-                        : 'border-gray-700 bg-gray-800/50 text-gray-400 cursor-not-allowed'
+                        ? 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Cloud className="w-6 h-6 mx-auto mb-1" />
@@ -501,10 +501,10 @@ export default function SecurityRequirementsPage() {
                     disabled={!integrationStatus?.ado?.connected}
                     className={`p-3 border rounded-lg text-center transition ${
                       syncSource === 'ado'
-                        ? 'border-indigo-500 bg-indigo-900/20 text-indigo-400'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                         : integrationStatus?.ado?.connected
-                        ? 'border-gray-700 hover:border-gray-600'
-                        : 'border-gray-700 bg-gray-800/50 text-gray-400 cursor-not-allowed'
+                        ? 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Cloud className="w-6 h-6 mx-auto mb-1" />
@@ -518,10 +518,10 @@ export default function SecurityRequirementsPage() {
                     disabled={!integrationStatus?.snow?.connected}
                     className={`p-3 border rounded-lg text-center transition ${
                       syncSource === 'snow'
-                        ? 'border-indigo-500 bg-indigo-900/20 text-indigo-400'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
                         : integrationStatus?.snow?.connected
-                        ? 'border-gray-700 hover:border-gray-600'
-                        : 'border-gray-700 bg-gray-800/50 text-gray-400 cursor-not-allowed'
+                        ? 'border-gray-200 hover:border-gray-300'
+                        : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
                     }`}
                   >
                     <Cloud className="w-6 h-6 mx-auto mb-1" />
@@ -535,7 +535,7 @@ export default function SecurityRequirementsPage() {
 
               {/* Project ID Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   {syncSource === 'jira' ? 'Jira Project Key/ID' :
                    syncSource === 'ado' ? 'Azure DevOps Project Name' :
                    'ServiceNow Product/Group ID'}
@@ -549,9 +549,9 @@ export default function SecurityRequirementsPage() {
                     syncSource === 'ado' ? 'e.g., MyProject' :
                     'e.g., product_sys_id'
                   }
-                  className="w-full px-3 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-500">
                   {syncSource === 'jira' ? 'Enter the Jira project key (e.g., PROJ) or numeric project ID' :
                    syncSource === 'ado' ? 'Enter the Azure DevOps project name' :
                    'Enter the ServiceNow product sys_id or assignment group'}
@@ -560,20 +560,20 @@ export default function SecurityRequirementsPage() {
 
               {syncMessage && (
                 <div className={`p-3 rounded-md ${
-                  syncMessage.type === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'
+                  syncMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
                 }`}>
                   {syncMessage.text}
                 </div>
               )}
 
               {!integrationStatus?.jira?.connected && !integrationStatus?.ado?.connected && !integrationStatus?.snow?.connected && (
-                <div className="p-3 rounded-md bg-yellow-900/20 text-yellow-300">
+                <div className="p-3 rounded-md bg-yellow-50 text-yellow-800">
                   No integrations configured. Go to <a href="/settings" className="underline font-medium">Settings</a> to configure Jira, Azure DevOps, or ServiceNow.
                 </div>
               )}
             </div>
 
-            <div className="p-6 border-t border-gray-700 flex justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowSyncModal(false)
@@ -633,11 +633,11 @@ function StoryCard({
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div className="p-4 hover:bg-gray-700 transition">
+    <div className="p-4 hover:bg-gray-50 transition">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-3">
-            <h3 className="text-sm font-semibold text-white truncate">
+            <h3 className="text-sm font-semibold text-gray-900 truncate">
               {story.title}
             </h3>
             {story.is_analyzed ? (
@@ -645,21 +645,21 @@ function StoryCard({
                 {getRiskLabel(story.risk_score)} ({story.risk_score})
               </span>
             ) : (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-400">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                 Not Analyzed
               </span>
             )}
             {story.source !== 'manual' && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-900/30 text-blue-400">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                 {story.source.toUpperCase()}
               </span>
             )}
           </div>
 
-          <p className="text-sm text-gray-400 mt-1 line-clamp-2">{story.description}</p>
+          <p className="text-sm text-gray-600 mt-1 line-clamp-2">{story.description}</p>
 
           {story.is_analyzed && (
-            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-400">
+            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
               <span className="flex items-center">
                 <AlertTriangle className="w-3 h-3 mr-1 text-red-500" />
                 {story.threat_count} threats
@@ -702,7 +702,7 @@ function StoryCard({
 
           <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1 text-gray-400 hover:text-gray-400"
+            className="p-1 text-gray-400 hover:text-gray-600"
           >
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
@@ -720,13 +720,13 @@ function StoryCard({
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Description</h4>
-              <p className="text-sm text-gray-300">{story.description}</p>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Description</h4>
+              <p className="text-sm text-gray-700">{story.description}</p>
             </div>
             {story.acceptance_criteria && (
               <div>
-                <h4 className="text-xs font-semibold text-gray-400 uppercase mb-2">Acceptance Criteria</h4>
-                <p className="text-sm text-gray-300 whitespace-pre-wrap">{story.acceptance_criteria}</p>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Acceptance Criteria</h4>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{story.acceptance_criteria}</p>
               </div>
             )}
           </div>
@@ -735,7 +735,7 @@ function StoryCard({
               href={story.external_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-400 mt-3"
+              className="inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700 mt-3"
             >
               <ExternalLink className="w-3 h-3 mr-1" />
               View in {story.source}

@@ -102,14 +102,14 @@ type Tab = 'overview' | 'commits' | 'timeline' | 'developers' | 'anomalies' | 'a
 const RISK_LEVELS = ['critical', 'high', 'medium', 'low', 'clean'] as const
 
 const RISK_BADGE: Record<string, string> = {
-  critical: 'bg-red-900/30 text-red-300 border-red-300',
-  high:     'bg-orange-900/30 text-orange-300 border-orange-300',
-  medium:   'bg-yellow-900/30 text-yellow-300 border-yellow-300',
-  low:      'bg-blue-900/30 text-blue-300 border-blue-300',
-  clean:    'bg-green-900/30 text-green-300 border-green-300',
+  critical: 'bg-red-100 text-red-800 border-red-300',
+  high:     'bg-orange-100 text-orange-800 border-orange-300',
+  medium:   'bg-yellow-100 text-yellow-800 border-yellow-300',
+  low:      'bg-blue-100 text-blue-800 border-blue-300',
+  clean:    'bg-green-100 text-green-800 border-green-300',
 }
 const RISK_BAR: Record<string, string> = {
-  critical: 'bg-red-900/30',
+  critical: 'bg-red-500',
   high:     'bg-orange-400',
   medium:   'bg-yellow-400',
   low:      'bg-blue-400',
@@ -123,21 +123,21 @@ const RISK_BORDER: Record<string, string> = {
   clean:    'border-l-green-400',
 }
 const SEVERITY_PILL: Record<string, string> = {
-  critical: 'bg-red-900/30 text-red-400',
-  high:     'bg-orange-900/30 text-orange-400',
-  medium:   'bg-yellow-900/30 text-yellow-400',
-  low:      'bg-blue-900/30 text-blue-400',
+  critical: 'bg-red-100 text-red-700',
+  high:     'bg-orange-100 text-orange-700',
+  medium:   'bg-yellow-100 text-yellow-700',
+  low:      'bg-blue-100 text-blue-700',
 }
 const SIGNAL_ICONS: Record<string, string> = {
   off_hours: '🕐', author_committer_mismatch: '👤', unsigned_commit: '🔓',
   large_deletion: '🗑️', force_push: '⚡',
 }
 const SIGNAL_STYLE: Record<string, { icon: string; label: string; bg: string; text: string; border: string }> = {
-  'suspicious_message':   { icon: '💬', label: 'Suspicious Message',   bg: 'bg-purple-900/20',  text: 'text-purple-400',  border: 'border-purple-700' },
-  'binary_files':         { icon: '📦', label: 'Binary Files',         bg: 'bg-rose-900/20',    text: 'text-rose-700',    border: 'border-rose-200' },
-  'dependency_tampering': { icon: '🧬', label: 'Dependency Tampering', bg: 'bg-pink-900/20',    text: 'text-pink-700',    border: 'border-pink-700' },
-  'cicd_tampering':       { icon: '🔧', label: 'CI/CD Tampering',      bg: 'bg-indigo-900/20',  text: 'text-indigo-400',  border: 'border-indigo-700' },
-  'config_weakening':     { icon: '🛡️', label: 'Config Weakened',      bg: 'bg-orange-900/20',  text: 'text-orange-400',  border: 'border-orange-700' },
+  'suspicious_message':   { icon: '💬', label: 'Suspicious Message',   bg: 'bg-purple-50',  text: 'text-purple-700',  border: 'border-purple-200' },
+  'binary_files':         { icon: '📦', label: 'Binary Files',         bg: 'bg-rose-50',    text: 'text-rose-700',    border: 'border-rose-200' },
+  'dependency_tampering': { icon: '🧬', label: 'Dependency Tampering', bg: 'bg-pink-50',    text: 'text-pink-700',    border: 'border-pink-200' },
+  'cicd_tampering':       { icon: '🔧', label: 'CI/CD Tampering',      bg: 'bg-indigo-50',  text: 'text-indigo-700',  border: 'border-indigo-200' },
+  'config_weakening':     { icon: '🛡️', label: 'Config Weakened',      bg: 'bg-orange-50',  text: 'text-orange-700',  border: 'border-orange-200' },
 }
 
 // ---------------------------------------------------------------------------
@@ -180,11 +180,11 @@ function RiskBadge({ level }: { level: string }) {
 function SignalChip({ signal }: { signal: string }) {
   if (signal.startsWith('sast_findings:')) {
     const n = signal.split(':')[1]
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-900/20 text-red-400 border border-red-700">🔍 {n} finding{parseInt(n) !== 1 ? 's' : ''}</span>
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-red-50 text-red-700 border border-red-200">🔍 {n} finding{parseInt(n) !== 1 ? 's' : ''}</span>
   }
   if (signal.startsWith('sensitive_files:')) {
     const n = signal.split(':')[1]
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-amber-900/20 text-amber-700 border border-amber-200">🗂️ {n} sensitive</span>
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200">🗂️ {n} sensitive</span>
   }
   // New parameterized signals: binary_files:N, dependency_tampering:labels, cicd_tampering:labels, config_weakening:labels, suspicious_message:type
   for (const key of Object.keys(SIGNAL_STYLE)) {
@@ -200,7 +200,7 @@ function SignalChip({ signal }: { signal: string }) {
     }
   }
   const icon = SIGNAL_ICONS[signal] ?? '⚠️'
-  return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-300 border border-gray-700">{icon} {signal.replace(/_/g, ' ')}</span>
+  return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700 border border-gray-200">{icon} {signal.replace(/_/g, ' ')}</span>
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +209,7 @@ function SignalChip({ signal }: { signal: string }) {
 function RiskDistributionBar({ stats, showLabels = false }: { stats: RepoStat; showLabels?: boolean }) {
   const total = stats.total_scanned || 1
   const segments = [
-    { key: 'critical_count' as keyof RepoStat, bg: 'bg-red-900/30',    label: 'Crit' },
+    { key: 'critical_count' as keyof RepoStat, bg: 'bg-red-500',    label: 'Crit' },
     { key: 'high_count'     as keyof RepoStat, bg: 'bg-orange-400', label: 'High' },
     { key: 'medium_count'   as keyof RepoStat, bg: 'bg-yellow-400', label: 'Med' },
     { key: 'low_count'      as keyof RepoStat, bg: 'bg-blue-400',   label: 'Low' },
@@ -217,7 +217,7 @@ function RiskDistributionBar({ stats, showLabels = false }: { stats: RepoStat; s
   ]
   return (
     <div>
-      <div className="flex h-3 rounded-full overflow-hidden w-full bg-gray-700">
+      <div className="flex h-3 rounded-full overflow-hidden w-full bg-gray-100">
         {segments.map(seg => {
           const count = stats[seg.key] as number
           const pct = (count / total) * 100
@@ -238,7 +238,7 @@ function RiskDistributionBar({ stats, showLabels = false }: { stats: RepoStat; s
             const count = stats[seg.key] as number
             return (
               <div key={seg.key} className="text-center flex-1">
-                <span className={`text-xs font-semibold ${count > 0 ? 'text-gray-100' : 'text-gray-300'}`}>{count}</span>
+                <span className={`text-xs font-semibold ${count > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{count}</span>
                 <p className="text-[10px] text-gray-400">{seg.label}</p>
               </div>
             )
@@ -264,23 +264,23 @@ function RepoRiskCard({
   const borderClass = RISK_BORDER[worst] ?? 'border-l-gray-300'
 
   return (
-    <div className={`bg-gray-800 border border-gray-700 border-l-4 ${borderClass} rounded-lg p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow`}>
+    <div className={`bg-white border border-gray-200 border-l-4 ${borderClass} rounded-lg p-4 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow`}>
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="font-semibold text-white text-sm truncate">{stats.full_name}</span>
+            <span className="font-semibold text-gray-900 text-sm truncate">{stats.full_name}</span>
           </div>
           <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-            <code className="bg-gray-700 px-1 rounded">{stats.default_branch}</code>
+            <code className="bg-gray-100 px-1 rounded">{stats.default_branch}</code>
             {stats.last_scanned_at ? `Scanned ${timeAgo(stats.last_scanned_at)}` : 'Never scanned'}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <RiskBadge level={worst} />
           {stats.open_alerts > 0 && (
-            <span className="text-xs text-amber-700 bg-amber-900/20 border border-amber-200 px-1.5 py-0.5 rounded-full">
+            <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
               ⚠️ {stats.open_alerts} alert{stats.open_alerts > 1 ? 's' : ''}
             </span>
           )}
@@ -298,10 +298,10 @@ function RepoRiskCard({
 
       {/* Stats row */}
       {stats.total_scanned > 0 && (
-        <div className="flex justify-between text-xs text-gray-400 bg-gray-800/50 rounded-lg px-3 py-2">
-          <span><strong className="text-gray-100">{stats.total_scanned}</strong> commits</span>
-          <span>Peak <strong className={`${stats.peak_risk_score >= 7 ? 'text-red-600' : stats.peak_risk_score >= 4 ? 'text-orange-600' : 'text-gray-300'}`}>{stats.peak_risk_score.toFixed(1)}</strong></span>
-          <span>Avg <strong className="text-gray-300">{stats.avg_risk_score.toFixed(1)}</strong></span>
+        <div className="flex justify-between text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+          <span><strong className="text-gray-800">{stats.total_scanned}</strong> commits</span>
+          <span>Peak <strong className={`${stats.peak_risk_score >= 7 ? 'text-red-600' : stats.peak_risk_score >= 4 ? 'text-orange-600' : 'text-gray-700'}`}>{stats.peak_risk_score.toFixed(1)}</strong></span>
+          <span>Avg <strong className="text-gray-700">{stats.avg_risk_score.toFixed(1)}</strong></span>
         </div>
       )}
 
@@ -310,14 +310,14 @@ function RepoRiskCard({
         <button
           onClick={() => onScanNow(stats.id)}
           disabled={scanning}
-          className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium bg-indigo-900/20 text-indigo-400 border border-indigo-700 rounded-md hover:bg-indigo-900/30 disabled:opacity-50"
+          className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md hover:bg-indigo-100 disabled:opacity-50"
         >
           {scanning ? <RefreshCw className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
           Scan Now
         </button>
         <button
           onClick={() => onViewCommits(stats.id)}
-          className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium bg-gray-800/50 text-gray-300 border border-gray-700 rounded-md hover:bg-gray-700"
+          className="flex-1 inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium bg-gray-50 text-gray-700 border border-gray-200 rounded-md hover:bg-gray-100"
         >
           <Eye className="w-3.5 h-3.5 mr-1" />
           View Commits
@@ -430,7 +430,7 @@ function RiskTimelineHeatmap({ repos }: { repos: MonitoredRepo[] }) {
   useEffect(() => { load() }, [load])
 
   const rowLabels: { level: string; bg: string; label: string }[] = [
-    { level: 'critical', bg: 'bg-red-900/30',    label: 'Critical' },
+    { level: 'critical', bg: 'bg-red-500',    label: 'Critical' },
     { level: 'high',     bg: 'bg-orange-400', label: 'High' },
     { level: 'medium',   bg: 'bg-yellow-400', label: 'Med' },
     { level: 'low',      bg: 'bg-blue-400',   label: 'Low' },
@@ -441,20 +441,20 @@ function RiskTimelineHeatmap({ repos }: { repos: MonitoredRepo[] }) {
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h3 className="text-base font-semibold text-white">14-Day Commit Risk Timeline</h3>
-          <p className="text-xs text-gray-400">Each column is one day — color intensity shows commit volume at each risk level</p>
+          <h3 className="text-base font-semibold text-gray-900">14-Day Commit Risk Timeline</h3>
+          <p className="text-xs text-gray-500">Each column is one day — color intensity shows commit volume at each risk level</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={selectedRepo}
             onChange={e => setSelectedRepo(e.target.value)}
-            className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All Repos</option>
             {repos.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
           </select>
-          <button onClick={load} className="p-1.5 rounded-md bg-gray-700 hover:bg-gray-600">
-            <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          <button onClick={load} className="p-1.5 rounded-md bg-gray-100 hover:bg-gray-200">
+            <RefreshCw className={`w-4 h-4 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -474,7 +474,7 @@ function RiskTimelineHeatmap({ repos }: { repos: MonitoredRepo[] }) {
                 {rowLabels.map(row => (
                   <div key={row.level} className="flex items-center justify-end gap-1" style={{ height: '28px' }}>
                     <div className={`w-2.5 h-2.5 rounded-sm ${row.bg} flex-shrink-0`} />
-                    <span className="text-[10px] text-gray-400 font-medium">{row.label}</span>
+                    <span className="text-[10px] text-gray-500 font-medium">{row.label}</span>
                   </div>
                 ))}
               </div>
@@ -544,9 +544,9 @@ function RiskTimelineHeatmap({ repos }: { repos: MonitoredRepo[] }) {
 // Developer Risk Cards (replaces table)
 // ---------------------------------------------------------------------------
 const BASELINE_STATUS_META = {
-  established: { label: 'Established', color: 'text-green-400', bg: 'bg-green-900/20 border-green-700' },
-  partial:     { label: 'Partial',     color: 'text-yellow-400', bg: 'bg-yellow-900/20 border-yellow-700' },
-  insufficient:{ label: 'Insufficient',color: 'text-gray-400',  bg: 'bg-gray-800/50 border-gray-700' },
+  established: { label: 'Established', color: 'text-green-700', bg: 'bg-green-50 border-green-200' },
+  partial:     { label: 'Partial',     color: 'text-yellow-700', bg: 'bg-yellow-50 border-yellow-200' },
+  insufficient:{ label: 'Insufficient',color: 'text-gray-500',  bg: 'bg-gray-50 border-gray-200' },
 }
 
 const ANOMALY_TYPE_LABELS: Record<string, string> = {
@@ -588,11 +588,11 @@ function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDo
   const bMeta = bl ? (BASELINE_STATUS_META[bl.baseline_status] ?? BASELINE_STATUS_META.insufficient) : null
 
   return (
-    <div className="p-4 bg-gray-800/50 border-t border-gray-100 space-y-4">
+    <div className="p-4 bg-gray-50 border-t border-gray-100 space-y-4">
       {/* Baseline stats */}
-      <div className="bg-gray-800 border border-gray-700 rounded-lg p-4">
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-semibold text-gray-100 flex items-center gap-1.5">
+          <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
             <BarChart2 className="w-4 h-4 text-indigo-500" /> Behavioral Baseline
           </h4>
           <div className="flex items-center gap-2">
@@ -613,26 +613,26 @@ function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDo
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Normal Work Hours</p>
-              <p className="font-semibold text-gray-100">
+              <p className="font-semibold text-gray-800">
                 {String(bl.typical_hour_start).padStart(2,'0')}:00 – {String(bl.typical_hour_end).padStart(2,'0')}:00
               </p>
               <p className="text-xs text-gray-400 mt-0.5">mean {bl.mean_commit_hour.toFixed(0)}h ± {bl.std_commit_hour.toFixed(1)}h σ</p>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1 flex items-center gap-1"><Activity className="w-3 h-3" /> Activity Rate</p>
-              <p className="font-semibold text-gray-100">{bl.avg_commits_per_week.toFixed(1)} commits/wk</p>
+              <p className="font-semibold text-gray-800">{bl.avg_commits_per_week.toFixed(1)} commits/wk</p>
               <p className="text-xs text-gray-400 mt-0.5">avg risk {bl.avg_risk_score.toFixed(1)}/10</p>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">Avg Commit Size</p>
-              <p className="font-semibold text-gray-100">+{bl.avg_additions.toFixed(0)} / -{bl.avg_deletions.toFixed(0)}</p>
+              <p className="font-semibold text-gray-800">+{bl.avg_additions.toFixed(0)} / -{bl.avg_deletions.toFixed(0)}</p>
               <p className="text-xs text-gray-400 mt-0.5">{bl.avg_files_changed.toFixed(1)} files avg</p>
             </div>
-            <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-400 mb-1">P90 Commit Size</p>
-              <p className="font-semibold text-gray-100">+{bl.p90_additions.toFixed(0)} / -{bl.p90_deletions.toFixed(0)}</p>
+              <p className="font-semibold text-gray-800">+{bl.p90_additions.toFixed(0)} / -{bl.p90_deletions.toFixed(0)}</p>
               <p className="text-xs text-gray-400 mt-0.5">90th percentile</p>
             </div>
           </div>
@@ -641,11 +641,11 @@ function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDo
 
       {/* Recent anomalies */}
       <div>
-        <h4 className="text-sm font-semibold text-gray-100 flex items-center gap-1.5 mb-2">
+        <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 mb-2">
           <AlertTriangle className="w-4 h-4 text-orange-500" />
           Recent Anomalies
           {anomalies.length > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-900/30 text-red-400 rounded-full">{anomalies.length}</span>
+            <span className="ml-1 px-1.5 py-0.5 text-xs font-bold bg-red-100 text-red-700 rounded-full">{anomalies.length}</span>
           )}
         </h4>
         {anomalies.length === 0 ? (
@@ -654,18 +654,18 @@ function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDo
           <div className="space-y-1.5">
             {anomalies.map(a => (
               <div key={a.id} className={`flex items-start gap-2 p-2.5 rounded-lg border text-xs ${
-                a.severity === 'high' ? 'bg-red-900/20 border-red-700' :
-                a.severity === 'medium' ? 'bg-orange-900/20 border-orange-700' :
-                'bg-yellow-900/20 border-yellow-700'
+                a.severity === 'high' ? 'bg-red-50 border-red-200' :
+                a.severity === 'medium' ? 'bg-orange-50 border-orange-200' :
+                'bg-yellow-50 border-yellow-200'
               }`}>
                 <span className={`font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                  a.severity === 'high' ? 'bg-red-200 text-red-300' :
-                  a.severity === 'medium' ? 'bg-orange-200 text-orange-300' :
-                  'bg-yellow-200 text-yellow-300'
+                  a.severity === 'high' ? 'bg-red-200 text-red-800' :
+                  a.severity === 'medium' ? 'bg-orange-200 text-orange-800' :
+                  'bg-yellow-200 text-yellow-800'
                 }`}>{a.severity.toUpperCase()}</span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-100">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</p>
-                  <p className="text-gray-400 mt-0.5">{a.description}</p>
+                  <p className="font-medium text-gray-800">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</p>
+                  <p className="text-gray-600 mt-0.5">{a.description}</p>
                   {a.sha && <p className="text-gray-400 font-mono mt-0.5">{a.sha.slice(0, 8)} · {timeAgo(a.created_at)}</p>}
                 </div>
               </div>
@@ -676,7 +676,7 @@ function DeveloperDetailPanel({ email, onDrillDown }: { email: string; onDrillDo
 
       <button
         onClick={() => onDrillDown(email)}
-        className="w-full text-xs text-indigo-600 hover:text-indigo-300 font-medium py-1.5 border border-indigo-100 hover:border-indigo-300 rounded-md bg-indigo-900/20 hover:bg-indigo-900/30 transition"
+        className="w-full text-xs text-indigo-600 hover:text-indigo-800 font-medium py-1.5 border border-indigo-100 hover:border-indigo-300 rounded-md bg-indigo-50 hover:bg-indigo-100 transition"
       >
         View Commits →
       </button>
@@ -706,31 +706,31 @@ function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDow
   const initials = (dev.author_name || dev.author_email || '?').slice(0, 2).toUpperCase()
 
   return (
-    <div className={`bg-gray-800 border border-gray-700 border-l-4 ${borderColor} rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
+    <div className={`bg-white border border-gray-200 border-l-4 ${borderColor} rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
       <div className="p-4 flex flex-col gap-3">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
-            <span className="text-indigo-400 font-bold text-sm">{initials}</span>
+          <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-indigo-700 font-bold text-sm">{initials}</span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-white text-sm truncate">{dev.author_name || '(no name)'}</p>
-            <p className="text-xs text-gray-400 truncate">{dev.author_email}</p>
+            <p className="font-semibold text-gray-900 text-sm truncate">{dev.author_name || '(no name)'}</p>
+            <p className="text-xs text-gray-500 truncate">{dev.author_email}</p>
           </div>
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-3 gap-2 bg-gray-800/50 rounded-lg px-3 py-2">
+        <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded-lg px-3 py-2">
           <div className="text-center">
-            <p className="text-lg font-bold text-gray-100">{dev.total_commits}</p>
+            <p className="text-lg font-bold text-gray-800">{dev.total_commits}</p>
             <p className="text-[10px] text-gray-400">Commits</p>
           </div>
           <div className="text-center">
-            <p className={`text-lg font-bold ${dev.high_risk_commits > 0 ? 'text-red-600' : 'text-gray-100'}`}>{dev.high_risk_commits}</p>
+            <p className={`text-lg font-bold ${dev.high_risk_commits > 0 ? 'text-red-600' : 'text-gray-800'}`}>{dev.high_risk_commits}</p>
             <p className="text-[10px] text-gray-400">High-Risk</p>
           </div>
           <div className="text-center">
-            <p className="text-lg font-bold text-gray-100">{dev.total_findings}</p>
+            <p className="text-lg font-bold text-gray-800">{dev.total_findings}</p>
             <p className="text-[10px] text-gray-400">Findings</p>
           </div>
         </div>
@@ -738,10 +738,10 @@ function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDow
         {/* Risk score bar */}
         <div>
           <div className="flex justify-between items-center mb-1">
-            <span className="text-xs text-gray-400">Avg Risk Score</span>
+            <span className="text-xs text-gray-500">Avg Risk Score</span>
             <span className={`text-sm font-bold ${riskColor}`}>{dev.avg_risk_score.toFixed(1)}/10</span>
           </div>
-          <div className="h-2 rounded-full bg-gray-600">
+          <div className="h-2 rounded-full bg-gray-200">
             <div
               className="h-2 rounded-full bg-gradient-to-r from-green-400 via-yellow-400 to-red-600 transition-all"
               style={{ width: `${barWidth}%` }}
@@ -758,7 +758,7 @@ function DeveloperCard({ dev, onDrillDown }: { dev: DeveloperProfile; onDrillDow
         {/* Expand baseline button */}
         <button
           onClick={() => setExpanded(e => !e)}
-          className="w-full text-xs font-medium py-1.5 border rounded-md transition flex items-center justify-center gap-1.5 text-indigo-600 border-indigo-100 hover:border-indigo-300 bg-indigo-900/20 hover:bg-indigo-900/30"
+          className="w-full text-xs font-medium py-1.5 border rounded-md transition flex items-center justify-center gap-1.5 text-indigo-600 border-indigo-100 hover:border-indigo-300 bg-indigo-50 hover:bg-indigo-100"
         >
           <BarChart2 className="w-3.5 h-3.5" />
           {expanded ? 'Hide Baseline' : 'Baseline & Anomalies'}
@@ -814,25 +814,25 @@ function BehavioralAnomaliesTab() {
       {/* Summary chips */}
       <div className="flex flex-wrap gap-2">
         {[
-          { label: 'High', key: 'high', color: 'bg-red-900/30 text-red-400 border-red-300' },
-          { label: 'Medium', key: 'medium', color: 'bg-orange-900/30 text-orange-400 border-orange-300' },
-          { label: 'Low', key: 'low', color: 'bg-yellow-900/30 text-yellow-400 border-yellow-300' },
+          { label: 'High', key: 'high', color: 'bg-red-100 text-red-700 border-red-300' },
+          { label: 'Medium', key: 'medium', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+          { label: 'Low', key: 'low', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
         ].map(s => (
           <button
             key={s.key}
             onClick={() => { setSeverity(severity === s.key ? '' : s.key); setPage(1) }}
-            className={`px-3 py-1 text-sm font-medium rounded-full border ${severity === s.key ? s.color : 'bg-gray-800 border-gray-700 text-gray-400'}`}
+            className={`px-3 py-1 text-sm font-medium rounded-full border ${severity === s.key ? s.color : 'bg-white border-gray-200 text-gray-600'}`}
           >
             {s.label} <span className="font-bold">{severityCounts[s.key] ?? 0}</span>
           </button>
         ))}
         <button
           onClick={() => { setAnomalyType(anomalyType === 'off_hours_deviation' ? '' : 'off_hours_deviation'); setPage(1) }}
-          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'off_hours_deviation' ? 'bg-indigo-900/30 text-indigo-400 border-indigo-300' : 'bg-gray-800 border-gray-700 text-gray-400'}`}
+          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'off_hours_deviation' ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-white border-gray-200 text-gray-600'}`}
         >🕐 Off-Hours</button>
         <button
           onClick={() => { setAnomalyType(anomalyType === 'risk_spike' ? '' : 'risk_spike'); setPage(1) }}
-          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'risk_spike' ? 'bg-red-900/30 text-red-400 border-red-300' : 'bg-gray-800 border-gray-700 text-gray-400'}`}
+          className={`px-3 py-1 text-sm rounded-full border ${anomalyType === 'risk_spike' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-white border-gray-200 text-gray-600'}`}
         >⚡ Risk Spike</button>
       </div>
 
@@ -840,8 +840,8 @@ function BehavioralAnomaliesTab() {
       <div className="flex flex-wrap gap-3 items-center">
         <input value={author} onChange={e => { setAuthor(e.target.value); setPage(1) }}
           placeholder="Filter by developer…"
-          className="px-3 py-1.5 text-sm border border-gray-700 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-        <label className="flex items-center gap-1.5 text-sm text-gray-400">
+          className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+        <label className="flex items-center gap-1.5 text-sm text-gray-600">
           <input type="checkbox" checked={showAcked} onChange={e => { setShowAcked(e.target.checked); setPage(1) }} />
           Show acknowledged
         </label>
@@ -859,24 +859,24 @@ function BehavioralAnomaliesTab() {
         <div className="space-y-2">
           {anomalies.map(a => (
             <div key={a.id} className={`flex items-start gap-3 p-3 rounded-lg border ${
-              a.acknowledged ? 'bg-gray-800/50 border-gray-700 opacity-60' :
-              a.severity === 'high' ? 'bg-red-900/20 border-red-700' :
-              a.severity === 'medium' ? 'bg-orange-900/20 border-orange-700' :
-              'bg-yellow-900/20 border-yellow-700'
+              a.acknowledged ? 'bg-gray-50 border-gray-200 opacity-60' :
+              a.severity === 'high' ? 'bg-red-50 border-red-200' :
+              a.severity === 'medium' ? 'bg-orange-50 border-orange-200' :
+              'bg-yellow-50 border-yellow-200'
             }`}>
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
-                a.severity === 'high' ? 'bg-red-200 text-red-300' :
-                a.severity === 'medium' ? 'bg-orange-200 text-orange-300' :
-                'bg-yellow-200 text-yellow-300'
+                a.severity === 'high' ? 'bg-red-200 text-red-800' :
+                a.severity === 'medium' ? 'bg-orange-200 text-orange-800' :
+                'bg-yellow-200 text-yellow-800'
               }`}>{a.severity.toUpperCase()}</span>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold text-gray-100">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</span>
-                  <span className="text-xs text-gray-400">{a.author_email}</span>
+                  <span className="text-sm font-semibold text-gray-800">{ANOMALY_TYPE_LABELS[a.anomaly_type] ?? a.anomaly_type}</span>
+                  <span className="text-xs text-gray-500">{a.author_email}</span>
                   {a.repo_full_name && <span className="text-xs text-gray-400">{a.repo_full_name}</span>}
                 </div>
-                <p className="text-xs text-gray-400 mt-0.5">{a.description}</p>
+                <p className="text-xs text-gray-600 mt-0.5">{a.description}</p>
                 {a.sha && (
                   <p className="text-xs text-gray-400 font-mono mt-0.5">
                     {a.sha.slice(0,8)}
@@ -888,7 +888,7 @@ function BehavioralAnomaliesTab() {
 
               {!a.acknowledged && (
                 <button onClick={() => ack(a.id)}
-                  className="shrink-0 text-xs px-2 py-1 border border-gray-600 rounded hover:bg-gray-800 text-gray-400">
+                  className="shrink-0 text-xs px-2 py-1 border border-gray-300 rounded hover:bg-white text-gray-600">
                   Ack
                 </button>
               )}
@@ -901,7 +901,7 @@ function BehavioralAnomaliesTab() {
       {total > PAGE_SIZE && (
         <div className="flex justify-center gap-2 mt-4">
           <button disabled={page === 1} onClick={() => setPage(p => p-1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Prev</button>
-          <span className="px-3 py-1.5 text-sm text-gray-400">Page {page} of {Math.ceil(total/PAGE_SIZE)}</span>
+          <span className="px-3 py-1.5 text-sm text-gray-600">Page {page} of {Math.ceil(total/PAGE_SIZE)}</span>
           <button disabled={page >= Math.ceil(total/PAGE_SIZE)} onClick={() => setPage(p => p+1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Next</button>
         </div>
       )}
@@ -932,20 +932,20 @@ function CommitRow({ commit, expanded, onExpand, onFpChange }: {
   }
 
   return (
-    <div className={`border rounded-lg overflow-hidden mb-2 ${isFp ? 'border-gray-700 opacity-60' : 'border-gray-700'}`}>
-      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-700" onClick={onExpand}>
+    <div className={`border rounded-lg overflow-hidden mb-2 ${isFp ? 'border-gray-200 opacity-60' : 'border-gray-200'}`}>
+      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-50" onClick={onExpand}>
         <div className="flex items-center space-x-3 flex-1 min-w-0">
           {expanded ? <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />}
           <div className="min-w-0">
             <div className="flex items-center flex-wrap gap-2 mb-1">
-              <code className="text-xs bg-gray-700 px-1.5 py-0.5 rounded font-mono">{commit.sha.slice(0, 8)}</code>
-              <span className="text-xs text-gray-400">{commit.repo_full_name}</span>
+              <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded font-mono">{commit.sha.slice(0, 8)}</code>
+              <span className="text-xs text-gray-500">{commit.repo_full_name}</span>
               <RiskBadge level={commit.risk_level} />
-              <span className="text-xs font-semibold text-gray-400">Score: {commit.risk_score.toFixed(1)}</span>
-              {isFp && <span className="text-xs px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded border">False Positive</span>}
+              <span className="text-xs font-semibold text-gray-600">Score: {commit.risk_score.toFixed(1)}</span>
+              {isFp && <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded border">False Positive</span>}
             </div>
-            <p className="text-sm text-gray-300 truncate">{commit.commit_message?.split('\n')[0]}</p>
-            <div className="flex items-center gap-3 mt-1 text-xs text-gray-400 flex-wrap">
+            <p className="text-sm text-gray-700 truncate">{commit.commit_message?.split('\n')[0]}</p>
+            <div className="flex items-center gap-3 mt-1 text-xs text-gray-500 flex-wrap">
               <span>{commit.author_name} ({commit.author_email})</span>
               <span>·</span><span>{timeAgo(commit.committed_at)}</span>
               <span>·</span><span>+{commit.additions} / -{commit.deletions}</span>
@@ -958,7 +958,7 @@ function CommitRow({ commit, expanded, onExpand, onFpChange }: {
             onClick={toggleFp}
             disabled={fpLoading}
             title={isFp ? 'Remove false positive flag' : 'Mark as false positive'}
-            className={`ml-1 text-xs px-2 py-1 rounded border transition ${isFp ? 'bg-gray-700 text-gray-400 border-gray-600 hover:bg-gray-800' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700 hover:text-gray-400'}`}
+            className={`ml-1 text-xs px-2 py-1 rounded border transition ${isFp ? 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-white' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50 hover:text-gray-600'}`}
           >
             {fpLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle className={`w-3 h-3 ${isFp ? 'text-green-500' : ''}`} />}
           </button>
@@ -970,10 +970,10 @@ function CommitRow({ commit, expanded, onExpand, onFpChange }: {
 }
 
 const THREAT_LEVEL_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
-  intentional_insider: { label: 'Intentional Insider Threat', color: 'text-red-400', bg: 'bg-red-900/20', border: 'border-red-300', icon: '🚨' },
-  suspicious:          { label: 'Suspicious Activity',        color: 'text-orange-400', bg: 'bg-orange-900/20', border: 'border-orange-300', icon: '⚠️' },
-  negligent:           { label: 'Negligent / Accidental',     color: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-300', icon: '⚡' },
-  false_positive:      { label: 'Likely False Positive',      color: 'text-green-400', bg: 'bg-green-900/20', border: 'border-green-300', icon: '✓' },
+  intentional_insider: { label: 'Intentional Insider Threat', color: 'text-red-700', bg: 'bg-red-50', border: 'border-red-300', icon: '🚨' },
+  suspicious:          { label: 'Suspicious Activity',        color: 'text-orange-700', bg: 'bg-orange-50', border: 'border-orange-300', icon: '⚠️' },
+  negligent:           { label: 'Negligent / Accidental',     color: 'text-yellow-700', bg: 'bg-yellow-50', border: 'border-yellow-300', icon: '⚡' },
+  false_positive:      { label: 'Likely False Positive',      color: 'text-green-700', bg: 'bg-green-50', border: 'border-green-300', icon: '✓' },
 }
 
 function CommitDetail({ scanId }: { scanId: number }) {
@@ -1019,39 +1019,39 @@ function CommitDetail({ scanId }: { scanId: number }) {
 
   const filesDetail: FileDetail[] = detail.files_detail || []
   const FILE_STATUS_COLORS: Record<string, string> = {
-    added: 'bg-green-900/30 text-green-300',
-    modified: 'bg-blue-900/30 text-blue-300',
-    removed: 'bg-red-900/30 text-red-300',
-    renamed: 'bg-purple-900/30 text-purple-300',
+    added: 'bg-green-100 text-green-800',
+    modified: 'bg-blue-100 text-blue-800',
+    removed: 'bg-red-100 text-red-800',
+    renamed: 'bg-purple-100 text-purple-800',
   }
 
   return (
-    <div className="border-t border-gray-700 bg-gray-800/50">
+    <div className="border-t border-gray-200 bg-gray-50">
       <div className="p-4 space-y-4">
 
         {/* Files Changed Breakdown */}
         {filesDetail.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-300 mb-2 flex items-center gap-1">
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
               <FileText className="w-3.5 h-3.5 text-blue-500" />
               Files Changed ({filesDetail.length})
             </p>
-            <div className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-gray-800/50 border-b border-gray-700">
-                    <th className="text-left px-3 py-1.5 font-medium text-gray-400">File</th>
-                    <th className="text-center px-2 py-1.5 font-medium text-gray-400 w-16">Status</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-3 py-1.5 font-medium text-gray-500">File</th>
+                    <th className="text-center px-2 py-1.5 font-medium text-gray-500 w-16">Status</th>
                     <th className="text-right px-2 py-1.5 font-medium text-green-600 w-12">+</th>
                     <th className="text-right px-3 py-1.5 font-medium text-red-600 w-12">−</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filesDetail.map((fd, idx) => (
-                    <tr key={idx} className="border-b border-gray-50 hover:bg-gray-700">
-                      <td className="px-3 py-1.5 font-mono text-gray-300 truncate max-w-[300px]" title={fd.filename}>{fd.filename}</td>
+                    <tr key={idx} className="border-b border-gray-50 hover:bg-gray-50">
+                      <td className="px-3 py-1.5 font-mono text-gray-700 truncate max-w-[300px]" title={fd.filename}>{fd.filename}</td>
                       <td className="text-center px-2 py-1.5">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${FILE_STATUS_COLORS[fd.status] || 'bg-gray-700 text-gray-400'}`}>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${FILE_STATUS_COLORS[fd.status] || 'bg-gray-100 text-gray-600'}`}>
                           {fd.status}
                         </span>
                       </td>
@@ -1068,7 +1068,7 @@ function CommitDetail({ scanId }: { scanId: number }) {
         {/* SAST Findings */}
         {findings.length > 0 && (
           <div>
-            <p className="text-xs font-semibold text-gray-300 mb-2 flex items-center gap-1">
+            <p className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
               <ShieldAlert className="w-3.5 h-3.5 text-red-500" />
               SAST Findings ({findings.length})
             </p>
@@ -1076,17 +1076,17 @@ function CommitDetail({ scanId }: { scanId: number }) {
               {findings.map((f) => {
                 const findingIsFp = (f as any).false_positive === 1
                 return (
-                <div key={f.id} className={`bg-gray-800 border rounded-lg overflow-hidden ${findingIsFp ? 'border-gray-100 opacity-60' : 'border-gray-700'}`}>
+                <div key={f.id} className={`bg-white border rounded-lg overflow-hidden ${findingIsFp ? 'border-gray-100 opacity-60' : 'border-gray-200'}`}>
                   {/* Finding header */}
                   <div
-                    className="flex items-start gap-2 p-2.5 cursor-pointer hover:bg-gray-700"
+                    className="flex items-start gap-2 p-2.5 cursor-pointer hover:bg-gray-50"
                     onClick={() => setExpandedFindingId(expandedFindingId === f.id ? null : f.id)}
                   >
-                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0 ${findingIsFp ? 'bg-gray-700 text-gray-400' : SEVERITY_PILL[f.severity] ?? ''}`}>
+                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold flex-shrink-0 ${findingIsFp ? 'bg-gray-100 text-gray-400' : SEVERITY_PILL[f.severity] ?? ''}`}>
                       {f.severity.toUpperCase()}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <span className="text-xs font-semibold text-gray-100">{f.rule_name}</span>
+                      <span className="text-xs font-semibold text-gray-800">{f.rule_name}</span>
                       {findingIsFp && <span className="ml-2 text-xs text-gray-400 italic">false positive</span>}
                       {f.file_path && (
                         <span className="ml-2 text-xs text-gray-400 font-mono">
@@ -1095,8 +1095,8 @@ function CommitDetail({ scanId }: { scanId: number }) {
                       )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {f.cwe && <span className="text-xs px-1.5 py-0.5 bg-blue-900/20 text-blue-400 rounded font-mono">{f.cwe}</span>}
-                      {f.owasp && <span className="text-xs px-1.5 py-0.5 bg-purple-900/20 text-purple-400 rounded font-mono">{f.owasp}</span>}
+                      {f.cwe && <span className="text-xs px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded font-mono">{f.cwe}</span>}
+                      {f.owasp && <span className="text-xs px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded font-mono">{f.owasp}</span>}
                       <button
                         onClick={async (e) => {
                           e.stopPropagation()
@@ -1108,7 +1108,7 @@ function CommitDetail({ scanId }: { scanId: number }) {
                           setDetail({ ...detail })
                         }}
                         title={findingIsFp ? 'Restore finding' : 'Mark as false positive'}
-                        className={`text-xs px-1.5 py-0.5 rounded border transition ${findingIsFp ? 'bg-green-900/20 text-green-600 border-green-700' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
+                        className={`text-xs px-1.5 py-0.5 rounded border transition ${findingIsFp ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}`}
                       >
                         {findingIsFp ? '✓ FP' : 'FP?'}
                       </button>
@@ -1118,11 +1118,11 @@ function CommitDetail({ scanId }: { scanId: number }) {
 
                   {/* Expanded finding detail */}
                   {expandedFindingId === f.id && (
-                    <div className="border-t border-gray-100 bg-gray-800/50 p-3 space-y-2.5">
+                    <div className="border-t border-gray-100 bg-gray-50 p-3 space-y-2.5">
                       {/* Diff context (±5 lines around match) */}
                       {f.diff_snippet && (
                         <div>
-                          <p className="text-xs font-medium text-gray-400 mb-1 flex items-center gap-1">
+                          <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                             <Code className="w-3 h-3" /> Diff Context
                             {f.file_path && <span className="font-mono text-gray-400 ml-1">— {f.file_path}</span>}
                           </p>
@@ -1146,22 +1146,22 @@ function CommitDetail({ scanId }: { scanId: number }) {
                       {/* Matched code (fallback if no diff_snippet) */}
                       {!f.diff_snippet && f.matched_text && (
                         <div>
-                          <p className="text-xs font-medium text-gray-400 mb-1">Matched Code</p>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Matched Code</p>
                           <pre className="text-xs bg-gray-900 text-red-300 p-2.5 rounded-md overflow-x-auto font-mono leading-relaxed whitespace-pre-wrap break-all">{f.matched_text}</pre>
                         </div>
                       )}
                       {/* Rule description */}
                       {f.rule_description && (
                         <div>
-                          <p className="text-xs font-medium text-gray-400 mb-1 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Description</p>
-                          <p className="text-xs text-gray-300">{f.rule_description}</p>
+                          <p className="text-xs font-medium text-gray-500 mb-1 flex items-center gap-1"><BookOpen className="w-3 h-3" /> Description</p>
+                          <p className="text-xs text-gray-700">{f.rule_description}</p>
                         </div>
                       )}
                       {/* Remediation */}
                       {f.remediation && (
                         <div>
-                          <p className="text-xs font-medium text-green-400 mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Remediation</p>
-                          <p className="text-xs text-gray-300">{f.remediation}</p>
+                          <p className="text-xs font-medium text-green-700 mb-1 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Remediation</p>
+                          <p className="text-xs text-gray-700">{f.remediation}</p>
                         </div>
                       )}
                     </div>
@@ -1182,7 +1182,7 @@ function CommitDetail({ scanId }: { scanId: number }) {
             </p>
             <div className="space-y-1">
               {sensitiveFiles.map((a: any) => (
-                <div key={a.id} className="flex items-center gap-2 text-xs bg-amber-900/20 border border-amber-200 rounded px-2 py-1.5">
+                <div key={a.id} className="flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
                   <FileWarning className="w-3 h-3 text-amber-500 flex-shrink-0" />
                   <code className="text-amber-800 font-mono">{a.file_path}</code>
                   <span className="text-amber-500 ml-auto">pattern: <span className="font-mono">{a.pattern_matched}</span></span>
@@ -1197,7 +1197,7 @@ function CommitDetail({ scanId }: { scanId: number }) {
         )}
 
         {/* AI Analysis Section */}
-        <div className="border-t border-gray-700 pt-3">
+        <div className="border-t border-gray-200 pt-3">
           {!aiAnalysis && !aiLoading && (
             <button
               onClick={runAiAnalysis}
@@ -1227,11 +1227,11 @@ function CommitDetail({ scanId }: { scanId: number }) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Confidence</span>
+                  <span className="text-xs text-gray-500">Confidence</span>
                   <div className="flex items-center gap-1">
-                    <div className="w-20 h-1.5 bg-gray-600 rounded-full">
+                    <div className="w-20 h-1.5 bg-gray-200 rounded-full">
                       <div
-                        className={`h-1.5 rounded-full ${aiAnalysis.confidence > 0.7 ? 'bg-red-900/30' : aiAnalysis.confidence > 0.4 ? 'bg-orange-400' : 'bg-green-900/30'}`}
+                        className={`h-1.5 rounded-full ${aiAnalysis.confidence > 0.7 ? 'bg-red-500' : aiAnalysis.confidence > 0.4 ? 'bg-orange-400' : 'bg-green-500'}`}
                         style={{ width: `${Math.round(aiAnalysis.confidence * 100)}%` }}
                       />
                     </div>
@@ -1240,7 +1240,7 @@ function CommitDetail({ scanId }: { scanId: number }) {
                   <button
                     onClick={runAiAnalysis}
                     disabled={aiLoading}
-                    className="ml-2 text-xs text-gray-400 hover:text-gray-400 flex items-center gap-1"
+                    className="ml-2 text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
                     title="Re-analyze"
                   >
                     <RefreshCw className="w-3 h-3" />
@@ -1250,27 +1250,27 @@ function CommitDetail({ scanId }: { scanId: number }) {
 
               {/* Impact Summary */}
               <div>
-                <p className="text-xs font-semibold text-gray-300 mb-1 flex items-center gap-1">
+                <p className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
                   <Crosshair className="w-3.5 h-3.5 text-red-500" /> Real-World Impact
                 </p>
-                <p className="text-xs text-gray-300 leading-relaxed">{aiAnalysis.impact_summary}</p>
+                <p className="text-xs text-gray-700 leading-relaxed">{aiAnalysis.impact_summary}</p>
               </div>
 
               {/* Intent Analysis */}
               <div>
-                <p className="text-xs font-semibold text-gray-300 mb-1 flex items-center gap-1">
+                <p className="text-xs font-semibold text-gray-700 mb-1 flex items-center gap-1">
                   <Eye className="w-3.5 h-3.5 text-indigo-500" /> Intent Analysis
                 </p>
-                <p className="text-xs text-gray-300 leading-relaxed">{aiAnalysis.intent_analysis}</p>
+                <p className="text-xs text-gray-700 leading-relaxed">{aiAnalysis.intent_analysis}</p>
               </div>
 
               {/* Malicious Scenario */}
               {aiAnalysis.malicious_scenario && aiAnalysis.malicious_scenario !== 'null' && (
-                <div className="bg-red-900/20 border border-red-700 rounded-lg p-2.5">
-                  <p className="text-xs font-semibold text-red-400 mb-1 flex items-center gap-1">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
+                  <p className="text-xs font-semibold text-red-700 mb-1 flex items-center gap-1">
                     <AlertTriangle className="w-3.5 h-3.5" /> Possible Malicious Scenario
                   </p>
-                  <p className="text-xs text-red-300 leading-relaxed">{aiAnalysis.malicious_scenario}</p>
+                  <p className="text-xs text-red-800 leading-relaxed">{aiAnalysis.malicious_scenario}</p>
                 </div>
               )}
 
@@ -1278,12 +1278,12 @@ function CommitDetail({ scanId }: { scanId: number }) {
               <div className="grid grid-cols-2 gap-3">
                 {aiAnalysis.key_indicators?.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-300 mb-1.5 flex items-center gap-1">
+                    <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
                       <Zap className="w-3.5 h-3.5 text-orange-500" /> Key Indicators
                     </p>
                     <ul className="space-y-1">
                       {aiAnalysis.key_indicators.map((ind, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-300">
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700">
                           <span className="text-orange-500 font-bold flex-shrink-0">•</span>
                           {ind}
                         </li>
@@ -1293,12 +1293,12 @@ function CommitDetail({ scanId }: { scanId: number }) {
                 )}
                 {aiAnalysis.recommended_actions?.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-300 mb-1.5 flex items-center gap-1">
+                    <p className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
                       <ListChecks className="w-3.5 h-3.5 text-green-600" /> Recommended Actions
                     </p>
                     <ol className="space-y-1">
                       {aiAnalysis.recommended_actions.map((action, i) => (
-                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-300">
+                        <li key={i} className="flex items-start gap-1.5 text-xs text-gray-700">
                           <span className="text-green-600 font-bold flex-shrink-0">{i + 1}.</span>
                           {action}
                         </li>
@@ -1375,44 +1375,44 @@ function CommitFeedTab({
     <div className="space-y-2 mb-4">
       <div className="flex flex-wrap gap-2">
         {/* Mode toggle */}
-        <div className="flex rounded-lg border border-gray-700 overflow-hidden text-xs font-medium">
-          <button onClick={() => setViewMode('flat')} className={`px-3 py-1.5 ${viewMode === 'flat' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>Flat</button>
-          <button onClick={() => setViewMode('swimlane')} className={`px-3 py-1.5 ${viewMode === 'swimlane' ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'}`}>By Repo</button>
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+          <button onClick={() => setViewMode('flat')} className={`px-3 py-1.5 ${viewMode === 'flat' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Flat</button>
+          <button onClick={() => setViewMode('swimlane')} className={`px-3 py-1.5 ${viewMode === 'swimlane' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>By Repo</button>
         </div>
         <select value={filterRisk} onChange={e => { setFilterRisk(e.target.value); setPage(1) }}
-          className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
           <option value="">All Risk Levels</option>
           {['critical','high','medium','low','clean'].map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>)}
         </select>
         {viewMode === 'flat' && (
           <>
             <select value={filterRepo} onChange={e => { setFilterRepo(e.target.value); setPage(1) }}
-              className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
               <option value="">All Repos</option>
               {repoStats.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
             </select>
             <input type="text" value={filterAuthor} onChange={e => { setFilterAuthor(e.target.value); setPage(1) }}
               placeholder="Filter by author..."
-              className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-40" />
+              className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-40" />
           </>
         )}
         <button onClick={() => viewMode === 'flat' ? loadFlat() : loadSwimlane()}
-          className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-md">
+          className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md">
           <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
         </button>
       </div>
       {/* Date range + FP toggle */}
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-gray-400 font-medium">Date:</span>
+        <span className="text-xs text-gray-500 font-medium">Date:</span>
         <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
-          className="px-2 py-1 text-xs border border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
         <span className="text-xs text-gray-400">→</span>
         <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
-          className="px-2 py-1 text-xs border border-gray-600 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+          className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500" />
         {(dateFrom || dateTo) && (
-          <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-400 underline">Clear</button>
+          <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
         )}
-        <label className="flex items-center gap-1.5 text-xs text-gray-400 ml-2 cursor-pointer select-none">
+        <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer select-none">
           <input type="checkbox" checked={showFp} onChange={e => { setShowFp(e.target.checked); setPage(1) }} className="rounded" />
           Show false positives
         </label>
@@ -1439,12 +1439,12 @@ function CommitFeedTab({
               const stat = repoStats.find(r => r.id === lane.repo_id)
               const worst = stat ? repoWorstLevel(stat) : 'clean'
               return (
-                <div key={lane.repo_id} className="border border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                <div key={lane.repo_id} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                   {/* Swimlane header */}
-                  <div className={`flex items-center justify-between px-4 py-2.5 border-b border-gray-700 ${worst === 'critical' ? 'bg-red-900/20' : worst === 'high' ? 'bg-orange-900/20' : 'bg-gray-800/50'}`}>
+                  <div className={`flex items-center justify-between px-4 py-2.5 border-b border-gray-200 ${worst === 'critical' ? 'bg-red-50' : worst === 'high' ? 'bg-orange-50' : 'bg-gray-50'}`}>
                     <div className="flex items-center gap-3">
-                      <GitBranch className="w-4 h-4 text-gray-400" />
-                      <span className="font-semibold text-sm text-white">{lane.repo_full_name}</span>
+                      <GitBranch className="w-4 h-4 text-gray-500" />
+                      <span className="font-semibold text-sm text-gray-900">{lane.repo_full_name}</span>
                       <RiskBadge level={worst} />
                     </div>
                     {stat && (
@@ -1482,13 +1482,13 @@ function CommitFeedTab({
   return (
     <div>
       {filterBar}
-      <p className="text-sm text-gray-400 mb-3">{total} commits total</p>
+      <p className="text-sm text-gray-500 mb-3">{total} commits total</p>
       {commits.map(c => (
         <CommitRow key={c.id} commit={c} expanded={expandedId === c.id} onExpand={() => setExpandedId(p => p === c.id ? null : c.id)} />
       ))}
       <div className="flex justify-center gap-2 mt-4">
         <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Prev</button>
-        <span className="px-3 py-1.5 text-sm text-gray-400">Page {page} of {Math.ceil(total / 20) || 1}</span>
+        <span className="px-3 py-1.5 text-sm text-gray-600">Page {page} of {Math.ceil(total / 20) || 1}</span>
         <button disabled={page >= Math.ceil(total / 20)} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Next</button>
       </div>
     </div>
@@ -1526,12 +1526,12 @@ function SensitiveFileAlertsTab({ onAckChange }: { onAckChange: () => void }) {
     <div>
       <div className="flex gap-3 mb-4">
         <select value={filterAck} onChange={e => setFilterAck(e.target.value)}
-          className="px-3 py-1.5 text-sm border border-gray-600 rounded-md">
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md">
           <option value="false">Unacknowledged</option>
           <option value="true">Acknowledged</option>
           <option value="">All</option>
         </select>
-        <button onClick={load} className="p-2 rounded-md bg-gray-700 hover:bg-gray-600"><RefreshCw className="w-4 h-4 text-gray-400" /></button>
+        <button onClick={load} className="p-2 rounded-md bg-gray-100 hover:bg-gray-200"><RefreshCw className="w-4 h-4 text-gray-500" /></button>
       </div>
       {loading ? <div className="text-center py-12 text-gray-400">Loading...</div> :
         alerts.length === 0 ? (
@@ -1541,25 +1541,25 @@ function SensitiveFileAlertsTab({ onAckChange }: { onAckChange: () => void }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-700 text-sm">
-              <thead className="bg-gray-800/50">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="bg-gray-50">
                 <tr>{['File','Pattern','Author','Commit','Repo','Date','Action'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{h}</th>
                 ))}</tr>
               </thead>
-              <tbody className="bg-gray-800 divide-y divide-gray-700">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {alerts.map(a => (
-                  <tr key={a.id} className={a.acknowledged ? 'opacity-40' : 'hover:bg-amber-900/20'}>
+                  <tr key={a.id} className={a.acknowledged ? 'opacity-40' : 'hover:bg-amber-50'}>
                     <td className="px-4 py-3"><code className="text-xs text-amber-700">{a.file_path}</code></td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{a.pattern_matched}</td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{a.author_email}</td>
-                    <td className="px-4 py-3"><code className="text-xs bg-gray-700 px-1 rounded">{a.sha?.slice(0,8)}</code></td>
-                    <td className="px-4 py-3 text-xs text-gray-400">{a.repo_full_name}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{a.pattern_matched}</td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{a.author_email}</td>
+                    <td className="px-4 py-3"><code className="text-xs bg-gray-100 px-1 rounded">{a.sha?.slice(0,8)}</code></td>
+                    <td className="px-4 py-3 text-xs text-gray-600">{a.repo_full_name}</td>
                     <td className="px-4 py-3 text-xs text-gray-400">{timeAgo(a.committed_at)}</td>
                     <td className="px-4 py-3">
                       {!a.acknowledged ? (
                         <button onClick={() => handleAck(a.id)} disabled={acking === a.id}
-                          className="inline-flex items-center px-2 py-1 text-xs bg-green-900/20 text-green-400 border border-green-700 rounded hover:bg-green-900/30">
+                          className="inline-flex items-center px-2 py-1 text-xs bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100">
                           {acking === a.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3 mr-1" />}
                           Acknowledge
                         </button>
@@ -1624,21 +1624,21 @@ function MonitoredReposTab({ onScanComplete, onRepoAdded }: { onScanComplete: ()
 
   return (
     <div className="space-y-5">
-      <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-300 mb-3">Add Repository</h3>
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Add Repository</h3>
         <div className="flex flex-wrap gap-2 items-center">
           <input type="text" value={addOwner} onChange={e => setAddOwner(e.target.value)} placeholder="owner"
-            className="px-3 py-2 text-sm border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 w-36" />
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 w-36" />
           <span className="text-gray-400 font-bold">/</span>
           <input type="text" value={addRepo} onChange={e => setAddRepo(e.target.value)} placeholder="repository"
-            className="px-3 py-2 text-sm border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 w-44"
+            className="px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 w-44"
             onKeyDown={e => e.key === 'Enter' && handleAdd()} />
           <button onClick={handleAdd} disabled={adding || !addOwner || !addRepo}
             className="inline-flex items-center px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
             {adding ? <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" /> : <Plus className="w-4 h-4 mr-1.5" />} Add
           </button>
         </div>
-        {message && <div className={`mt-3 p-2 rounded text-sm ${message.type === 'success' ? 'bg-green-900/20 text-green-400' : 'bg-red-900/20 text-red-400'}`}>{message.text}</div>}
+        {message && <div className={`mt-3 p-2 rounded text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>{message.text}</div>}
       </div>
 
       {repos.length === 0 ? (
@@ -1649,14 +1649,14 @@ function MonitoredReposTab({ onScanComplete, onRepoAdded }: { onScanComplete: ()
       ) : (
         <div className="space-y-3">
           {repos.map(repo => (
-            <div key={repo.id} className="bg-gray-800 border border-gray-700 rounded-lg p-4 flex items-center justify-between shadow-sm">
+            <div key={repo.id} className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between shadow-sm">
               <div>
                 <div className="flex items-center gap-2">
                   <GitBranch className="w-4 h-4 text-gray-400" />
-                  <span className="font-semibold text-white">{repo.full_name}</span>
-                  <code className="text-xs bg-gray-700 px-1.5 py-0.5 rounded">{repo.default_branch}</code>
+                  <span className="font-semibold text-gray-900">{repo.full_name}</span>
+                  <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{repo.default_branch}</code>
                 </div>
-                {repo.description && <p className="text-xs text-gray-400 mt-1">{repo.description}</p>}
+                {repo.description && <p className="text-xs text-gray-500 mt-1">{repo.description}</p>}
                 <div className="flex gap-4 mt-1.5 text-xs text-gray-400">
                   <span>{repo.total_commits_scanned} scanned</span>
                   {repo.last_scanned_at && <span>Last: {timeAgo(repo.last_scanned_at)}</span>}
@@ -1664,12 +1664,12 @@ function MonitoredReposTab({ onScanComplete, onRepoAdded }: { onScanComplete: ()
               </div>
               <div className="flex gap-2">
                 <button onClick={() => handleScan(repo.id)} disabled={scanning === repo.id}
-                  className="inline-flex items-center px-3 py-1.5 text-xs bg-indigo-900/20 text-indigo-400 border border-indigo-700 rounded hover:bg-indigo-900/30">
+                  className="inline-flex items-center px-3 py-1.5 text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100">
                   {scanning === repo.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
                   {scanning === repo.id ? '' : 'Scan Now'}
                 </button>
                 <button onClick={() => handleRemove(repo.id, repo.full_name)} disabled={removing === repo.id}
-                  className="p-1.5 text-red-500 border border-red-700 rounded hover:bg-red-900/20">
+                  className="p-1.5 text-red-500 border border-red-200 rounded hover:bg-red-50">
                   {removing === repo.id ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 </button>
               </div>
@@ -1754,46 +1754,46 @@ function FindingsTab({ repoStats }: { repoStats: RepoStat[] }) {
       <div className="space-y-2 mb-4">
         <div className="flex flex-wrap gap-2">
           <select value={filterSeverity} onChange={e => { setFilterSeverity(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">All Severities</option>
             {['critical','high','medium','low'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
           </select>
           <select value={filterRepo} onChange={e => { setFilterRepo(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 text-sm border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">All Repos</option>
             {repoStats.map(r => <option key={r.id} value={r.id}>{r.full_name}</option>)}
           </select>
           <input value={filterRule} onChange={e => { setFilterRule(e.target.value); setPage(1) }}
-            placeholder="Rule name..." className="px-3 py-1.5 text-sm border border-gray-600 rounded-md w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            placeholder="Rule name..." className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-40 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           <input value={filterAuthor} onChange={e => { setFilterAuthor(e.target.value); setPage(1) }}
-            placeholder="Author..." className="px-3 py-1.5 text-sm border border-gray-600 rounded-md w-36 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          <button onClick={load} className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-700 hover:bg-gray-600 rounded-md">
+            placeholder="Author..." className="px-3 py-1.5 text-sm border border-gray-300 rounded-md w-36 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+          <button onClick={load} className="inline-flex items-center px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-md">
             <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
           </button>
           <button onClick={handleExportCsv} disabled={exporting}
-            className="inline-flex items-center px-3 py-1.5 text-sm bg-green-900/20 text-green-400 border border-green-700 hover:bg-green-900/30 rounded-md">
+            className="inline-flex items-center px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 rounded-md">
             {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Activity className="w-3.5 h-3.5 mr-1" />}
             Export CSV
           </button>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs text-gray-400 font-medium">Date:</span>
+          <span className="text-xs text-gray-500 font-medium">Date:</span>
           <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1) }}
-            className="px-2 py-1 text-xs border border-gray-600 rounded focus:outline-none" />
+            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" />
           <span className="text-xs text-gray-400">→</span>
           <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1) }}
-            className="px-2 py-1 text-xs border border-gray-600 rounded focus:outline-none" />
+            className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none" />
           {(dateFrom || dateTo) && (
-            <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-400 underline">Clear</button>
+            <button onClick={() => { setDateFrom(''); setDateTo(''); setPage(1) }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
           )}
-          <label className="flex items-center gap-1.5 text-xs text-gray-400 ml-2 cursor-pointer">
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 ml-2 cursor-pointer">
             <input type="checkbox" checked={showFp} onChange={e => { setShowFp(e.target.checked); setPage(1) }} className="rounded" />
             Show false positives
           </label>
         </div>
       </div>
 
-      <p className="text-sm text-gray-400 mb-3">{total.toLocaleString()} findings total</p>
+      <p className="text-sm text-gray-500 mb-3">{total.toLocaleString()} findings total</p>
 
       {loading ? (
         <div className="text-center py-12 text-gray-400 flex items-center justify-center gap-2">
@@ -1805,53 +1805,53 @@ function FindingsTab({ repoStats }: { repoStats: RepoStat[] }) {
           <p>No findings match the current filters.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-700">
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="w-full text-xs">
-            <thead className="bg-gray-800/50 border-b border-gray-700">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Severity</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Rule</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">File</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">CWE / OWASP</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Commit</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Author</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Date</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-400">Repo</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Severity</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Rule</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">File</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">CWE / OWASP</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Commit</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Author</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Date</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Repo</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-gray-100">
               {findings.map(f => (
-                <tr key={f.id} className={`hover:bg-gray-700 ${f.false_positive ? 'opacity-50' : ''}`}>
+                <tr key={f.id} className={`hover:bg-gray-50 ${f.false_positive ? 'opacity-50' : ''}`}>
                   <td className="px-3 py-2">
-                    <span className={`px-1.5 py-0.5 rounded font-bold ${SEVERITY_PILL[f.severity] ?? 'bg-gray-700 text-gray-400'}`}>{f.severity}</span>
+                    <span className={`px-1.5 py-0.5 rounded font-bold ${SEVERITY_PILL[f.severity] ?? 'bg-gray-100 text-gray-600'}`}>{f.severity}</span>
                   </td>
                   <td className="px-3 py-2 max-w-xs">
-                    <p className="font-medium text-gray-100 truncate" title={f.rule_name}>{f.rule_name}</p>
+                    <p className="font-medium text-gray-800 truncate" title={f.rule_name}>{f.rule_name}</p>
                     {f.rule_description && <p className="text-gray-400 truncate text-xs" title={f.rule_description}>{f.rule_description}</p>}
                   </td>
-                  <td className="px-3 py-2 font-mono text-gray-400 max-w-xs truncate" title={f.file_path}>
+                  <td className="px-3 py-2 font-mono text-gray-600 max-w-xs truncate" title={f.file_path}>
                     {f.file_path || '—'}{f.line_number ? `:${f.line_number}` : ''}
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex gap-1 flex-wrap">
-                      {f.cwe && <span className="px-1 py-0.5 bg-blue-900/20 text-blue-400 rounded font-mono text-xs">{f.cwe}</span>}
-                      {f.owasp && <span className="px-1 py-0.5 bg-purple-900/20 text-purple-400 rounded font-mono text-xs">{f.owasp}</span>}
+                      {f.cwe && <span className="px-1 py-0.5 bg-blue-50 text-blue-700 rounded font-mono text-xs">{f.cwe}</span>}
+                      {f.owasp && <span className="px-1 py-0.5 bg-purple-50 text-purple-700 rounded font-mono text-xs">{f.owasp}</span>}
                     </div>
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
-                      <code className="bg-gray-700 px-1 py-0.5 rounded text-xs">{f.sha?.slice(0,8)}</code>
+                      <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">{f.sha?.slice(0,8)}</code>
                       <RiskBadge level={f.risk_level} />
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-gray-400 max-w-xs truncate">{f.author_name || f.author_email}</td>
-                  <td className="px-3 py-2 text-gray-400 whitespace-nowrap">{f.committed_at?.slice(0,10)}</td>
-                  <td className="px-3 py-2 text-gray-400 max-w-xs truncate">{f.repo_full_name}</td>
+                  <td className="px-3 py-2 text-gray-600 max-w-xs truncate">{f.author_name || f.author_email}</td>
+                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{f.committed_at?.slice(0,10)}</td>
+                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate">{f.repo_full_name}</td>
                   <td className="px-3 py-2">
                     <button
                       onClick={() => toggleFindingFp(f)}
-                      className={`text-xs px-2 py-1 rounded border whitespace-nowrap ${f.false_positive ? 'bg-green-900/20 text-green-600 border-green-700' : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700'}`}
+                      className={`text-xs px-2 py-1 rounded border whitespace-nowrap ${f.false_positive ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'}`}
                     >
                       {f.false_positive ? '✓ FP' : 'Mark FP'}
                     </button>
@@ -1867,7 +1867,7 @@ function FindingsTab({ repoStats }: { repoStats: RepoStat[] }) {
       {total > PAGE_SIZE && (
         <div className="flex justify-center gap-2 mt-4">
           <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Prev</button>
-          <span className="px-3 py-1.5 text-sm text-gray-400">Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
+          <span className="px-3 py-1.5 text-sm text-gray-600">Page {page} of {Math.ceil(total / PAGE_SIZE)}</span>
           <button disabled={page >= Math.ceil(total / PAGE_SIZE)} onClick={() => setPage(p => p + 1)} className="px-3 py-1.5 text-sm border rounded disabled:opacity-40">Next</button>
         </div>
       )}
@@ -1955,10 +1955,10 @@ export default function GitHubMonitorPage() {
     { id: 'overview',   label: 'Overview',         icon: LayoutGrid,   badge: (summary?.high_risk_commits ?? 0) > 0 ? summary!.high_risk_commits : undefined },
     { id: 'commits',    label: 'Commit Feed',       icon: GitBranch,    badge: undefined },
     { id: 'timeline',   label: 'Risk Timeline',     icon: CalendarDays, badge: undefined },
-    { id: 'developers', label: 'Developers',        icon: Users,        badge: atRiskDevs > 0 ? atRiskDevs : undefined, badgeColor: 'bg-orange-900/30' },
-    { id: 'anomalies',  label: 'Anomalies',         icon: Activity,     badge: undefined, badgeColor: 'bg-orange-900/30' },
-    { id: 'findings',   label: 'All Findings',      icon: ShieldAlert,  badge: summary?.total_findings ? summary.total_findings : undefined, badgeColor: 'bg-red-900/30' },
-    { id: 'alerts',     label: 'Sensitive Files',   icon: FileWarning,  badge: unackAlerts > 0 ? unackAlerts : undefined, badgeColor: 'bg-red-900/30' },
+    { id: 'developers', label: 'Developers',        icon: Users,        badge: atRiskDevs > 0 ? atRiskDevs : undefined, badgeColor: 'bg-orange-500' },
+    { id: 'anomalies',  label: 'Anomalies',         icon: Activity,     badge: undefined, badgeColor: 'bg-orange-500' },
+    { id: 'findings',   label: 'All Findings',      icon: ShieldAlert,  badge: summary?.total_findings ? summary.total_findings : undefined, badgeColor: 'bg-red-500' },
+    { id: 'alerts',     label: 'Sensitive Files',   icon: FileWarning,  badge: unackAlerts > 0 ? unackAlerts : undefined, badgeColor: 'bg-red-500' },
     { id: 'repos',      label: 'Repos',             icon: Settings2,    badge: undefined },
   ]
 
@@ -1967,13 +1967,13 @@ export default function GitHubMonitorPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <ShieldAlert className="w-6 h-6 text-indigo-600" />
             GitHub Commit Monitor
           </h1>
-          <p className="text-gray-400 text-sm mt-0.5">Insider threat detection across your monitored repositories</p>
+          <p className="text-gray-500 text-sm mt-0.5">Insider threat detection across your monitored repositories</p>
         </div>
-        <button onClick={refreshAll} className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-gray-700 rounded-lg hover:bg-gray-700 text-gray-400">
+        <button onClick={refreshAll} className="inline-flex items-center gap-2 px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">
           <RefreshCw className="w-4 h-4" /> Refresh
         </button>
       </div>
@@ -1982,14 +1982,14 @@ export default function GitHubMonitorPage() {
       {summary && (
         <div className="flex flex-wrap gap-3">
           {[
-            { label: 'Repos', value: summary.total_monitored_repos, color: 'text-gray-100' },
-            { label: 'Commits Scanned', value: summary.total_commits_scanned, color: 'text-gray-100' },
-            { label: 'High-Risk Commits', value: summary.high_risk_commits, color: summary.high_risk_commits > 0 ? 'text-red-600 font-bold' : 'text-gray-100' },
-            { label: 'Open Alerts', value: summary.unacknowledged_alerts, color: summary.unacknowledged_alerts > 0 ? 'text-amber-600 font-bold' : 'text-gray-100' },
-            { label: 'SAST Findings', value: summary.total_findings, color: 'text-gray-100' },
-            { label: 'At-Risk Devs', value: summary.at_risk_developers, color: summary.at_risk_developers > 0 ? 'text-orange-600 font-bold' : 'text-gray-100' },
+            { label: 'Repos', value: summary.total_monitored_repos, color: 'text-gray-800' },
+            { label: 'Commits Scanned', value: summary.total_commits_scanned, color: 'text-gray-800' },
+            { label: 'High-Risk Commits', value: summary.high_risk_commits, color: summary.high_risk_commits > 0 ? 'text-red-600 font-bold' : 'text-gray-800' },
+            { label: 'Open Alerts', value: summary.unacknowledged_alerts, color: summary.unacknowledged_alerts > 0 ? 'text-amber-600 font-bold' : 'text-gray-800' },
+            { label: 'SAST Findings', value: summary.total_findings, color: 'text-gray-800' },
+            { label: 'At-Risk Devs', value: summary.at_risk_developers, color: summary.at_risk_developers > 0 ? 'text-orange-600 font-bold' : 'text-gray-800' },
           ].map(pill => (
-            <div key={pill.label} className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-full px-4 py-1.5 shadow-sm text-sm">
+            <div key={pill.label} className="flex items-center gap-2 bg-white border border-gray-200 rounded-full px-4 py-1.5 shadow-sm text-sm">
               <span className={pill.color}>{pill.value}</span>
               <span className="text-gray-400">{pill.label}</span>
             </div>
@@ -1999,16 +1999,16 @@ export default function GitHubMonitorPage() {
 
       {/* High-risk alert strip */}
       {summary && summary.recent_high_risk_commits?.length > 0 && (
-        <div className="bg-red-900/20 border border-red-700 rounded-lg px-4 py-3">
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-red-600" />
-            <span className="text-sm font-semibold text-red-300">Recent High-Risk Commits</span>
+            <span className="text-sm font-semibold text-red-800">Recent High-Risk Commits</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {summary.recent_high_risk_commits.map(c => (
-              <div key={c.id} className="flex items-center gap-2 bg-gray-800 border border-red-700 rounded-lg px-3 py-1.5 text-xs shadow-sm">
+              <div key={c.id} className="flex items-center gap-2 bg-white border border-red-200 rounded-lg px-3 py-1.5 text-xs shadow-sm">
                 <code className="font-mono">{c.sha?.slice(0,8)}</code>
-                <span className="text-gray-400">{c.repo_full_name}</span>
+                <span className="text-gray-500">{c.repo_full_name}</span>
                 <RiskBadge level={c.risk_level} />
                 <span className="text-gray-400">{timeAgo(c.committed_at)}</span>
               </div>
@@ -2018,9 +2018,9 @@ export default function GitHubMonitorPage() {
       )}
 
       {/* Main content area */}
-      <div className="bg-gray-800 shadow rounded-xl">
+      <div className="bg-white shadow rounded-xl">
         {/* Tabs */}
-        <div className="border-b border-gray-700">
+        <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto -mb-px">
             {tabs.map(tab => (
               <button
@@ -2029,13 +2029,13 @@ export default function GitHubMonitorPage() {
                 className={`flex items-center gap-2 px-4 py-3.5 text-sm font-medium border-b-2 whitespace-nowrap transition ${
                   activeTab === tab.id
                     ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
                 {tab.label}
                 {tab.badge !== undefined && (
-                  <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white rounded-full ${(tab as any).badgeColor || 'bg-red-900/30'}`}>
+                  <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 text-xs font-bold text-white rounded-full ${(tab as any).badgeColor || 'bg-red-500'}`}>
                     {tab.badge}
                   </span>
                 )}
@@ -2061,7 +2061,7 @@ export default function GitHubMonitorPage() {
                 <>
                   <OrgRiskMap repoStats={repoStats} />
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-300 mb-3">Repository Risk Cards</h3>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Repository Risk Cards</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                       {repoStats.map(stat => (
                         <RepoRiskCard

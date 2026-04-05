@@ -694,39 +694,39 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">Settings</h1>
-        <p className="mt-2 text-gray-400">Manage your application settings and API keys</p>
+        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+        <p className="mt-2 text-gray-600">Manage your application settings and API keys</p>
       </div>
 
       {/* OpenAI API Key Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Key className="h-6 w-6 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">OpenAI API Key</h2>
+          <h2 className="text-xl font-semibold text-gray-900">OpenAI API Key</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Configure your OpenAI API key for the AI chatbot functionality. The key will be stored
           securely in the backend configuration.
         </p>
 
         {settings?.has_openai_key && (
-          <div className="mb-4 p-3 bg-green-900/20 border border-green-700 rounded-md">
-            <div className="flex items-center text-green-300">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <div className="flex items-center text-green-800">
               <CheckCircle className="h-5 w-5 mr-2" />
               <span className="font-medium">API Key Configured</span>
             </div>
-            <p className="text-sm text-green-400 mt-1">Current key: {settings.openai_api_key}</p>
+            <p className="text-sm text-green-700 mt-1">Current key: {settings.openai_api_key}</p>
           </div>
         )}
 
         {!settings?.has_openai_key && (
-          <div className="mb-4 p-3 bg-yellow-900/20 border border-yellow-700 rounded-md">
-            <div className="flex items-center text-yellow-300">
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <div className="flex items-center text-yellow-800">
               <AlertCircle className="h-5 w-5 mr-2" />
               <span className="font-medium">No API Key Configured</span>
             </div>
-            <p className="text-sm text-yellow-400 mt-1">
+            <p className="text-sm text-yellow-700 mt-1">
               The chatbot will not work without an OpenAI API key.
             </p>
           </div>
@@ -734,7 +734,7 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="apiKey" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-2">
               {settings?.has_openai_key ? 'New API Key' : 'API Key'}
             </label>
             <input
@@ -743,9 +743,9 @@ export default function SettingsPage() {
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-proj-..."
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="mt-2 text-sm text-gray-400">
+            <p className="mt-2 text-sm text-gray-500">
               Get your API key from{' '}
               <a
                 href="https://platform.openai.com/api-keys"
@@ -762,8 +762,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-md ${
                 message.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700 text-green-300'
-                  : 'bg-red-900/20 border border-red-700 text-red-300'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
               }`}
             >
               <div className="flex items-center">
@@ -798,19 +798,19 @@ export default function SettingsPage() {
       </div>
 
       {/* AI Provider Configuration Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Brain className="h-6 w-6 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">AI Provider Configuration</h2>
+          <h2 className="text-xl font-semibold text-gray-900">AI Provider Configuration</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Configure your AI provider for threat modeling and security analysis. Choose from multiple providers and use your own API keys.
         </p>
 
         {settings?.has_ai_key && (
-          <div className="mb-4 p-3 bg-green-900/20 border border-green-700 rounded-md">
-            <div className="flex items-center text-green-300">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+            <div className="flex items-center text-green-800">
               <CheckCircle className="h-5 w-5 mr-2" />
               <span className="font-medium">AI Provider Configured: {settings.ai_provider?.toUpperCase()}</span>
             </div>
@@ -819,14 +819,14 @@ export default function SettingsPage() {
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="aiProvider" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="aiProvider" className="block text-sm font-medium text-gray-700 mb-2">
               AI Provider
             </label>
             <select
               id="aiProvider"
               value={aiProvider}
               onChange={(e) => setAiProvider(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="anthropic">Anthropic Claude</option>
               <option value="openai">OpenAI</option>
@@ -837,7 +837,7 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label htmlFor="aiApiKey" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="aiApiKey" className="block text-sm font-medium text-gray-700 mb-2">
               API Key
             </label>
             <input
@@ -852,13 +852,13 @@ export default function SettingsPage() {
                 aiProvider === 'google' ? 'Google API Key' :
                 'Not required for local Ollama'
               }
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               disabled={aiProvider === 'ollama'}
             />
           </div>
 
           <div>
-            <label htmlFor="aiModel" className="block text-sm font-medium text-gray-300 mb-2">
+            <label htmlFor="aiModel" className="block text-sm font-medium text-gray-700 mb-2">
               Model Name (Optional)
             </label>
             <input
@@ -873,14 +873,14 @@ export default function SettingsPage() {
                 aiProvider === 'google' ? 'gemini-pro' :
                 'llama2'
               }
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">Leave empty to use the default model</p>
+            <p className="mt-1 text-xs text-gray-500">Leave empty to use the default model</p>
           </div>
 
           {(aiProvider === 'azure' || aiProvider === 'ollama') && (
             <div>
-              <label htmlFor="aiBaseUrl" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="aiBaseUrl" className="block text-sm font-medium text-gray-700 mb-2">
                 {aiProvider === 'azure' ? 'Azure Endpoint' : 'Ollama Base URL'}
               </label>
               <input
@@ -892,14 +892,14 @@ export default function SettingsPage() {
                   aiProvider === 'azure' ? 'https://your-resource.openai.azure.com/' :
                   'http://localhost:11434'
                 }
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
           )}
 
           {aiProvider === 'azure' && (
             <div>
-              <label htmlFor="aiApiVersion" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="aiApiVersion" className="block text-sm font-medium text-gray-700 mb-2">
                 API Version
               </label>
               <input
@@ -908,7 +908,7 @@ export default function SettingsPage() {
                 value={aiApiVersion}
                 onChange={(e) => setAiApiVersion(e.target.value)}
                 placeholder="2024-02-15-preview"
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
           )}
@@ -917,8 +917,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-md ${
                 aiMessage.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700 text-green-300'
-                  : 'bg-red-900/20 border border-red-700 text-red-300'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
               }`}
             >
               <div className="flex items-center">
@@ -953,13 +953,13 @@ export default function SettingsPage() {
       </div>
 
       {/* SecureReq Analysis Prompts Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Code className="h-6 w-6 text-purple-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">SecureReq Analysis Prompts</h2>
+          <h2 className="text-xl font-semibold text-gray-900">SecureReq Analysis Prompts</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Customize the AI prompts used for generating abuse cases and security requirements.
           This allows you to tailor the analysis output without redeploying the application.
         </p>
@@ -972,9 +972,9 @@ export default function SettingsPage() {
               id="useCustomPrompts"
               checked={useCustomPrompts}
               onChange={(e) => setUseCustomPrompts(e.target.checked)}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-600 rounded"
+              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
-            <label htmlFor="useCustomPrompts" className="ml-2 block text-sm font-medium text-gray-300">
+            <label htmlFor="useCustomPrompts" className="ml-2 block text-sm font-medium text-gray-700">
               Use Custom Prompts
             </label>
           </div>
@@ -983,7 +983,7 @@ export default function SettingsPage() {
             <>
               {/* Abuse Case Prompt */}
               <div>
-                <label htmlFor="abuseCasePrompt" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="abuseCasePrompt" className="block text-sm font-medium text-gray-700 mb-2">
                   Abuse Case Instructions
                 </label>
                 <textarea
@@ -992,16 +992,16 @@ export default function SettingsPage() {
                   value={customAbuseCasePrompt}
                   onChange={(e) => setCustomAbuseCasePrompt(e.target.value)}
                   placeholder="Enter custom instructions for abuse case generation..."
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-500">
                   Define how many abuse cases to generate and what details to include (attack narratives, tools, mitigations, etc.)
                 </p>
               </div>
 
               {/* Security Requirements Prompt */}
               <div>
-                <label htmlFor="secReqPrompt" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="secReqPrompt" className="block text-sm font-medium text-gray-700 mb-2">
                   Security Requirements Instructions
                 </label>
                 <textarea
@@ -1010,9 +1010,9 @@ export default function SettingsPage() {
                   value={customSecurityReqPrompt}
                   onChange={(e) => setCustomSecurityReqPrompt(e.target.value)}
                   placeholder="Enter custom instructions for security requirements generation..."
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-gray-500">
                   Define how many requirements to generate, categories to cover, and what details to include (libraries, configs, CWE/OWASP references, etc.)
                 </p>
               </div>
@@ -1023,7 +1023,7 @@ export default function SettingsPage() {
           <div className="border rounded-lg">
             <button
               onClick={() => setShowDefaultPrompts(!showDefaultPrompts)}
-              className="w-full px-4 py-3 flex items-center justify-between text-left text-sm font-medium text-gray-300 hover:bg-gray-700"
+              className="w-full px-4 py-3 flex items-center justify-between text-left text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               <span>View Default Prompts</span>
               <span className={`transform transition-transform ${showDefaultPrompts ? 'rotate-180' : ''}`}>
@@ -1033,14 +1033,14 @@ export default function SettingsPage() {
             {showDefaultPrompts && promptSettings && (
               <div className="px-4 pb-4 space-y-4 border-t">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-300 mt-3 mb-2">Default Abuse Case Instructions:</h4>
-                  <pre className="bg-gray-800/50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                  <h4 className="text-sm font-medium text-gray-700 mt-3 mb-2">Default Abuse Case Instructions:</h4>
+                  <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
                     {promptSettings.default_abuse_case_prompt}
                   </pre>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-300 mb-2">Default Security Requirements Instructions:</h4>
-                  <pre className="bg-gray-800/50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Default Security Requirements Instructions:</h4>
+                  <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap">
                     {promptSettings.default_security_req_prompt}
                   </pre>
                 </div>
@@ -1052,8 +1052,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-md ${
                 promptMessage.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700 text-green-300'
-                  : 'bg-red-900/20 border border-red-700 text-red-300'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
               }`}
             >
               <div className="flex items-center">
@@ -1098,13 +1098,13 @@ export default function SettingsPage() {
       </div>
 
       {/* Threat Intelligence API Keys Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Shield className="h-6 w-6 text-red-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">Threat Intelligence API Keys</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Threat Intelligence API Keys</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Configure API keys for threat intelligence sources. These keys enable enhanced threat data fetching with higher rate limits.
         </p>
 
@@ -1113,20 +1113,20 @@ export default function SettingsPage() {
           {/* NVD */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">NVD</h3>
+              <h3 className="font-semibold text-gray-900">NVD</h3>
               {threatIntelSettings?.has_nvd_key ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Configured
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Limited
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400">National Vulnerability Database</p>
+            <p className="text-xs text-gray-500">National Vulnerability Database</p>
             {threatIntelSettings?.has_nvd_key && (
               <p className="text-xs text-gray-400 mt-1">Key: {threatIntelSettings.nvd_api_key}</p>
             )}
@@ -1135,26 +1135,26 @@ export default function SettingsPage() {
           {/* CISA KEV */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">CISA KEV</h3>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+              <h3 className="font-semibold text-gray-900">CISA KEV</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Free
               </span>
             </div>
-            <p className="text-xs text-gray-400">Known Exploited Vulnerabilities</p>
+            <p className="text-xs text-gray-500">Known Exploited Vulnerabilities</p>
             <p className="text-xs text-gray-400 mt-1">No API key required</p>
           </div>
 
           {/* MISP Galaxy */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">MISP Galaxy</h3>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+              <h3 className="font-semibold text-gray-900">MISP Galaxy</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Free
               </span>
             </div>
-            <p className="text-xs text-gray-400">Threat Actors & Malware</p>
+            <p className="text-xs text-gray-500">Threat Actors & Malware</p>
             <p className="text-xs text-gray-400 mt-1">Uses public GitHub data</p>
           </div>
         </div>
@@ -1188,8 +1188,8 @@ export default function SettingsPage() {
                 key={source}
                 className={`p-3 rounded-lg flex items-center justify-between ${
                   result.status === 'success'
-                    ? 'bg-green-900/20 border border-green-700'
-                    : 'bg-red-900/20 border border-red-700'
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
                 }`}
               >
                 <div className="flex items-center">
@@ -1198,9 +1198,9 @@ export default function SettingsPage() {
                   ) : (
                     <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
                   )}
-                  <span className="font-medium text-white">{source.toUpperCase()}</span>
+                  <span className="font-medium text-gray-900">{source.toUpperCase()}</span>
                 </div>
-                <span className={result.status === 'success' ? 'text-green-400' : 'text-red-400'}>
+                <span className={result.status === 'success' ? 'text-green-700' : 'text-red-700'}>
                   {result.message}
                 </span>
               </div>
@@ -1213,13 +1213,13 @@ export default function SettingsPage() {
           {/* NVD API Key */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="nvdApiKey" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="nvdApiKey" className="block text-sm font-medium text-gray-700">
                 NVD API Key
               </label>
               {threatIntelSettings?.has_nvd_key && (
                 <button
                   onClick={() => handleDeleteKey('nvd')}
-                  className="text-red-600 hover:text-red-300 text-sm flex items-center"
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
                   Remove
@@ -1232,9 +1232,9 @@ export default function SettingsPage() {
               value={nvdApiKey}
               onChange={(e) => setNvdApiKey(e.target.value)}
               placeholder={threatIntelSettings?.has_nvd_key ? 'Enter new key to replace...' : 'Enter NVD API key...'}
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-500">
               Get a free key from{' '}
               <a
                 href="https://nvd.nist.gov/developers/request-an-api-key"
@@ -1250,14 +1250,14 @@ export default function SettingsPage() {
 
           {/* MISP Private Instance (Optional) */}
           <div className="border-t pt-4">
-            <h4 className="text-sm font-medium text-gray-300 mb-2">MISP Private Instance (Optional)</h4>
-            <p className="text-xs text-gray-400 mb-3">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">MISP Private Instance (Optional)</h4>
+            <p className="text-xs text-gray-500 mb-3">
               If you have a private MISP instance, configure it here for additional threat data.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="mispUrl" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="mispUrl" className="block text-sm font-medium text-gray-700 mb-1">
                   MISP URL
                 </label>
                 <input
@@ -1266,11 +1266,11 @@ export default function SettingsPage() {
                   value={mispUrl}
                   onChange={(e) => setMispUrl(e.target.value)}
                   placeholder="https://your-misp-instance.com"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div>
-                <label htmlFor="mispApiKey" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="mispApiKey" className="block text-sm font-medium text-gray-700 mb-1">
                   MISP API Key
                 </label>
                 <input
@@ -1279,7 +1279,7 @@ export default function SettingsPage() {
                   value={mispApiKey}
                   onChange={(e) => setMispApiKey(e.target.value)}
                   placeholder="Enter MISP API key..."
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -1289,8 +1289,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-md ${
                 threatIntelMessage.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700 text-green-300'
-                  : 'bg-red-900/20 border border-red-700 text-red-300'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
               }`}
             >
               <div className="flex items-center">
@@ -1325,13 +1325,13 @@ export default function SettingsPage() {
       </div>
 
       {/* SCA Vulnerability Feeds Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Package className="h-6 w-6 text-purple-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">SCA Vulnerability Feeds</h2>
+          <h2 className="text-xl font-semibold text-gray-900">SCA Vulnerability Feeds</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Configure API tokens for live vulnerability feeds. These enable real-time vulnerability lookups for your dependencies from multiple sources.
         </p>
 
@@ -1340,20 +1340,20 @@ export default function SettingsPage() {
           {/* GitHub Advisory */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">GitHub Advisory</h3>
+              <h3 className="font-semibold text-gray-900">GitHub Advisory</h3>
               {scaFeedsSettings?.has_github_token ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Configured
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Set
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400">GitHub Security Advisory Database</p>
+            <p className="text-xs text-gray-500">GitHub Security Advisory Database</p>
             {scaFeedsSettings?.has_github_token && scaFeedsSettings.github_token_masked && (
               <p className="text-xs text-gray-400 mt-1">Token: {scaFeedsSettings.github_token_masked}</p>
             )}
@@ -1362,46 +1362,46 @@ export default function SettingsPage() {
           {/* OSV */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">OSV</h3>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+              <h3 className="font-semibold text-gray-900">OSV</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Free
               </span>
             </div>
-            <p className="text-xs text-gray-400">Open Source Vulnerabilities</p>
+            <p className="text-xs text-gray-500">Open Source Vulnerabilities</p>
             <p className="text-xs text-gray-400 mt-1">No API key required</p>
           </div>
 
           {/* NVD */}
-          <div className="border rounded-lg p-4 border-red-700 bg-red-900/20">
+          <div className="border rounded-lg p-4 border-red-200 bg-red-50">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">NVD</h3>
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+              <h3 className="font-semibold text-gray-900">NVD</h3>
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 <CheckCircle className="w-3 h-3 mr-1" />
                 Active
               </span>
             </div>
-            <p className="text-xs text-gray-400">NIST National Vulnerability Database</p>
+            <p className="text-xs text-gray-500">NIST National Vulnerability Database</p>
             <p className="text-xs text-gray-400 mt-1">API key optional (set in Threat Intel)</p>
           </div>
 
           {/* Snyk */}
           <div className="border rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white">Snyk</h3>
+              <h3 className="font-semibold text-gray-900">Snyk</h3>
               {scaFeedsSettings?.has_snyk_token ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Configured
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Set
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400">Snyk Vulnerability Database</p>
+            <p className="text-xs text-gray-500">Snyk Vulnerability Database</p>
             {scaFeedsSettings?.has_snyk_token && scaFeedsSettings.snyk_token_masked && (
               <p className="text-xs text-gray-400 mt-1">Token: {scaFeedsSettings.snyk_token_masked}</p>
             )}
@@ -1437,8 +1437,8 @@ export default function SettingsPage() {
                 key={source}
                 className={`p-3 rounded-lg flex items-center justify-between ${
                   result.status === 'success'
-                    ? 'bg-green-900/20 border border-green-700'
-                    : 'bg-red-900/20 border border-red-700'
+                    ? 'bg-green-50 border border-green-200'
+                    : 'bg-red-50 border border-red-200'
                 }`}
               >
                 <div className="flex items-center">
@@ -1447,9 +1447,9 @@ export default function SettingsPage() {
                   ) : (
                     <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
                   )}
-                  <span className="font-medium text-white">{source}</span>
+                  <span className="font-medium text-gray-900">{source}</span>
                 </div>
-                <span className={result.status === 'success' ? 'text-green-400' : 'text-red-400'}>
+                <span className={result.status === 'success' ? 'text-green-700' : 'text-red-700'}>
                   {result.message}
                 </span>
               </div>
@@ -1462,13 +1462,13 @@ export default function SettingsPage() {
           {/* GitHub Token */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="githubToken" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="githubToken" className="block text-sm font-medium text-gray-700">
                 GitHub Personal Access Token
               </label>
               {scaFeedsSettings?.has_github_token && (
                 <button
                   onClick={() => handleDeleteScaKey('github_token')}
-                  className="text-red-600 hover:text-red-300 text-sm flex items-center"
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
                   Remove
@@ -1481,9 +1481,9 @@ export default function SettingsPage() {
               value={githubToken}
               onChange={(e) => setGithubToken(e.target.value)}
               placeholder={scaFeedsSettings?.has_github_token ? 'Enter new token to replace...' : 'ghp_xxxxxxxxxxxx'}
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-500">
               Required for GitHub Advisory Database. Create at{' '}
               <a
                 href="https://github.com/settings/tokens"
@@ -1500,13 +1500,13 @@ export default function SettingsPage() {
           {/* Snyk Token */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label htmlFor="snykToken" className="block text-sm font-medium text-gray-300">
+              <label htmlFor="snykToken" className="block text-sm font-medium text-gray-700">
                 Snyk API Token
               </label>
               {scaFeedsSettings?.has_snyk_token && (
                 <button
                   onClick={() => handleDeleteScaKey('snyk_token')}
-                  className="text-red-600 hover:text-red-300 text-sm flex items-center"
+                  className="text-red-600 hover:text-red-800 text-sm flex items-center"
                 >
                   <Trash2 className="h-3 w-3 mr-1" />
                   Remove
@@ -1519,9 +1519,9 @@ export default function SettingsPage() {
               value={snykToken}
               onChange={(e) => setSnykToken(e.target.value)}
               placeholder={scaFeedsSettings?.has_snyk_token ? 'Enter new token to replace...' : 'Enter Snyk API token...'}
-              className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-gray-500">
               Get your API token from{' '}
               <a
                 href="https://app.snyk.io/account"
@@ -1539,8 +1539,8 @@ export default function SettingsPage() {
             <div
               className={`p-4 rounded-md ${
                 scaFeedsMessage.type === 'success'
-                  ? 'bg-green-900/20 border border-green-700 text-green-300'
-                  : 'bg-red-900/20 border border-red-700 text-red-300'
+                  ? 'bg-green-50 border border-green-200 text-green-800'
+                  : 'bg-red-50 border border-red-200 text-red-800'
               }`}
             >
               <div className="flex items-center">
@@ -1575,19 +1575,19 @@ export default function SettingsPage() {
       </div>
 
       {/* VS Code Extension Download Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Code className="h-6 w-6 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">VS Code Extension</h2>
+          <h2 className="text-xl font-semibold text-gray-900">VS Code Extension</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Download our VS Code extension for real-time security scanning directly in your editor. Get instant feedback on vulnerabilities as you code.
         </p>
 
-        <div className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-700 rounded-lg p-6 mb-4">
-          <h3 className="text-lg font-semibold text-white mb-3">Features</h3>
-          <ul className="space-y-2 text-gray-300">
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-6 mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Features</h3>
+          <ul className="space-y-2 text-gray-700">
             <li className="flex items-start">
               <CheckCircle className="h-5 w-5 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
               <span>Real-time SAST, SCA, and secret detection as you code</span>
@@ -1633,16 +1633,16 @@ export default function SettingsPage() {
               <Download className="h-5 w-5 mr-2" />
               Download VS Code Extension
             </a>
-            <p className="mt-2 text-sm text-gray-400">Version 2.0.0 • 4.3 MB</p>
+            <p className="mt-2 text-sm text-gray-500">Version 2.0.0 • 4.3 MB</p>
           </div>
         </div>
 
-        <div className="mt-6 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-700 rounded-lg p-4">
-          <h4 className="font-semibold text-white mb-2 flex items-center">
+        <div className="mt-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-2 flex items-center">
             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded mr-2">LATEST</span>
             What's New in v2.0.0
           </h4>
-          <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
+          <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
             <li><strong>🔐 IMPROVED UX:</strong> Login prompts shown when not authenticated - no more empty tree views</li>
             <li><strong>🔍 SCAN PROMPTS:</strong> Clear "Run scan" buttons when no findings exist</li>
             <li><strong>📊 BETTER FEEDBACK:</strong> Helpful status messages guide users through the workflow</li>
@@ -1656,9 +1656,9 @@ export default function SettingsPage() {
           </ul>
         </div>
 
-        <div className="mt-4 bg-gray-800/50 border border-gray-700 rounded-lg p-4">
-          <h4 className="font-semibold text-white mb-2">Installation Instructions</h4>
-          <ol className="list-decimal list-inside text-sm text-gray-300 space-y-1">
+        <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-2">Installation Instructions</h4>
+          <ol className="list-decimal list-inside text-sm text-gray-700 space-y-1">
             <li>Download the extension file above</li>
             <li>Open VS Code</li>
             <li>Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)</li>
@@ -1671,15 +1671,15 @@ export default function SettingsPage() {
           </ol>
         </div>
 
-        <div className="mt-4 bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
           <h4 className="font-semibold text-yellow-900 mb-2 flex items-center">
             <Globe className="h-5 w-5 mr-2" />
             Connecting to Production Server
           </h4>
-          <p className="text-sm text-yellow-300 mb-2">
+          <p className="text-sm text-yellow-800 mb-2">
             After deploying SecureDev AI to production, configure the VS Code extension to connect to your server:
           </p>
-          <ol className="list-decimal list-inside text-sm text-yellow-300 space-y-1">
+          <ol className="list-decimal list-inside text-sm text-yellow-800 space-y-1">
             <li>Open Command Palette (Ctrl+Shift+P / Cmd+Shift+P)</li>
             <li>Search for "SecureDev AI: Configure Server URL"</li>
             <li>Choose "Configure Both" to set API and Web Dashboard URLs</li>
@@ -1690,109 +1690,109 @@ export default function SettingsPage() {
       </div>
 
       {/* SecureReq Integrations Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center mb-4">
           <Link2 className="h-6 w-6 text-indigo-600 mr-2" />
-          <h2 className="text-xl font-semibold text-white">SecureReq Integrations</h2>
+          <h2 className="text-xl font-semibold text-gray-900">SecureReq Integrations</h2>
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Connect to Jira, Azure DevOps, or ServiceNow to sync user stories and publish security analysis results.
         </p>
 
         {/* Integration Status Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className={`border rounded-lg p-4 ${integrationStatus?.jira?.connected ? 'border-green-300 bg-green-900/20' : 'border-gray-700'}`}>
+          <div className={`border rounded-lg p-4 ${integrationStatus?.jira?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white flex items-center">
+              <h3 className="font-semibold text-gray-900 flex items-center">
                 <Server className="w-4 h-4 mr-2" />
                 Jira
               </h3>
               {integrationStatus?.jira?.connected ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Connected
                 </span>
               ) : integrationStatus?.jira?.configured ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Connected
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-400">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   Not Configured
                 </span>
               )}
             </div>
             {integrationStatus?.jira?.url && (
-              <p className="text-xs text-gray-400 truncate">{integrationStatus.jira.url}</p>
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.jira.url}</p>
             )}
           </div>
 
-          <div className={`border rounded-lg p-4 ${integrationStatus?.ado?.connected ? 'border-green-300 bg-green-900/20' : 'border-gray-700'}`}>
+          <div className={`border rounded-lg p-4 ${integrationStatus?.ado?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white flex items-center">
+              <h3 className="font-semibold text-gray-900 flex items-center">
                 <Cloud className="w-4 h-4 mr-2" />
                 Azure DevOps
               </h3>
               {integrationStatus?.ado?.connected ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Connected
                 </span>
               ) : integrationStatus?.ado?.configured ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Connected
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-400">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   Not Configured
                 </span>
               )}
             </div>
             {integrationStatus?.ado?.url && (
-              <p className="text-xs text-gray-400 truncate">{integrationStatus.ado.url}</p>
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.ado.url}</p>
             )}
           </div>
 
-          <div className={`border rounded-lg p-4 ${integrationStatus?.snow?.connected ? 'border-green-300 bg-green-900/20' : 'border-gray-700'}`}>
+          <div className={`border rounded-lg p-4 ${integrationStatus?.snow?.connected ? 'border-green-300 bg-green-50' : 'border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-semibold text-white flex items-center">
+              <h3 className="font-semibold text-gray-900 flex items-center">
                 <Globe className="w-4 h-4 mr-2" />
                 ServiceNow
               </h3>
               {integrationStatus?.snow?.connected ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Connected
                 </span>
               ) : integrationStatus?.snow?.configured ? (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-900/30 text-yellow-300">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                   <AlertCircle className="w-3 h-3 mr-1" />
                   Not Connected
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-400">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                   Not Configured
                 </span>
               )}
             </div>
             {integrationStatus?.snow?.url && (
-              <p className="text-xs text-gray-400 truncate">{integrationStatus.snow.url}</p>
+              <p className="text-xs text-gray-500 truncate">{integrationStatus.snow.url}</p>
             )}
           </div>
         </div>
 
         {/* Integration Tabs */}
-        <div className="border-b border-gray-700 mb-4">
+        <div className="border-b border-gray-200 mb-4">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveIntegrationTab('jira')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeIntegrationTab === 'jira'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               Jira
@@ -1802,7 +1802,7 @@ export default function SettingsPage() {
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeIntegrationTab === 'ado'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               Azure DevOps
@@ -1812,7 +1812,7 @@ export default function SettingsPage() {
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
                 activeIntegrationTab === 'snow'
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               ServiceNow
@@ -1825,63 +1825,63 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Jira URL</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Jira URL</label>
                 <input
                   type="text"
                   value={jiraUrl}
                   onChange={(e) => setJiraUrl(e.target.value)}
                   placeholder="https://your-domain.atlassian.net"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
                   value={jiraEmail}
                   onChange={(e) => setJiraEmail(e.target.value)}
                   placeholder="your-email@company.com"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">API Token</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">API Token</label>
               <input
                 type="password"
                 value={jiraToken}
                 onChange={(e) => setJiraToken(e.target.value)}
                 placeholder="Enter Jira API token..."
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
               />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Create at <a href="https://id.atlassian.com/manage/api-tokens" target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-500">Atlassian API Tokens</a>
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Abuse Cases Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
                 <input
                   type="text"
                   value={jiraAbuseCasesField}
                   onChange={(e) => setJiraAbuseCasesField(e.target.value)}
                   placeholder="customfield_10001 or field name"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Security Requirements Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
                 <input
                   type="text"
                   value={jiraSecurityReqField}
                   onChange={(e) => setJiraSecurityReqField(e.target.value)}
                   placeholder="customfield_10002 or field name"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
             {jiraMessage && (
-              <div className={`p-3 rounded-md ${jiraMessage.type === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+              <div className={`p-3 rounded-md ${jiraMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 {jiraMessage.text}
               </div>
             )}
@@ -1902,52 +1902,52 @@ export default function SettingsPage() {
         {activeIntegrationTab === 'ado' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Organization URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Organization URL</label>
               <input
                 type="text"
                 value={adoOrgUrl}
                 onChange={(e) => setAdoOrgUrl(e.target.value)}
                 placeholder="https://dev.azure.com/your-org"
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Personal Access Token (PAT)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Personal Access Token (PAT)</label>
               <input
                 type="password"
                 value={adoPat}
                 onChange={(e) => setAdoPat(e.target.value)}
                 placeholder="Enter Azure DevOps PAT..."
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
               />
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-gray-500">
                 Create at Azure DevOps → User Settings → Personal Access Tokens (needs Work Items Read & Write scope)
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Abuse Cases Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
                 <input
                   type="text"
                   value={adoAbuseCasesField}
                   onChange={(e) => setAdoAbuseCasesField(e.target.value)}
                   placeholder="Custom.AbuseCases"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Security Requirements Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
                 <input
                   type="text"
                   value={adoSecurityReqField}
                   onChange={(e) => setAdoSecurityReqField(e.target.value)}
                   placeholder="Custom.SecurityRequirements"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
             {adoMessage && (
-              <div className={`p-3 rounded-md ${adoMessage.type === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+              <div className={`p-3 rounded-md ${adoMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 {adoMessage.text}
               </div>
             )}
@@ -1968,61 +1968,61 @@ export default function SettingsPage() {
         {activeIntegrationTab === 'snow' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Instance URL</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Instance URL</label>
               <input
                 type="text"
                 value={snowUrl}
                 onChange={(e) => setSnowUrl(e.target.value)}
                 placeholder="https://your-instance.service-now.com"
-                className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                 <input
                   type="text"
                   value={snowUsername}
                   onChange={(e) => setSnowUsername(e.target.value)}
                   placeholder="admin"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                 <input
                   type="password"
                   value={snowPassword}
                   onChange={(e) => setSnowPassword(e.target.value)}
                   placeholder="Enter password..."
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Abuse Cases Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Abuse Cases Field (Optional)</label>
                 <input
                   type="text"
                   value={snowAbuseCasesField}
                   onChange={(e) => setSnowAbuseCasesField(e.target.value)}
                   placeholder="u_abuse_cases"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Security Requirements Field (Optional)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Security Requirements Field (Optional)</label>
                 <input
                   type="text"
                   value={snowSecurityReqField}
                   onChange={(e) => setSnowSecurityReqField(e.target.value)}
                   placeholder="u_security_requirements"
-                  className="w-full px-4 py-2 border border-gray-600 rounded-md focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
             </div>
             {snowMessage && (
-              <div className={`p-3 rounded-md ${snowMessage.type === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+              <div className={`p-3 rounded-md ${snowMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 {snowMessage.text}
               </div>
             )}
@@ -2041,26 +2041,26 @@ export default function SettingsPage() {
       </div>
 
       {/* GitHub Integration Section */}
-      <div className="bg-gray-800 shadow rounded-lg p-6 mb-6">
+      <div className="bg-white shadow rounded-lg p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
-            <Globe className="h-6 w-6 text-gray-300 mr-2" />
-            <h2 className="text-xl font-semibold text-white">GitHub Integration</h2>
+            <Globe className="h-6 w-6 text-gray-700 mr-2" />
+            <h2 className="text-xl font-semibold text-gray-900">GitHub Integration</h2>
           </div>
           {githubConfigured && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/30 text-green-300">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
               <CheckCircle className="w-3 h-3 mr-1" /> Connected
             </span>
           )}
         </div>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-gray-600 mb-4">
           Configure a GitHub Personal Access Token (PAT) to enable commit monitoring and insider threat detection across your repositories.
         </p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Personal Access Token (PAT)
             </label>
             <input
@@ -2068,15 +2068,15 @@ export default function SettingsPage() {
               value={githubPat}
               onChange={(e) => setGithubPat(e.target.value)}
               placeholder={githubPatMasked || 'ghp_xxxxxxxxxxxxxxxxxxxx'}
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Required scopes: <code className="bg-gray-700 px-1 rounded">repo</code>, <code className="bg-gray-700 px-1 rounded">read:org</code>
+            <p className="text-xs text-gray-500 mt-1">
+              Required scopes: <code className="bg-gray-100 px-1 rounded">repo</code>, <code className="bg-gray-100 px-1 rounded">read:org</code>
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Default Organization (optional)
             </label>
             <input
@@ -2084,12 +2084,12 @@ export default function SettingsPage() {
               value={githubOrg}
               onChange={(e) => setGithubOrg(e.target.value)}
               placeholder="your-org-name"
-              className="w-full px-3 py-2 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           {githubMessage && (
-            <div className={`p-3 rounded-md ${githubMessage.type === 'success' ? 'bg-green-900/20 text-green-300' : 'bg-red-900/20 text-red-300'}`}>
+            <div className={`p-3 rounded-md ${githubMessage.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
               {githubMessage.text}
             </div>
           )}
@@ -2116,9 +2116,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Information Section */}
-      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-blue-900 mb-2">About AI Configuration</h3>
-        <ul className="list-disc list-inside text-blue-300 space-y-1 text-sm">
+        <ul className="list-disc list-inside text-blue-800 space-y-1 text-sm">
           <li>Your API keys are stored securely and encrypted in the database</li>
           <li>Different AI providers offer different capabilities and pricing</li>
           <li>Anthropic Claude is recommended for security analysis and threat modeling</li>

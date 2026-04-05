@@ -93,7 +93,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'backdoors',
     label: 'Backdoors & Hidden Endpoints',
     icon: '🚪',
-    headerColor: 'bg-red-900/20 border-red-700',
+    headerColor: 'bg-red-50 border-red-200',
     keywords: ['Backdoor', 'Hidden', 'Auth Bypass', 'Bypass Flag', 'Bypass Condition', 'Reverse Shell', 'TCP Port', 'Socket Listener', 'Debug Route', 'Conditional Route'],
     description: 'Planted backdoors, hidden API routes, auth bypass flags, and reverse shell connections.',
   },
@@ -101,7 +101,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'credentials',
     label: 'Hardcoded Credentials & Secrets',
     icon: '🔑',
-    headerColor: 'bg-orange-900/20 border-orange-700',
+    headerColor: 'bg-orange-50 border-orange-200',
     keywords: ['Credential', 'Private Key', 'JWT', 'OAuth', 'SMTP', 'AWS Session', 'Azure Storage', 'GCP Service', 'Slack', 'Teams', 'Webhook Token', 'API Token', 'Secret Key', 'Database Connection', 'Hardcoded Password'],
     description: 'Passwords, API keys, private keys, cloud credentials, and OAuth secrets embedded in source.',
   },
@@ -109,7 +109,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'exfiltration',
     label: 'Unauthorized Data Exfiltration',
     icon: '📤',
-    headerColor: 'bg-yellow-900/20 border-yellow-700',
+    headerColor: 'bg-yellow-50 border-yellow-200',
     keywords: ['Exfil', 'FTP Upload', 'Cloud Storage Upload', 'DNS-Based', 'Database Dump', 'Archive of', 'Clipboard', 'Screenshot', 'Email Exfil', 'HTTP POST Sending', 'Bulk Data', 'Writing Credentials to External'],
     description: 'Bulk data reads, cloud/FTP uploads, DNS tunneling, clipboard capture, and SMTP exfiltration.',
   },
@@ -117,7 +117,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'logtampering',
     label: 'Audit Log Tampering',
     icon: '🗑️',
-    headerColor: 'bg-purple-900/20 border-purple-700',
+    headerColor: 'bg-purple-50 border-purple-200',
     keywords: ['Log Tamper', 'Logging Disabled', 'Exception Swallowing', 'Log File Deletion', 'Log Handler', 'Audit Trigger', 'Log Record', 'Audit Record', 'Security Logging'],
     description: 'Disabling loggers, clearing handlers, deleting log files, and tampering with audit DB tables.',
   },
@@ -125,7 +125,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'logicbombs',
     label: 'Logic Bombs & Time Bombs',
     icon: '💣',
-    headerColor: 'bg-pink-900/20 border-pink-700',
+    headerColor: 'bg-pink-50 border-pink-200',
     keywords: ['Logic Bomb', 'Time Bomb', 'Date-Triggered', 'Username/Email', 'IP Address Trigger', 'Counter', 'Environment Variable Armed', 'File Existence', 'Locale or Timezone'],
     description: 'Date/counter/IP/username-triggered destructive logic and environment-armed kill-switches.',
   },
@@ -133,7 +133,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'privesc',
     label: 'Privilege Escalation',
     icon: '⬆️',
-    headerColor: 'bg-red-900/20 border-red-700',
+    headerColor: 'bg-red-50 border-red-200',
     keywords: ['PrivEsc', 'SUID', 'sudoers', '/etc/passwd', 'setuid', 'JWT Payload', 'SQL GRANT', 'RBAC', 'Admin Role', 'Authorization Check Bypass', 'Hardcoded Admin Role'],
     description: 'SUID bits, sudoers modification, root escalation, JWT forgery, and RBAC table manipulation.',
   },
@@ -141,7 +141,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'dataleakage',
     label: 'Sensitive Data Leakage',
     icon: '🔓',
-    headerColor: 'bg-amber-900/20 border-amber-200',
+    headerColor: 'bg-amber-50 border-amber-200',
     keywords: ['Data Leak', 'Credentials Logged', 'PII', 'Environment Variables Returned', 'Private Key Material', 'localStorage', 'Database Credentials in HTTP', 'Cookie Without', 'Credit Card', 'SSN Pattern', 'Secrets in HTTP'],
     description: 'Credentials in logs, PII in responses, env dumps via API, and sensitive data in cookies/localStorage.',
   },
@@ -149,7 +149,7 @@ const INSIDER_THREAT_SUBCATEGORIES = [
     key: 'obfuscated',
     label: 'Obfuscated Code Execution',
     icon: '🎭',
-    headerColor: 'bg-gray-800/50 border-gray-700',
+    headerColor: 'bg-gray-50 border-gray-200',
     keywords: ['Obfuscated', 'ROT13', 'Hex String', 'String Reversal', 'Character Code', 'Marshal', 'Lambda Chain', 'Dynamic Attribute', 'Dynamic Module', 'Dynamic Code', 'Base64', 'Zlib'],
     description: 'Base64/hex/ROT13-encoded payloads, bytecode execution, lambda obfuscation, and dynamic builtins.',
   },
@@ -514,20 +514,20 @@ const CustomRulesPage: React.FC = () => {
   // Utility Functions
   const getSeverityColor = (severity: string) => {
     const colors: Record<string, string> = {
-      critical: 'bg-red-900/30 text-red-300 border-red-300',
-      high: 'bg-orange-900/30 text-orange-300 border-orange-300',
-      medium: 'bg-yellow-900/30 text-yellow-300 border-yellow-300',
-      low: 'bg-green-900/30 text-green-300 border-green-300'
+      critical: 'bg-red-100 text-red-800 border-red-300',
+      high: 'bg-orange-100 text-orange-800 border-orange-300',
+      medium: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      low: 'bg-green-100 text-green-800 border-green-300'
     };
     return colors[severity] || colors.medium;
   };
 
   const getJobStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'bg-gray-700 text-gray-100',
-      running: 'bg-blue-900/30 text-blue-300',
-      completed: 'bg-green-900/30 text-green-300',
-      failed: 'bg-red-900/30 text-red-300'
+      pending: 'bg-gray-100 text-gray-800',
+      running: 'bg-blue-100 text-blue-800',
+      completed: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800'
     };
     return colors[status] || colors.pending;
   };
@@ -542,13 +542,13 @@ const CustomRulesPage: React.FC = () => {
 
   const getToolColor = (toolId: string) => {
     const colors: Record<string, string> = {
-      checkmarx: 'from-purple-900/30 to-purple-700',
-      fortify: 'from-blue-900/30 to-blue-700',
-      appscan: 'from-cyan-900/30 to-cyan-700',
-      acunetix: 'from-orange-900/30 to-orange-700',
-      webinspect: 'from-green-900/30 to-green-700',
-      semgrep: 'from-pink-900/30 to-pink-700',
-      codeql: 'from-yellow-900/30 to-yellow-700',
+      checkmarx: 'from-purple-500 to-purple-700',
+      fortify: 'from-blue-500 to-blue-700',
+      appscan: 'from-cyan-500 to-cyan-700',
+      acunetix: 'from-orange-500 to-orange-700',
+      webinspect: 'from-green-500 to-green-700',
+      semgrep: 'from-pink-500 to-pink-700',
+      codeql: 'from-yellow-500 to-yellow-700',
     };
     return colors[toolId] || 'from-gray-500 to-gray-700';
   };
@@ -573,18 +573,18 @@ const CustomRulesPage: React.FC = () => {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white mb-2">Security Rules</h1>
-        <p className="text-gray-400">Create custom rules or generate enterprise-grade rules for leading security tools</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Security Rules</h1>
+        <p className="text-gray-600">Create custom rules or generate enterprise-grade rules for leading security tools</p>
       </div>
 
       {/* Main Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-700 p-1 rounded-lg w-fit">
+      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
         <button
           onClick={() => setMainTab('custom')}
           className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors ${
             mainTab === 'custom'
-              ? 'bg-gray-800 text-blue-600 shadow-sm'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           Custom Rules
@@ -593,12 +593,12 @@ const CustomRulesPage: React.FC = () => {
           onClick={() => setMainTab('insider_threat')}
           className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
             mainTab === 'insider_threat'
-              ? 'bg-gray-800 text-red-600 shadow-sm'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-white text-red-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           <span>🔍</span> Insider Threat Patterns
-          <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-900/30 text-red-400 rounded-full font-semibold">
+          <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-semibold">
             {insiderThreatRules.length}
           </span>
         </button>
@@ -606,8 +606,8 @@ const CustomRulesPage: React.FC = () => {
           onClick={() => setMainTab('enterprise')}
           className={`px-6 py-2.5 rounded-md text-sm font-medium transition-colors ${
             mainTab === 'enterprise'
-              ? 'bg-gray-800 text-purple-600 shadow-sm'
-              : 'text-gray-400 hover:text-white'
+              ? 'bg-white text-purple-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
           }`}
         >
           Enterprise Rules Generator
@@ -618,7 +618,7 @@ const CustomRulesPage: React.FC = () => {
       {mainTab === 'custom' && (
         <>
           {/* Actions Bar */}
-          <div className="bg-gray-800 rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4 items-center justify-between">
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap gap-4 items-center justify-between">
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -641,7 +641,7 @@ const CustomRulesPage: React.FC = () => {
                 placeholder="Search rules by name, description, or pattern..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 min-w-[300px] px-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 min-w-[300px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <select
                 value={filterSeverity}
@@ -672,13 +672,13 @@ const CustomRulesPage: React.FC = () => {
 
           {/* Search Results Info */}
           {searchQuery && (
-            <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-4">
-              <p className="text-sm text-blue-300">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
                 Showing <span className="font-bold">{filteredRules.length}</span> of <span className="font-bold">{rules.length}</span> rules matching "{searchQuery}"
                 {filteredRules.length !== rules.length && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="ml-2 text-blue-600 hover:text-blue-300 underline"
+                    className="ml-2 text-blue-600 hover:text-blue-800 underline"
                   >
                     Clear search
                   </button>
@@ -689,61 +689,61 @@ const CustomRulesPage: React.FC = () => {
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="text-2xl font-bold text-blue-600">
                 {searchQuery ? filteredRules.length : rules.length}
               </div>
-              <div className="text-sm text-gray-400">{searchQuery ? 'Filtered Rules' : 'Total Rules'}</div>
+              <div className="text-sm text-gray-600">{searchQuery ? 'Filtered Rules' : 'Total Rules'}</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="text-2xl font-bold text-green-600">
                 {rules.filter(r => r.enabled).length}
               </div>
-              <div className="text-sm text-gray-400">Enabled Rules</div>
+              <div className="text-sm text-gray-600">Enabled Rules</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="text-2xl font-bold text-purple-600">
                 {rules.filter(r => r.generated_by === 'ai').length}
               </div>
-              <div className="text-sm text-gray-400">AI Generated</div>
+              <div className="text-sm text-gray-600">AI Generated</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white rounded-lg shadow-sm p-4">
               <div className="text-2xl font-bold text-orange-600">
                 {rules.reduce((sum, r) => sum + r.total_detections, 0)}
               </div>
-              <div className="text-sm text-gray-400">Total Detections</div>
+              <div className="text-sm text-gray-600">Total Detections</div>
             </div>
           </div>
 
           {/* Rules Table */}
-          <div className="bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-6">
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-gray-800/50">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Rule Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Severity</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Language</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Detections</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Precision</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rule Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Language</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detections</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precision</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Source</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-gray-800 divide-y divide-gray-700">
+                <tbody className="bg-white divide-y divide-gray-200">
                   {filteredRules.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                         {searchQuery ? `No rules found matching "${searchQuery}"` : 'No rules available'}
                       </td>
                     </tr>
                   ) : (
                     filteredRules.map((rule) => (
-                      <tr key={rule.id} className="hover:bg-gray-700">
+                      <tr key={rule.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
-                          <div className="font-medium text-white">{rule.name}</div>
-                          <div className="text-sm text-gray-400 truncate max-w-xs" title={rule.pattern}>
+                          <div className="font-medium text-gray-900">{rule.name}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs" title={rule.pattern}>
                             {rule.pattern}
                           </div>
                         </td>
@@ -752,8 +752,8 @@ const CustomRulesPage: React.FC = () => {
                             {rule.severity.toUpperCase()}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-white">{rule.language}</td>
-                        <td className="px-6 py-4 text-sm text-white">
+                        <td className="px-6 py-4 text-sm text-gray-900">{rule.language}</td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
                           {rule.total_detections}
                           {rule.false_positives > 0 && (
                             <span className="text-red-600 ml-1">({rule.false_positives} FP)</span>
@@ -768,7 +768,7 @@ const CustomRulesPage: React.FC = () => {
                             <span className="text-gray-400">N/A</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-sm text-white">
+                        <td className="px-6 py-4 text-sm text-gray-900">
                           {rule.generated_by === 'ai' ? 'AI' : 'User'}
                         </td>
                         <td className="px-6 py-4">
@@ -776,8 +776,8 @@ const CustomRulesPage: React.FC = () => {
                             onClick={() => toggleRuleEnabled(rule.id, rule.enabled)}
                             className={`px-3 py-1 rounded-full text-xs font-semibold ${
                               rule.enabled
-                                ? 'bg-green-900/30 text-green-300 hover:bg-green-200'
-                                : 'bg-gray-700 text-gray-100 hover:bg-gray-600'
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                             }`}
                           >
                             {rule.enabled ? 'Enabled' : 'Disabled'}
@@ -786,13 +786,13 @@ const CustomRulesPage: React.FC = () => {
                         <td className="px-6 py-4 text-sm">
                           <button
                             onClick={() => setSelectedRule(rule)}
-                            className="text-blue-600 hover:text-blue-300 mr-3"
+                            className="text-blue-600 hover:text-blue-800 mr-3"
                           >
                             View
                           </button>
                           <button
                             onClick={() => deleteRule(rule.id)}
-                            className="text-red-600 hover:text-red-300"
+                            className="text-red-600 hover:text-red-800"
                           >
                             Delete
                           </button>
@@ -806,8 +806,8 @@ const CustomRulesPage: React.FC = () => {
           </div>
 
           {/* Enhancement Jobs */}
-          <div className="bg-gray-800 rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Recent Enhancement Jobs</h2>
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Enhancement Jobs</h2>
             <div className="space-y-3">
               {jobs.slice(0, 5).map((job) => (
                 <div key={job.id} className="border rounded-lg p-4 flex items-center justify-between">
@@ -816,18 +816,18 @@ const CustomRulesPage: React.FC = () => {
                       <span className={`px-2 py-1 text-xs font-semibold rounded ${getJobStatusColor(job.status)}`}>
                         {job.status.toUpperCase()}
                       </span>
-                      <span className="font-medium text-white">
+                      <span className="font-medium text-gray-900">
                         {job.job_type.replace('_', ' ').toUpperCase()}
                       </span>
-                      <span className="text-sm text-gray-400">by {job.triggered_by}</span>
+                      <span className="text-sm text-gray-600">by {job.triggered_by}</span>
                     </div>
-                    <div className="text-sm text-gray-400 mt-1">
+                    <div className="text-sm text-gray-600 mt-1">
                       {job.status === 'completed' && (
                         <span>Generated {job.rules_generated} rules, Refined {job.rules_refined} rules</span>
                       )}
                       {job.status === 'running' && (
                         <div className="flex items-center gap-2">
-                          <div className="w-48 bg-gray-600 rounded-full h-2">
+                          <div className="w-48 bg-gray-200 rounded-full h-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${job.progress}%` }}
@@ -849,11 +849,11 @@ const CustomRulesPage: React.FC = () => {
       {mainTab === 'insider_threat' && (
         <>
           {/* Header Banner */}
-          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-6 flex items-start gap-3">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
             <div className="text-2xl">🔍</div>
             <div>
-              <h2 className="text-lg font-bold text-red-300">Insider Threat Detection Rules</h2>
-              <p className="text-sm text-red-400 mt-1">
+              <h2 className="text-lg font-bold text-red-800">Insider Threat Detection Rules</h2>
+              <p className="text-sm text-red-700 mt-1">
                 {insiderThreatRules.length} rules covering code-level insider threat patterns — backdoors, credential exfiltration,
                 audit log tampering, logic bombs, privilege escalation, and obfuscated payloads. Enable rules to activate detection during SAST scans.
               </p>
@@ -862,21 +862,21 @@ const CustomRulesPage: React.FC = () => {
 
           {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-red-400">
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-red-400">
               <div className="text-2xl font-bold text-red-600">{insiderThreatRules.length}</div>
-              <div className="text-sm text-gray-400">Total Rules</div>
+              <div className="text-sm text-gray-600">Total Rules</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-green-400">
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-green-400">
               <div className="text-2xl font-bold text-green-600">{insiderThreatRules.filter(r => r.enabled).length}</div>
-              <div className="text-sm text-gray-400">Enabled</div>
+              <div className="text-sm text-gray-600">Enabled</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-orange-400">
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-orange-400">
               <div className="text-2xl font-bold text-orange-600">{insiderThreatRules.filter(r => r.severity === 'critical').length}</div>
-              <div className="text-sm text-gray-400">Critical Severity</div>
+              <div className="text-sm text-gray-600">Critical Severity</div>
             </div>
-            <div className="bg-gray-800 rounded-lg shadow-sm p-4 border-l-4 border-yellow-400">
+            <div className="bg-white rounded-lg shadow-sm p-4 border-l-4 border-yellow-400">
               <div className="text-2xl font-bold text-yellow-600">{insiderThreatRules.reduce((s, r) => s + r.total_detections, 0)}</div>
-              <div className="text-sm text-gray-400">Total Detections</div>
+              <div className="text-sm text-gray-600">Total Detections</div>
             </div>
           </div>
 
@@ -915,63 +915,63 @@ const CustomRulesPage: React.FC = () => {
               if (subcategoryRules.length === 0) return null;
 
               return (
-                <div key={subcategory.key} className="bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+                <div key={subcategory.key} className="bg-white rounded-lg shadow-sm overflow-hidden">
                   {/* Subcategory Header */}
                   <div className={`border-b px-6 py-4 ${subcategory.headerColor}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-lg">{subcategory.icon}</span>
-                        <h3 className="font-semibold text-white">{subcategory.label}</h3>
-                        <span className="px-2 py-0.5 text-xs bg-gray-800/70 text-gray-300 rounded-full border border-gray-700">
+                        <h3 className="font-semibold text-gray-900">{subcategory.label}</h3>
+                        <span className="px-2 py-0.5 text-xs bg-white/70 text-gray-700 rounded-full border border-gray-200">
                           {subcategoryRules.length} rule{subcategoryRules.length !== 1 ? 's' : ''}
                         </span>
                       </div>
-                      <span className="text-xs font-medium text-gray-400">
+                      <span className="text-xs font-medium text-gray-500">
                         {subcategoryRules.filter(r => r.enabled).length}/{subcategoryRules.length} enabled
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1 ml-7">{subcategory.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 ml-7">{subcategory.description}</p>
                   </div>
 
                   {/* Rules in subcategory */}
-                  <div className="divide-y divide-gray-700">
+                  <div className="divide-y divide-gray-100">
                     {subcategoryRules.map((rule) => (
-                      <div key={rule.id} className={`px-6 py-4 hover:bg-gray-700 ${rule.enabled ? '' : 'opacity-60'}`}>
+                      <div key={rule.id} className={`px-6 py-4 hover:bg-gray-50 ${rule.enabled ? '' : 'opacity-60'}`}>
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-medium text-white text-sm">
+                              <span className="font-medium text-gray-900 text-sm">
                                 {rule.name.replace(/^IT:\s*(Backdoor|Credential|Exfil|Log Tamper|Logic Bomb|PrivEsc|Data Leak|Obfuscated)\s*-\s*/i, '').replace(/^IT:\s*/i, '')}
                               </span>
                               <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getSeverityColor(rule.severity)}`}>
                                 {rule.severity.toUpperCase()}
                               </span>
                               {rule.cwe && (
-                                <span className="px-2 py-0.5 text-xs bg-blue-900/20 text-blue-400 border border-blue-700 rounded-full">
+                                <span className="px-2 py-0.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
                                   {rule.cwe}
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-400 mb-2">{rule.description}</p>
-                            <div className="font-mono text-xs bg-gray-700 text-gray-300 px-3 py-1.5 rounded border truncate max-w-2xl" title={rule.pattern}>
+                            <p className="text-sm text-gray-600 mb-2">{rule.description}</p>
+                            <div className="font-mono text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded border truncate max-w-2xl" title={rule.pattern}>
                               {rule.pattern}
                             </div>
                             {rule.remediation && (
-                              <p className="text-xs text-green-400 mt-2">
+                              <p className="text-xs text-green-700 mt-2">
                                 <span className="font-semibold">Fix:</span> {rule.remediation}
                               </p>
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {rule.total_detections > 0 && (
-                              <span className="text-xs text-gray-400">{rule.total_detections} detections</span>
+                              <span className="text-xs text-gray-500">{rule.total_detections} detections</span>
                             )}
                             <button
                               onClick={() => toggleInsiderRuleEnabled(rule.id, rule.enabled)}
                               className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
                                 rule.enabled
-                                  ? 'bg-green-900/30 text-green-300 hover:bg-green-200'
-                                  : 'bg-gray-700 text-gray-100 hover:bg-gray-600'
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                               }`}
                             >
                               {rule.enabled ? 'Enabled' : 'Disabled'}
@@ -986,9 +986,9 @@ const CustomRulesPage: React.FC = () => {
             })}
 
             {insiderThreatRules.length === 0 && (
-              <div className="bg-gray-800 rounded-lg shadow-sm p-12 text-center">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                 <div className="text-4xl mb-3">🔍</div>
-                <p className="text-gray-400 text-lg font-medium">No insider threat rules found</p>
+                <p className="text-gray-500 text-lg font-medium">No insider threat rules found</p>
                 <p className="text-gray-400 text-sm mt-1">Rules will appear here after the application restarts and seeds the database.</p>
               </div>
             )}
@@ -1000,15 +1000,15 @@ const CustomRulesPage: React.FC = () => {
       {mainTab === 'enterprise' && (
         <>
           {/* Enterprise Sub-tabs */}
-          <div className="flex gap-1 mb-6 bg-gray-700 p-1 rounded-lg w-fit">
+          <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
             {['generator', 'templates'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setEnterpriseTab(tab as any)}
                 className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                   enterpriseTab === tab
-                    ? 'bg-gray-800 text-purple-600 shadow-sm'
-                    : 'text-gray-400 hover:text-white'
+                    ? 'bg-white text-purple-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -1020,41 +1020,41 @@ const CustomRulesPage: React.FC = () => {
           {enterpriseTab === 'generator' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Form Section */}
-              <div className="bg-gray-800 rounded-lg shadow-sm p-6">
-                <h3 className="text-xl font-semibold text-white mb-6">Rule Configuration</h3>
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6">Rule Configuration</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Rule Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name *</label>
                     <input
                       type="text"
                       name="rule_name"
                       value={enterpriseFormData.rule_name}
                       onChange={handleEnterpriseInputChange}
                       placeholder="e.g., SQL Injection in User Input"
-                      className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Description *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
                     <textarea
                       name="description"
                       value={enterpriseFormData.description}
                       onChange={handleEnterpriseInputChange}
                       placeholder="Describe the vulnerability this rule detects..."
                       rows={3}
-                      className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Vulnerability Type *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vulnerability Type *</label>
                       <select
                         name="vulnerability_type"
                         value={enterpriseFormData.vulnerability_type}
                         onChange={handleEnterpriseInputChange}
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         <option value="">Select type...</option>
                         {vulnerabilityTypes.map((vt) => (
@@ -1065,12 +1065,12 @@ const CustomRulesPage: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Severity</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                       <select
                         name="severity"
                         value={enterpriseFormData.severity}
                         onChange={handleEnterpriseInputChange}
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         <option value="critical">Critical</option>
                         <option value="high">High</option>
@@ -1082,12 +1082,12 @@ const CustomRulesPage: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Language</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
                       <select
                         name="language"
                         value={enterpriseFormData.language}
                         onChange={handleEnterpriseInputChange}
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       >
                         {enterpriseLanguages.map((lang) => (
                           <option key={lang} value={lang}>
@@ -1097,65 +1097,65 @@ const CustomRulesPage: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">CWE ID</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">CWE ID</label>
                       <input
                         type="text"
                         name="cwe_id"
                         value={enterpriseFormData.cwe_id}
                         onChange={handleEnterpriseInputChange}
                         placeholder="e.g., CWE-89"
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">OWASP Category</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">OWASP Category</label>
                       <input
                         type="text"
                         name="owasp_category"
                         value={enterpriseFormData.owasp_category}
                         onChange={handleEnterpriseInputChange}
                         placeholder="e.g., A03:2021"
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-1">Custom Pattern</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Custom Pattern</label>
                       <input
                         type="text"
                         name="pattern"
                         value={enterpriseFormData.pattern}
                         onChange={handleEnterpriseInputChange}
                         placeholder="Regex pattern"
-                        className="w-full border border-gray-600 rounded-lg px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-4 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Remediation Guidance</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Remediation Guidance</label>
                     <textarea
                       name="remediation"
                       value={enterpriseFormData.remediation}
                       onChange={handleEnterpriseInputChange}
                       placeholder="How to fix this vulnerability..."
                       rows={2}
-                      className="w-full border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
                   </div>
 
                   {/* Tool Selection */}
                   <div>
                     <div className="flex justify-between items-center mb-2">
-                      <label className="text-sm font-medium text-gray-300">Target Tools</label>
+                      <label className="text-sm font-medium text-gray-700">Target Tools</label>
                       <div className="flex gap-2">
-                        <button onClick={selectAllTools} className="text-xs text-purple-600 hover:text-purple-400">
+                        <button onClick={selectAllTools} className="text-xs text-purple-600 hover:text-purple-700">
                           Select All
                         </button>
                         <span className="text-gray-400">|</span>
-                        <button onClick={deselectAllTools} className="text-xs text-gray-400 hover:text-gray-300">
+                        <button onClick={deselectAllTools} className="text-xs text-gray-500 hover:text-gray-700">
                           Deselect All
                         </button>
                       </div>
@@ -1167,14 +1167,14 @@ const CustomRulesPage: React.FC = () => {
                           onClick={() => toggleTool(tool.id)}
                           className={`p-3 rounded-lg border-2 transition-all ${
                             enterpriseFormData.selectedTools.includes(tool.id)
-                              ? 'border-purple-500 bg-purple-900/20'
-                              : 'border-gray-700 hover:border-gray-600 bg-gray-800'
+                              ? 'border-purple-500 bg-purple-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
                           }`}
                         >
                           <div className={`w-8 h-8 mx-auto rounded-md bg-gradient-to-br ${getToolColor(tool.id)} flex items-center justify-center text-white font-bold text-xs mb-1`}>
                             {getToolIcon(tool.id)}
                           </div>
-                          <div className="text-xs text-center truncate text-gray-300">{tool.name}</div>
+                          <div className="text-xs text-center truncate text-gray-700">{tool.name}</div>
                         </button>
                       ))}
                     </div>
@@ -1205,9 +1205,9 @@ const CustomRulesPage: React.FC = () => {
               </div>
 
               {/* Generated Rules Section */}
-              <div className="bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-semibold text-white">Generated Rules</h3>
+                  <h3 className="text-xl font-semibold text-gray-900">Generated Rules</h3>
                   {generatedRules && (
                     <button
                       onClick={downloadAllRules}
@@ -1223,16 +1223,16 @@ const CustomRulesPage: React.FC = () => {
 
                 {generatedRules ? (
                   <>
-                    <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 mb-4">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
                       <div className="flex items-center gap-3 mb-2">
                         <span className={`px-2 py-1 rounded text-xs font-medium ${getSeverityColor(generatedRules.severity)}`}>
                           {generatedRules.severity.toUpperCase()}
                         </span>
-                        <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">{generatedRules.cwe_id}</span>
-                        <span className="text-xs bg-gray-600 text-gray-300 px-2 py-1 rounded">{generatedRules.owasp_category}</span>
+                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">{generatedRules.cwe_id}</span>
+                        <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">{generatedRules.owasp_category}</span>
                       </div>
-                      <h4 className="font-medium text-white">{generatedRules.rule_name}</h4>
-                      <p className="text-sm text-gray-400 mt-1">{generatedRules.description}</p>
+                      <h4 className="font-medium text-gray-900">{generatedRules.rule_name}</h4>
+                      <p className="text-sm text-gray-600 mt-1">{generatedRules.description}</p>
                     </div>
 
                     <div className="flex gap-1 mb-4 overflow-x-auto pb-2">
@@ -1245,8 +1245,8 @@ const CustomRulesPage: React.FC = () => {
                             onClick={() => setSelectedTool(toolId)}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                               selectedTool === toolId
-                                ? 'bg-purple-900/30 text-purple-400 border border-purple-300'
-                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             } ${hasError ? 'opacity-50' : ''}`}
                           >
                             <div className={`w-6 h-6 rounded bg-gradient-to-br ${getToolColor(toolId)} flex items-center justify-center text-white text-xs font-bold`}>
@@ -1262,7 +1262,7 @@ const CustomRulesPage: React.FC = () => {
                     {selectedTool && generatedRules.rules[selectedTool] && (
                       <div className="relative">
                         {'error' in generatedRules.rules[selectedTool] ? (
-                          <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 text-red-400">
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
                             Error: {(generatedRules.rules[selectedTool] as { error: string }).error}
                           </div>
                         ) : (
@@ -1272,8 +1272,8 @@ const CustomRulesPage: React.FC = () => {
                                 onClick={() => copyToClipboard((generatedRules.rules[selectedTool] as GeneratedRule).rule_content, selectedTool)}
                                 className={`p-2 rounded-lg transition-colors ${
                                   copySuccess === selectedTool
-                                    ? 'bg-green-900/30 text-white'
-                                    : 'bg-gray-600 hover:bg-gray-600 text-gray-300'
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                                 }`}
                                 title="Copy to clipboard"
                               >
@@ -1289,7 +1289,7 @@ const CustomRulesPage: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => downloadRule(selectedTool)}
-                                className="p-2 bg-gray-600 hover:bg-gray-600 rounded-lg text-gray-300 transition-colors"
+                                className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-700 transition-colors"
                                 title="Download file"
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1319,22 +1319,22 @@ const CustomRulesPage: React.FC = () => {
           {enterpriseTab === 'templates' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {templates.map((template) => (
-                <div key={template.id} className="bg-gray-800 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100">
+                <div key={template.id} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow border border-gray-100">
                   <div className="flex items-center gap-3 mb-3">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${getSeverityColor(template.severity)}`}>
                       {template.severity.toUpperCase()}
                     </span>
-                    <span className="text-xs bg-purple-900/30 text-purple-400 px-2 py-1 rounded">
+                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
                       {template.cwe_id}
                     </span>
                   </div>
 
-                  <h4 className="text-lg font-semibold text-white mb-2">{template.name}</h4>
-                  <p className="text-sm text-gray-400 mb-4">{template.description}</p>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{template.name}</h4>
+                  <p className="text-sm text-gray-600 mb-4">{template.description}</p>
 
                   <div className="flex flex-wrap gap-1 mb-4">
                     {template.languages.map((lang) => (
-                      <span key={lang} className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">
+                      <span key={lang} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
                         {lang}
                       </span>
                     ))}
@@ -1344,7 +1344,7 @@ const CustomRulesPage: React.FC = () => {
                     <select
                       value={enterpriseFormData.language}
                       onChange={(e) => setEnterpriseFormData(prev => ({ ...prev, language: e.target.value }))}
-                      className="flex-1 border border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                     >
                       {template.languages.map((lang) => (
                         <option key={lang} value={lang}>
@@ -1370,11 +1370,11 @@ const CustomRulesPage: React.FC = () => {
       {/* Create Rule Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <h2 className="text-2xl font-bold mb-4">Create Custom Rule</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Rule Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name *</label>
                 <input
                   type="text"
                   value={newRule.name}
@@ -1384,7 +1384,7 @@ const CustomRulesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Pattern (Regex) *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pattern (Regex) *</label>
                 <input
                   type="text"
                   value={newRule.pattern}
@@ -1395,7 +1395,7 @@ const CustomRulesPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Severity *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Severity *</label>
                   <select
                     value={newRule.severity}
                     onChange={(e) => setNewRule({...newRule, severity: e.target.value as any})}
@@ -1408,7 +1408,7 @@ const CustomRulesPage: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Language</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
                   <select
                     value={newRule.language}
                     onChange={(e) => setNewRule({...newRule, language: e.target.value})}
@@ -1424,7 +1424,7 @@ const CustomRulesPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Description *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
                 <textarea
                   value={newRule.description}
                   onChange={(e) => setNewRule({...newRule, description: e.target.value})}
@@ -1435,7 +1435,7 @@ const CustomRulesPage: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">CWE</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CWE</label>
                   <input
                     type="text"
                     value={newRule.cwe}
@@ -1445,7 +1445,7 @@ const CustomRulesPage: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">OWASP</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">OWASP</label>
                   <input
                     type="text"
                     value={newRule.owasp}
@@ -1456,7 +1456,7 @@ const CustomRulesPage: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Remediation</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Remediation</label>
                 <textarea
                   value={newRule.remediation}
                   onChange={(e) => setNewRule({...newRule, remediation: e.target.value})}
@@ -1468,7 +1468,7 @@ const CustomRulesPage: React.FC = () => {
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700"
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -1488,13 +1488,13 @@ const CustomRulesPage: React.FC = () => {
       {/* AI Generate Modal */}
       {showAIGenerateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-2xl w-full p-6">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6">
             <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               Generate Rule with AI
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Rule Name *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rule Name *</label>
                 <input
                   type="text"
                   value={aiGenerate.rule_name}
@@ -1504,7 +1504,7 @@ const CustomRulesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Vulnerability Description *
                 </label>
                 <textarea
@@ -1516,7 +1516,7 @@ const CustomRulesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Severity *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Severity *</label>
                 <select
                   value={aiGenerate.severity}
                   onChange={(e) => setAiGenerate({...aiGenerate, severity: e.target.value as any})}
@@ -1531,7 +1531,7 @@ const CustomRulesPage: React.FC = () => {
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   onClick={() => setShowAIGenerateModal(false)}
-                  className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700"
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -1551,10 +1551,10 @@ const CustomRulesPage: React.FC = () => {
       {/* Rule Details Modal */}
       {selectedRule && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6">
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-bold">{selectedRule.name}</h2>
-              <button onClick={() => setSelectedRule(null)} className="text-gray-400 hover:text-gray-300 text-2xl">
+              <button onClick={() => setSelectedRule(null)} className="text-gray-500 hover:text-gray-700 text-2xl">
                 x
               </button>
             </div>
@@ -1563,52 +1563,52 @@ const CustomRulesPage: React.FC = () => {
                 <span className={`px-3 py-1 text-sm font-semibold rounded-full ${getSeverityColor(selectedRule.severity)}`}>
                   {selectedRule.severity.toUpperCase()}
                 </span>
-                <span className="ml-3 text-gray-400">Language: {selectedRule.language}</span>
+                <span className="ml-3 text-gray-600">Language: {selectedRule.language}</span>
               </div>
               <div>
-                <h3 className="font-semibold text-gray-300 mb-1">Pattern:</h3>
-                <code className="block bg-gray-700 p-3 rounded text-sm font-mono break-all">
+                <h3 className="font-semibold text-gray-700 mb-1">Pattern:</h3>
+                <code className="block bg-gray-100 p-3 rounded text-sm font-mono break-all">
                   {selectedRule.pattern}
                 </code>
               </div>
               <div>
-                <h3 className="font-semibold text-gray-300 mb-1">Description:</h3>
-                <p className="text-gray-400">{selectedRule.description}</p>
+                <h3 className="font-semibold text-gray-700 mb-1">Description:</h3>
+                <p className="text-gray-600">{selectedRule.description}</p>
               </div>
               {selectedRule.remediation && (
                 <div>
-                  <h3 className="font-semibold text-gray-300 mb-1">Remediation:</h3>
-                  <p className="text-gray-400">{selectedRule.remediation}</p>
+                  <h3 className="font-semibold text-gray-700 mb-1">Remediation:</h3>
+                  <p className="text-gray-600">{selectedRule.remediation}</p>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-4">
                 {selectedRule.cwe && (
                   <div>
-                    <h3 className="font-semibold text-gray-300 mb-1">CWE:</h3>
-                    <p className="text-gray-400">{selectedRule.cwe}</p>
+                    <h3 className="font-semibold text-gray-700 mb-1">CWE:</h3>
+                    <p className="text-gray-600">{selectedRule.cwe}</p>
                   </div>
                 )}
                 {selectedRule.owasp && (
                   <div>
-                    <h3 className="font-semibold text-gray-300 mb-1">OWASP:</h3>
-                    <p className="text-gray-400">{selectedRule.owasp}</p>
+                    <h3 className="font-semibold text-gray-700 mb-1">OWASP:</h3>
+                    <p className="text-gray-600">{selectedRule.owasp}</p>
                   </div>
                 )}
               </div>
               <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-300 mb-2">Performance Metrics:</h3>
+                <h3 className="font-semibold text-gray-700 mb-2">Performance Metrics:</h3>
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-blue-900/20 p-3 rounded">
+                  <div className="bg-blue-50 p-3 rounded">
                     <div className="text-2xl font-bold text-blue-600">{selectedRule.total_detections}</div>
-                    <div className="text-sm text-gray-400">Total Detections</div>
+                    <div className="text-sm text-gray-600">Total Detections</div>
                   </div>
-                  <div className="bg-green-900/20 p-3 rounded">
+                  <div className="bg-green-50 p-3 rounded">
                     <div className="text-2xl font-bold text-green-600">{selectedRule.true_positives}</div>
-                    <div className="text-sm text-gray-400">True Positives</div>
+                    <div className="text-sm text-gray-600">True Positives</div>
                   </div>
-                  <div className="bg-red-900/20 p-3 rounded">
+                  <div className="bg-red-50 p-3 rounded">
                     <div className="text-2xl font-bold text-red-600">{selectedRule.false_positives}</div>
-                    <div className="text-sm text-gray-400">False Positives</div>
+                    <div className="text-sm text-gray-600">False Positives</div>
                   </div>
                 </div>
                 {selectedRule.precision !== null && (
@@ -1622,7 +1622,7 @@ const CustomRulesPage: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="text-sm text-gray-400">
+              <div className="text-sm text-gray-500">
                 Created by {selectedRule.created_by} on {new Date(selectedRule.created_at).toLocaleString()}
                 {selectedRule.generated_by === 'ai' && <span className="ml-2">AI Generated</span>}
               </div>

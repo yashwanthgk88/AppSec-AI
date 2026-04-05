@@ -122,12 +122,12 @@ interface ComplianceMapping {
 }
 
 const STRIDE_INFO: Record<string, { name: string; icon: any; color: string; description: string }> = {
-  S: { name: 'Spoofing', icon: User, color: 'bg-purple-900/30 text-purple-400 border-purple-300', description: 'Identity theft' },
-  T: { name: 'Tampering', icon: Database, color: 'bg-orange-900/30 text-orange-400 border-orange-300', description: 'Data modification' },
-  R: { name: 'Repudiation', icon: EyeOff, color: 'bg-gray-700 text-gray-300 border-gray-600', description: 'Deny actions' },
-  I: { name: 'Info Disclosure', icon: Eye, color: 'bg-blue-900/30 text-blue-400 border-blue-300', description: 'Data exposure' },
-  D: { name: 'Denial of Service', icon: Server, color: 'bg-red-900/30 text-red-400 border-red-300', description: 'Service disruption' },
-  E: { name: 'Elevation', icon: Zap, color: 'bg-yellow-900/30 text-yellow-400 border-yellow-300', description: 'Privilege escalation' },
+  S: { name: 'Spoofing', icon: User, color: 'bg-purple-100 text-purple-700 border-purple-300', description: 'Identity theft' },
+  T: { name: 'Tampering', icon: Database, color: 'bg-orange-100 text-orange-700 border-orange-300', description: 'Data modification' },
+  R: { name: 'Repudiation', icon: EyeOff, color: 'bg-gray-100 text-gray-700 border-gray-300', description: 'Deny actions' },
+  I: { name: 'Info Disclosure', icon: Eye, color: 'bg-blue-100 text-blue-700 border-blue-300', description: 'Data exposure' },
+  D: { name: 'Denial of Service', icon: Server, color: 'bg-red-100 text-red-700 border-red-300', description: 'Service disruption' },
+  E: { name: 'Elevation', icon: Zap, color: 'bg-yellow-100 text-yellow-700 border-yellow-300', description: 'Privilege escalation' },
 }
 
 export default function StoryAnalysisPage() {
@@ -244,19 +244,19 @@ export default function StoryAnalysisPage() {
 
   const getImpactColor = (impact: string) => {
     switch (impact.toLowerCase()) {
-      case 'high': return 'bg-red-900/30 text-red-400'
+      case 'high': return 'bg-red-100 text-red-700'
       case 'medium': return 'bg-amber-100 text-amber-700'
-      case 'low': return 'bg-green-900/30 text-green-400'
-      default: return 'bg-gray-700 text-gray-300'
+      case 'low': return 'bg-green-100 text-green-700'
+      default: return 'bg-gray-100 text-gray-700'
     }
   }
 
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
-      case 'must': return 'bg-red-900/30 text-red-400 border-red-300'
+      case 'must': return 'bg-red-100 text-red-700 border-red-300'
       case 'should': return 'bg-amber-100 text-amber-700 border-amber-300'
-      case 'could': return 'bg-blue-900/30 text-blue-400 border-blue-300'
-      default: return 'bg-gray-700 text-gray-300 border-gray-600'
+      case 'could': return 'bg-blue-100 text-blue-700 border-blue-300'
+      default: return 'bg-gray-100 text-gray-700 border-gray-300'
     }
   }
 
@@ -271,7 +271,7 @@ export default function StoryAnalysisPage() {
   if (!story) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-400">Story not found</p>
+        <p className="text-gray-500">Story not found</p>
       </div>
     )
   }
@@ -285,13 +285,13 @@ export default function StoryAnalysisPage() {
         <div>
           <Link
             to={`/projects/${id}/security-requirements`}
-            className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-2"
+            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Back to Stories
           </Link>
-          <h1 className="text-2xl font-bold text-white">{story.title}</h1>
-          <p className="text-gray-400 mt-1">{story.description}</p>
+          <h1 className="text-2xl font-bold text-gray-900">{story.title}</h1>
+          <p className="text-gray-600 mt-1">{story.description}</p>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -301,13 +301,13 @@ export default function StoryAnalysisPage() {
             className={`inline-flex items-center px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
               insiderThreatMode
                 ? 'bg-red-600 text-white border-red-600 shadow-md'
-                : 'bg-gray-800 text-gray-400 border-gray-600 hover:border-red-400 hover:text-red-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-red-400 hover:text-red-600'
             }`}
             title="Toggle insider threat analysis mode for reanalysis"
           >
             <UserX className="w-4 h-4 mr-2" />
             Insider Threat
-            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-700 text-gray-400'}`}>
+            <span className={`ml-2 px-1.5 py-0.5 rounded text-xs font-bold ${insiderThreatMode ? 'bg-red-700 text-white' : 'bg-gray-100 text-gray-500'}`}>
               {insiderThreatMode ? 'ON' : 'OFF'}
             </span>
           </button>
@@ -354,14 +354,14 @@ export default function StoryAnalysisPage() {
       {publishMessage && (
         <div className={`p-4 rounded-lg ${
           publishMessage.type === 'success'
-            ? 'bg-green-900/20 border border-green-700 text-green-300'
-            : 'bg-red-900/20 border border-red-700 text-red-300'
+            ? 'bg-green-50 border border-green-200 text-green-800'
+            : 'bg-red-50 border border-red-200 text-red-800'
         }`}>
           <div className="flex items-center justify-between">
             <span>{publishMessage.text}</span>
             <button
               onClick={() => setPublishMessage(null)}
-              className="text-gray-400 hover:text-gray-300"
+              className="text-gray-500 hover:text-gray-700"
             >
               ×
             </button>
@@ -375,7 +375,7 @@ export default function StoryAnalysisPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Risk Score</p>
+                <p className="text-sm text-gray-600">Risk Score</p>
                 <p className={`text-3xl font-bold ${getRiskColor(analysis.risk_score)}`}>
                   {analysis.risk_score}
                 </p>
@@ -387,7 +387,7 @@ export default function StoryAnalysisPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Abuse Cases</p>
+                <p className="text-sm text-gray-600">Abuse Cases</p>
                 <p className="text-3xl font-bold text-purple-600">{analysis.abuse_cases.length}</p>
               </div>
               <AlertTriangle className="w-10 h-10 text-purple-500" />
@@ -397,7 +397,7 @@ export default function StoryAnalysisPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">STRIDE Threats</p>
+                <p className="text-sm text-gray-600">STRIDE Threats</p>
                 <p className="text-3xl font-bold text-red-600">{totalThreats}</p>
               </div>
               <Shield className="w-10 h-10 text-red-500" />
@@ -407,7 +407,7 @@ export default function StoryAnalysisPage() {
           <div className="card p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-400">Requirements</p>
+                <p className="text-sm text-gray-600">Requirements</p>
                 <p className="text-3xl font-bold text-green-600">{analysis.security_requirements.length}</p>
               </div>
               <CheckCircle className="w-10 h-10 text-green-500" />
@@ -419,14 +419,14 @@ export default function StoryAnalysisPage() {
       {/* Analysis metadata */}
       {analysis && (
         <div className="card p-4">
-          <div className="flex items-center justify-between text-sm text-gray-400">
+          <div className="flex items-center justify-between text-sm text-gray-500">
             <div className="flex items-center space-x-4">
               <span className="flex items-center">
                 <Clock className="w-4 h-4 mr-1" />
                 Version {analysis.version}
               </span>
               {analysis.ai_model_used && (
-                <span className="px-2 py-0.5 bg-indigo-900/30 text-indigo-400 rounded-full text-xs">
+                <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">
                   {analysis.ai_model_used}
                 </span>
               )}
@@ -442,7 +442,7 @@ export default function StoryAnalysisPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-700">
+      <div className="border-b border-gray-200">
         <nav className="flex space-x-8">
           {[
             { key: 'threats', label: 'Threats & Abuse Cases', count: totalThreats + (analysis?.abuse_cases.length || 0) },
@@ -455,12 +455,12 @@ export default function StoryAnalysisPage() {
               className={`pb-4 px-1 border-b-2 font-medium text-sm transition ${
                 activeTab === tab.key
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-400 hover:text-gray-300'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
               {tab.label}
               <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                activeTab === tab.key ? 'bg-indigo-900/30 text-indigo-600' : 'bg-gray-700 text-gray-400'
+                activeTab === tab.key ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-600'
               }`}>
                 {tab.count}
               </span>
@@ -474,32 +474,32 @@ export default function StoryAnalysisPage() {
         <div className="space-y-6">
           {/* Abuse Cases */}
           <div className="card">
-            <div className="p-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white flex items-center">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <AlertTriangle className="w-5 h-5 mr-2 text-purple-600" />
                 Abuse Cases
               </h3>
             </div>
-            <div className="divide-y divide-gray-700">
+            <div className="divide-y divide-gray-100">
               {analysis.abuse_cases.map((abuse, index) => (
-                <div key={`abuse-${index}-${abuse.id}`} className={`p-4 hover:bg-gray-700 ${abuse.insider_threat ? 'border-l-4 border-red-400 bg-red-900/20/30' : ''}`}>
+                <div key={`abuse-${index}-${abuse.id}`} className={`p-4 hover:bg-gray-50 ${abuse.insider_threat ? 'border-l-4 border-red-400 bg-red-50/30' : ''}`}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <span className="text-xs font-mono bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">{abuse.id}</span>
+                        <span className="text-xs font-mono bg-purple-100 text-purple-700 px-2 py-0.5 rounded">{abuse.id}</span>
                         {abuse.insider_threat && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-900/30 text-red-400 border border-red-300">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
                             <UserX className="w-3 h-3 mr-1" />
                             Insider Threat
                           </span>
                         )}
-                        <h4 className="font-semibold text-white">{abuse.title}</h4>
+                        <h4 className="font-semibold text-gray-900">{abuse.title}</h4>
                       </div>
 
                       {/* Description as bullet points */}
                       <div className="mt-2 mb-3">
-                        <h5 className="text-sm font-medium text-gray-300 mb-1">Attack Description:</h5>
-                        <ul className="list-disc list-inside text-sm text-gray-400 space-y-1 ml-2">
+                        <h5 className="text-sm font-medium text-gray-700 mb-1">Attack Description:</h5>
+                        <ul className="list-disc list-inside text-sm text-gray-600 space-y-1 ml-2">
                           {formatAsBulletPoints(abuse.description).map((point, idx) => (
                             <li key={idx}>{point}</li>
                           ))}
@@ -508,12 +508,12 @@ export default function StoryAnalysisPage() {
 
                       {/* Mitigations if available */}
                       {abuse.mitigations && abuse.mitigations.length > 0 && (
-                        <div className="mt-3 mb-3 bg-green-900/20 border border-green-700 rounded-lg p-3">
-                          <h5 className="text-sm font-medium text-green-300 mb-2 flex items-center">
+                        <div className="mt-3 mb-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                          <h5 className="text-sm font-medium text-green-800 mb-2 flex items-center">
                             <Shield className="w-4 h-4 mr-1" />
                             Recommended Mitigations:
                           </h5>
-                          <ul className="list-disc list-inside text-sm text-green-400 space-y-1 ml-2">
+                          <ul className="list-disc list-inside text-sm text-green-700 space-y-1 ml-2">
                             {abuse.mitigations.map((mitigation, idx) => (
                               <li key={idx}>{mitigation}</li>
                             ))}
@@ -523,7 +523,7 @@ export default function StoryAnalysisPage() {
 
                       <div className="flex items-center justify-between mt-3">
                         <div className="flex items-center flex-wrap gap-2">
-                          <span className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs flex items-center">
+                          <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs flex items-center">
                             <Target className="w-3 h-3 mr-1" />
                             Actor: {abuse.threat_actor}
                           </span>
@@ -541,8 +541,8 @@ export default function StoryAnalysisPage() {
                             disabled={feedbackSubmitted.has(`abuse_case-${abuse.id}-positive`)}
                             className={`p-1.5 rounded-full transition-colors ${
                               feedbackSubmitted.has(`abuse_case-${abuse.id}-positive`)
-                                ? 'bg-green-900/30 text-green-600'
-                                : 'hover:bg-green-900/20 text-gray-400 hover:text-green-600'
+                                ? 'bg-green-100 text-green-600'
+                                : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
                             }`}
                             title="Good abuse case - helps improve AI"
                           >
@@ -553,8 +553,8 @@ export default function StoryAnalysisPage() {
                             disabled={feedbackSubmitted.has(`abuse_case-${abuse.id}-negative`)}
                             className={`p-1.5 rounded-full transition-colors ${
                               feedbackSubmitted.has(`abuse_case-${abuse.id}-negative`)
-                                ? 'bg-red-900/30 text-red-600'
-                                : 'hover:bg-red-900/20 text-gray-400 hover:text-red-600'
+                                ? 'bg-red-100 text-red-600'
+                                : 'hover:bg-red-50 text-gray-400 hover:text-red-600'
                             }`}
                             title="Poor abuse case - helps improve AI"
                           >
@@ -567,15 +567,15 @@ export default function StoryAnalysisPage() {
                 </div>
               ))}
               {analysis.abuse_cases.length === 0 && (
-                <div className="p-8 text-center text-gray-400">No abuse cases identified</div>
+                <div className="p-8 text-center text-gray-500">No abuse cases identified</div>
               )}
             </div>
           </div>
 
           {/* STRIDE Threats */}
           <div className="card">
-            <div className="p-4 border-b border-gray-700">
-              <h3 className="text-lg font-semibold text-white flex items-center">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <Shield className="w-5 h-5 mr-2 text-red-600" />
                 STRIDE Threat Analysis
               </h3>
@@ -586,29 +586,29 @@ export default function StoryAnalysisPage() {
                   const threats = analysis.stride_threats[key] || []
                   const Icon = info.icon
                   return (
-                    <div key={key} className={`border rounded-lg p-4 ${threats.length > 0 ? info.color : 'bg-gray-800/50 border-gray-700'}`}>
+                    <div key={key} className={`border rounded-lg p-4 ${threats.length > 0 ? info.color : 'bg-gray-50 border-gray-200'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center">
                           <Icon className="w-5 h-5 mr-2" />
                           <span className="font-semibold">{info.name}</span>
                         </div>
-                        <span className="px-2 py-0.5 bg-gray-800 bg-opacity-50 rounded-full text-xs font-medium">
+                        <span className="px-2 py-0.5 bg-white bg-opacity-50 rounded-full text-xs font-medium">
                           {threats.length}
                         </span>
                       </div>
                       {threats.length > 0 ? (
                         <div className="space-y-2">
                           {threats.map((threat) => (
-                            <div key={threat.id} className="bg-gray-800 bg-opacity-50 rounded p-2">
+                            <div key={threat.id} className="bg-white bg-opacity-50 rounded p-2">
                               <p className="text-sm font-medium">{threat.threat}</p>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-gray-600 mt-1">
                                 <span className="font-medium">Mitigation:</span> {threat.mitigation}
                               </p>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-gray-400">No threats identified</p>
+                        <p className="text-sm text-gray-500">No threats identified</p>
                       )}
                     </div>
                   )
@@ -621,27 +621,27 @@ export default function StoryAnalysisPage() {
 
       {analysis && activeTab === 'requirements' && (
         <div className="card">
-          <div className="p-4 border-b border-gray-700">
-            <h3 className="text-lg font-semibold text-white flex items-center">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <Lock className="w-5 h-5 mr-2 text-green-600" />
               Security Requirements
             </h3>
           </div>
-          <div className="divide-y divide-gray-700">
+          <div className="divide-y divide-gray-100">
             {analysis.security_requirements.map((req) => (
-              <div key={req.id} className={`p-4 hover:bg-gray-700 ${req.insider_threat ? 'border-l-4 border-red-400 bg-red-900/20/30' : ''}`}>
+              <div key={req.id} className={`p-4 hover:bg-gray-50 ${req.insider_threat ? 'border-l-4 border-red-400 bg-red-50/30' : ''}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center flex-wrap gap-2 mb-3">
-                      <span className="text-xs font-mono bg-green-900/30 text-green-400 px-2 py-0.5 rounded">{req.id}</span>
+                      <span className="text-xs font-mono bg-green-100 text-green-700 px-2 py-0.5 rounded">{req.id}</span>
                       <span className={`px-2 py-1 rounded text-xs font-semibold border ${getPriorityColor(req.priority)}`}>
                         {req.priority.toUpperCase()} PRIORITY
                       </span>
-                      <span className="px-2 py-1 bg-indigo-900/30 text-indigo-400 rounded text-xs font-medium">
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-medium">
                         {req.category}
                       </span>
                       {req.insider_threat && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-900/30 text-red-400 border border-red-300">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
                           <UserX className="w-3 h-3 mr-1" />
                           Insider Threat
                         </span>
@@ -649,12 +649,12 @@ export default function StoryAnalysisPage() {
                     </div>
 
                     {/* Requirement Title */}
-                    <h4 className="font-semibold text-white text-base mb-3">{req.requirement}</h4>
+                    <h4 className="font-semibold text-gray-900 text-base mb-3">{req.requirement}</h4>
 
                     {/* Rationale as bullet points */}
-                    <div className="mt-2 mb-3 bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-                      <h5 className="text-sm font-medium text-blue-300 mb-2">📋 Rationale:</h5>
-                      <ul className="list-disc list-inside text-sm text-blue-400 space-y-1 ml-2">
+                    <div className="mt-2 mb-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <h5 className="text-sm font-medium text-blue-800 mb-2">📋 Rationale:</h5>
+                      <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 ml-2">
                         {formatAsBulletPoints(req.rationale).map((point, idx) => (
                           <li key={idx}>{point}</li>
                         ))}
@@ -662,9 +662,9 @@ export default function StoryAnalysisPage() {
                     </div>
 
                     {/* Acceptance Criteria as bullet points */}
-                    <div className="mt-2 bg-green-900/20 border border-green-700 rounded-lg p-3">
-                      <h5 className="text-sm font-medium text-green-300 mb-2">✅ Acceptance Criteria:</h5>
-                      <ul className="list-disc list-inside text-sm text-green-400 space-y-1 ml-2">
+                    <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-3">
+                      <h5 className="text-sm font-medium text-green-800 mb-2">✅ Acceptance Criteria:</h5>
+                      <ul className="list-disc list-inside text-sm text-green-700 space-y-1 ml-2">
                         {formatAsBulletPoints(req.acceptance_criteria).map((point, idx) => (
                           <li key={idx}>{point}</li>
                         ))}
@@ -680,8 +680,8 @@ export default function StoryAnalysisPage() {
                           disabled={feedbackSubmitted.has(`security_requirement-${req.id}-positive`)}
                           className={`p-1.5 rounded-full transition-colors ${
                             feedbackSubmitted.has(`security_requirement-${req.id}-positive`)
-                              ? 'bg-green-900/30 text-green-600'
-                              : 'hover:bg-green-900/20 text-gray-400 hover:text-green-600'
+                              ? 'bg-green-100 text-green-600'
+                              : 'hover:bg-green-50 text-gray-400 hover:text-green-600'
                           }`}
                           title="Good requirement - helps improve AI"
                         >
@@ -692,8 +692,8 @@ export default function StoryAnalysisPage() {
                           disabled={feedbackSubmitted.has(`security_requirement-${req.id}-negative`)}
                           className={`p-1.5 rounded-full transition-colors ${
                             feedbackSubmitted.has(`security_requirement-${req.id}-negative`)
-                              ? 'bg-red-900/30 text-red-600'
-                              : 'hover:bg-red-900/20 text-gray-400 hover:text-red-600'
+                              ? 'bg-red-100 text-red-600'
+                              : 'hover:bg-red-50 text-gray-400 hover:text-red-600'
                           }`}
                           title="Poor requirement - helps improve AI"
                         >
@@ -706,7 +706,7 @@ export default function StoryAnalysisPage() {
               </div>
             ))}
             {analysis.security_requirements.length === 0 && (
-              <div className="p-8 text-center text-gray-400">No requirements generated</div>
+              <div className="p-8 text-center text-gray-500">No requirements generated</div>
             )}
           </div>
         </div>
@@ -714,8 +714,8 @@ export default function StoryAnalysisPage() {
 
       {activeTab === 'compliance' && (
         <div className="card">
-          <div className="p-4 border-b border-gray-700">
-            <h3 className="text-lg font-semibold text-white flex items-center">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <FileText className="w-5 h-5 mr-2 text-blue-600" />
               Compliance Mapping
             </h3>
@@ -723,39 +723,39 @@ export default function StoryAnalysisPage() {
           {compliance.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-800/50">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Requirement</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Standard</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Control</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Relevance</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requirement</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Standard</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Control</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Relevance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-700">
+                <tbody className="divide-y divide-gray-100">
                   {compliance.map((mapping) => (
-                    <tr key={mapping.id} className="hover:bg-gray-700">
+                    <tr key={mapping.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
-                        <span className="text-xs font-mono text-gray-400">{mapping.requirement_id}</span>
-                        <p className="text-sm text-white mt-0.5 line-clamp-2">{mapping.requirement_text}</p>
+                        <span className="text-xs font-mono text-gray-500">{mapping.requirement_id}</span>
+                        <p className="text-sm text-gray-900 mt-0.5 line-clamp-2">{mapping.requirement_text}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-blue-900/30 text-blue-400 rounded text-xs font-medium">
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">
                           {mapping.standard_name}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <span className="font-mono text-sm">{mapping.control_id}</span>
-                        <p className="text-xs text-gray-400 mt-0.5">{mapping.control_title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{mapping.control_title}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center">
-                          <div className="w-16 bg-gray-600 rounded-full h-2 mr-2">
+                          <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                             <div
-                              className="bg-green-900/30 h-2 rounded-full"
+                              className="bg-green-500 h-2 rounded-full"
                               style={{ width: `${mapping.relevance_score * 100}%` }}
                             />
                           </div>
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-gray-500">
                             {Math.round(mapping.relevance_score * 100)}%
                           </span>
                         </div>
@@ -766,7 +766,7 @@ export default function StoryAnalysisPage() {
               </table>
             </div>
           ) : (
-            <div className="p-8 text-center text-gray-400">No compliance mappings available</div>
+            <div className="p-8 text-center text-gray-500">No compliance mappings available</div>
           )}
         </div>
       )}

@@ -153,7 +153,7 @@ export default function ReportCenterPage() {
   const selectedProjectObj = projects.find((p) => p.id === selectedProject)
 
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -223,7 +223,7 @@ export default function ReportCenterPage() {
 
         {/* Error / Success Messages */}
         {error && (
-          <div className="bg-red-900/30/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <span className="text-red-300">{error}</span>
           </div>
@@ -276,7 +276,7 @@ export default function ReportCenterPage() {
                     disabled={!selectedProject || isLoading}
                     className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
                       !selectedProject
-                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                         : isLoading
                           ? 'bg-gray-600 text-gray-300 cursor-wait'
                           : isSuccess
@@ -374,7 +374,7 @@ export default function ReportCenterPage() {
                   <ul className="space-y-1.5">
                     {section.items.map((item, idx) => (
                       <li key={idx} className="text-xs text-gray-400 flex items-start gap-1.5">
-                        <span className="text-gray-400 mt-0.5">•</span>
+                        <span className="text-gray-600 mt-0.5">•</span>
                         {item}
                       </li>
                     ))}

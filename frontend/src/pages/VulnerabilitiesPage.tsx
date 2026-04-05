@@ -150,17 +150,17 @@ function LiveCvePanel({ packageName, version, ecosystem, existingCves }: {
   const ghsaIds = cveArray.filter(c => c.startsWith('GHSA-'))
 
   return (
-    <div className="bg-red-900/20 rounded-lg p-4 border border-red-700 mt-4">
+    <div className="bg-red-50 rounded-lg p-4 border border-red-200 mt-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
           <Shield className="w-5 h-5 text-red-600" />
-          <p className="text-sm text-red-300 font-semibold">CVE Identifiers (Live from NVD/OSV)</p>
+          <p className="text-sm text-red-800 font-semibold">CVE Identifiers (Live from NVD/OSV)</p>
         </div>
         {!fetched && (
           <button
             onClick={fetchLiveCves}
             disabled={loading || !packageName}
-            className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-400 bg-red-900/30 rounded hover:bg-red-200 disabled:opacity-50"
+            className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded hover:bg-red-200 disabled:opacity-50"
           >
             {loading ? (
               <>
@@ -190,7 +190,7 @@ function LiveCvePanel({ packageName, version, ecosystem, existingCves }: {
                 href={`https://nvd.nist.gov/vuln/detail/${cve}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-900/30 text-red-300 hover:bg-red-200 border border-red-300 transition-colors"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-red-100 text-red-800 hover:bg-red-200 border border-red-300 transition-colors"
               >
                 <Shield className="w-4 h-4 mr-2" />
                 {cve}
@@ -203,7 +203,7 @@ function LiveCvePanel({ packageName, version, ecosystem, existingCves }: {
                 href={`https://github.com/advisories/${ghsa}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-700 text-gray-100 hover:bg-gray-600 border border-gray-600 transition-colors"
+                className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-300 transition-colors"
               >
                 <Github className="w-4 h-4 mr-2" />
                 {ghsa}
@@ -216,33 +216,33 @@ function LiveCvePanel({ packageName, version, ecosystem, existingCves }: {
           </p>
         </>
       ) : fetched ? (
-        <p className="text-sm text-gray-400">No CVE identifiers found. Click "Fetch Live CVEs" to query real-time databases.</p>
+        <p className="text-sm text-gray-600">No CVE identifiers found. Click "Fetch Live CVEs" to query real-time databases.</p>
       ) : (
-        <p className="text-sm text-gray-400">Click "Fetch Live CVEs" to get real-time vulnerability data from NVD and OSV.</p>
+        <p className="text-sm text-gray-600">Click "Fetch Live CVEs" to get real-time vulnerability data from NVD and OSV.</p>
       )}
 
       {/* Show live vulnerability details */}
       {liveCves.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs text-red-400 font-semibold">Live Vulnerability Details:</p>
+          <p className="text-xs text-red-700 font-semibold">Live Vulnerability Details:</p>
           {liveCves.slice(0, 5).map((vuln, idx) => (
-            <div key={idx} className="bg-gray-800 rounded p-2 border border-red-100 text-xs">
+            <div key={idx} className="bg-white rounded p-2 border border-red-100 text-xs">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-red-300">{vuln.id || vuln.cve_ids?.[0] || 'Unknown'}</span>
+                <span className="font-semibold text-red-800">{vuln.id || vuln.cve_ids?.[0] || 'Unknown'}</span>
                 <span className={`px-2 py-0.5 rounded ${
                   vuln.severity === 'CRITICAL' ? 'bg-red-600 text-white' :
-                  vuln.severity === 'HIGH' ? 'bg-orange-900/30 text-white' :
-                  vuln.severity === 'MEDIUM' ? 'bg-yellow-900/30 text-white' :
+                  vuln.severity === 'HIGH' ? 'bg-orange-500 text-white' :
+                  vuln.severity === 'MEDIUM' ? 'bg-yellow-500 text-white' :
                   'bg-gray-400 text-white'
                 }`}>
                   {vuln.severity || 'UNKNOWN'}
                 </span>
               </div>
-              {vuln.summary && <p className="text-gray-400 mt-1 line-clamp-2">{vuln.summary}</p>}
+              {vuln.summary && <p className="text-gray-600 mt-1 line-clamp-2">{vuln.summary}</p>}
             </div>
           ))}
           {liveCves.length > 5 && (
-            <p className="text-xs text-gray-400">+{liveCves.length - 5} more vulnerabilities</p>
+            <p className="text-xs text-gray-500">+{liveCves.length - 5} more vulnerabilities</p>
           )}
         </div>
       )}
@@ -264,7 +264,7 @@ function DependencyTypeBadge({ isTransitive, introducedBy }: { isTransitive: boo
     )
   }
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-900/30 text-green-300 border border-green-300">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 border border-green-300">
       <Package className="w-3 h-3 mr-1" />
       DIRECT
     </span>
@@ -492,7 +492,7 @@ export default function VulnerabilitiesPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading vulnerabilities... (Check console for debug info)</p>
+          <p className="text-gray-600">Loading vulnerabilities... (Check console for debug info)</p>
         </div>
       </div>
     )
@@ -603,13 +603,13 @@ export default function VulnerabilitiesPage() {
       <div>
         <Link
           to={`/projects/${id}`}
-          className="inline-flex items-center text-sm text-gray-400 hover:text-white mb-2"
+          className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-2"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to Project
         </Link>
-        <h1 className="text-3xl font-bold text-white">Security Vulnerabilities</h1>
-        <p className="text-gray-400 mt-1">SAST, SCA, and Secret Scan results with AI-powered remediation</p>
+        <h1 className="text-3xl font-bold text-gray-900">Security Vulnerabilities</h1>
+        <p className="text-gray-600 mt-1">SAST, SCA, and Secret Scan results with AI-powered remediation</p>
       </div>
 
       {/* Summary Cards */}
@@ -622,29 +622,29 @@ export default function VulnerabilitiesPage() {
 
       {/* Scan Type Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="card p-4 bg-blue-900/20 border-blue-700">
+        <div className="card p-4 bg-blue-50 border-blue-200">
           <p className="text-sm font-medium text-blue-900">SAST Findings</p>
           <p className="text-2xl font-bold text-blue-900">{scanTypeCounts.sast}</p>
-          <p className="text-xs text-blue-400 mt-1">Code vulnerabilities</p>
+          <p className="text-xs text-blue-700 mt-1">Code vulnerabilities</p>
         </div>
-        <div className="card p-4 bg-purple-900/20 border-purple-700">
+        <div className="card p-4 bg-purple-50 border-purple-200">
           <p className="text-sm font-medium text-purple-900">SCA Findings</p>
           <p className="text-2xl font-bold text-purple-900">{scanTypeCounts.sca}</p>
-          <p className="text-xs text-purple-400 mt-1">Dependency issues</p>
+          <p className="text-xs text-purple-700 mt-1">Dependency issues</p>
         </div>
-        <div className="card p-4 bg-red-900/20 border-red-700">
+        <div className="card p-4 bg-red-50 border-red-200">
           <p className="text-sm font-medium text-red-900">Secret Findings</p>
           <p className="text-2xl font-bold text-red-900">{scanTypeCounts.secret}</p>
-          <p className="text-xs text-red-400 mt-1">Exposed secrets</p>
+          <p className="text-xs text-red-700 mt-1">Exposed secrets</p>
         </div>
-        <div className="card p-4 bg-gradient-to-r from-orange-900/20 to-red-900/20 border-orange-700">
+        <div className="card p-4 bg-gradient-to-r from-orange-50 to-red-50 border-orange-200">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-orange-900">Threat Intel Matches</p>
               <p className="text-2xl font-bold text-orange-600">
                 {vulnerabilities.filter(v => getCorrelatedThreats(v).length > 0).length}
               </p>
-              <p className="text-xs text-orange-400 mt-1">Actively exploited threats</p>
+              <p className="text-xs text-orange-700 mt-1">Actively exploited threats</p>
             </div>
             <Zap className="w-8 h-8 text-orange-500" />
           </div>
@@ -657,8 +657,8 @@ export default function VulnerabilitiesPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center space-x-2">
               <Package className="w-5 h-5 text-purple-600" />
-              <h3 className="font-semibold text-white">SCA Vulnerability Sources</h3>
-              <span className="text-sm text-gray-400">({scanTypeCounts.sca} findings from {(() => {
+              <h3 className="font-semibold text-gray-900">SCA Vulnerability Sources</h3>
+              <span className="text-sm text-gray-500">({scanTypeCounts.sca} findings from {(() => {
                 const sources = new Set<string>()
                 vulnerabilities.filter(v => v.scan_type === 'sca').forEach(v => {
                   const info = parseScaSource(v)
@@ -670,7 +670,7 @@ export default function VulnerabilitiesPage() {
             <button
               onClick={handleDeduplicateSca}
               disabled={deduplicating}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-purple-400 bg-purple-900/30 rounded-md hover:bg-purple-200 disabled:opacity-50"
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-purple-700 bg-purple-100 rounded-md hover:bg-purple-200 disabled:opacity-50"
               title="Remove duplicate vulnerabilities (same package + CVE)"
             >
               {deduplicating ? (
@@ -696,10 +696,10 @@ export default function VulnerabilitiesPage() {
               })
 
               return Object.entries(sourceCounts).map(([source, count]) => (
-                <div key={source} className="flex items-center space-x-2 bg-gray-700 rounded-lg px-3 py-2">
+                <div key={source} className="flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
                   <SourceBadge source={source} />
-                  <span className="text-sm font-semibold text-gray-300">{count}</span>
-                  <span className="text-xs text-gray-400">findings</span>
+                  <span className="text-sm font-semibold text-gray-700">{count}</span>
+                  <span className="text-xs text-gray-500">findings</span>
                 </div>
               ))
             })()}
@@ -718,22 +718,22 @@ export default function VulnerabilitiesPage() {
 
       {/* Threat Intel Correlation Banner */}
       {threatIntel.length > 0 && (
-        <div className="card p-4 bg-gradient-to-r from-red-900/20 via-orange-900/20 to-yellow-900/20 border-l-4 border-red-500">
+        <div className="card p-4 bg-gradient-to-r from-red-50 via-orange-50 to-yellow-50 border-l-4 border-red-500">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-red-900/30 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                 <Shield className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-white">Live Threat Intelligence Correlation</h3>
-                <p className="text-sm text-gray-400">
+                <h3 className="font-semibold text-gray-900">Live Threat Intelligence Correlation</h3>
+                <p className="text-sm text-gray-600">
                   Comparing {vulnerabilities.length} findings against {threatIntel.length} active threats from CISA KEV, NVD, and Exploit-DB
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-xs text-gray-400">Actively Exploited</p>
+                <p className="text-xs text-gray-500">Actively Exploited</p>
                 <p className="text-lg font-bold text-red-600">
                   {threatIntel.filter(t => t.actively_exploited).length}
                 </p>
@@ -743,9 +743,9 @@ export default function VulnerabilitiesPage() {
                   type="checkbox"
                   checked={showThreatCorrelation}
                   onChange={(e) => setShowThreatCorrelation(e.target.checked)}
-                  className="w-4 h-4 text-primary-600 border-gray-600 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                 />
-                <span className="text-sm text-gray-300">Show correlations</span>
+                <span className="text-sm text-gray-700">Show correlations</span>
               </label>
               <Link
                 to="/threat-intel"
@@ -770,12 +770,12 @@ export default function VulnerabilitiesPage() {
               placeholder="Search vulnerabilities by title, description, file path, CVE, or CWE..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-400"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 <XCircle className="w-5 h-5" />
               </button>
@@ -784,15 +784,15 @@ export default function VulnerabilitiesPage() {
 
           {/* Group By Selector */}
           <div className="flex items-center space-x-2">
-            <Layers className="w-5 h-5 text-gray-400" />
-            <span className="text-sm font-medium text-gray-300">Group By:</span>
+            <Layers className="w-5 h-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Group By:</span>
             <select
               value={groupBy}
               onChange={(e) => {
                 setGroupBy(e.target.value as any)
                 setExpandedGroups(new Set())
               }}
-              className="px-4 py-2 border border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
             >
               <option value="category">Category</option>
               <option value="severity">Severity</option>
@@ -807,14 +807,14 @@ export default function VulnerabilitiesPage() {
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => toggleAllGroups(true)}
-                className="px-3 py-2 text-sm text-gray-300 hover:text-primary-600"
+                className="px-3 py-2 text-sm text-gray-700 hover:text-primary-600"
               >
                 Expand All
               </button>
               <span className="text-gray-300">|</span>
               <button
                 onClick={() => toggleAllGroups(false)}
-                className="px-3 py-2 text-sm text-gray-300 hover:text-primary-600"
+                className="px-3 py-2 text-sm text-gray-700 hover:text-primary-600"
               >
                 Collapse All
               </button>
@@ -826,7 +826,7 @@ export default function VulnerabilitiesPage() {
       {/* Filters */}
       <div className="card p-4 space-y-3">
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-300">Severity:</span>
+          <span className="text-sm font-medium text-gray-700">Severity:</span>
           {['all', 'critical', 'high', 'medium', 'low'].map((severity) => (
             <button
               key={severity}
@@ -834,7 +834,7 @@ export default function VulnerabilitiesPage() {
               className={`px-4 py-2 text-sm rounded-lg transition ${
                 selectedSeverity === severity
                   ? 'bg-primary-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {severity.charAt(0).toUpperCase() + severity.slice(1)}
@@ -843,7 +843,7 @@ export default function VulnerabilitiesPage() {
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-300">Scan Type:</span>
+          <span className="text-sm font-medium text-gray-700">Scan Type:</span>
           {['all', 'sast', 'sca', 'secret'].map((type) => (
             <button
               key={type}
@@ -851,7 +851,7 @@ export default function VulnerabilitiesPage() {
               className={`px-4 py-2 text-sm rounded-lg transition ${
                 selectedScanType === type
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
               {type === 'all' ? 'All' : type.toUpperCase()}
@@ -860,13 +860,13 @@ export default function VulnerabilitiesPage() {
         </div>
 
         <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-gray-300">Status:</span>
+          <span className="text-sm font-medium text-gray-700">Status:</span>
           <button
             onClick={() => setSelectedStatusView('active')}
             className={`px-4 py-2 text-sm rounded-lg transition inline-flex items-center space-x-2 ${
               selectedStatusView === 'active'
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <Bug className="w-4 h-4" />
@@ -877,7 +877,7 @@ export default function VulnerabilitiesPage() {
             className={`px-4 py-2 text-sm rounded-lg transition inline-flex items-center space-x-2 ${
               selectedStatusView === 'resolved'
                 ? 'bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <CheckCheck className="w-4 h-4" />
@@ -888,7 +888,7 @@ export default function VulnerabilitiesPage() {
             className={`px-4 py-2 text-sm rounded-lg transition inline-flex items-center space-x-2 ${
               selectedStatusView === 'false_positive'
                 ? 'bg-gray-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <AlertCircle className="w-4 h-4" />
@@ -902,25 +902,25 @@ export default function VulnerabilitiesPage() {
         <div className="card overflow-hidden">
           <button
             onClick={() => setShowThreatModelPanel(!showThreatModelPanel)}
-            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-700 transition-colors bg-gradient-to-r from-indigo-900/20 to-purple-900/20"
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gradient-to-r from-indigo-50 to-purple-50"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-indigo-900/30 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
                 <Network className="w-5 h-5 text-indigo-600" />
               </div>
               <div className="text-left">
-                <h3 className="font-semibold text-white">Threat Model Mapping</h3>
-                <p className="text-sm text-gray-400">
+                <h3 className="font-semibold text-gray-900">Threat Model Mapping</h3>
+                <p className="text-sm text-gray-600">
                   STRIDE threats & MITRE ATT&CK techniques correlated with scan findings
                 </p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-900/30 text-purple-400">
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
                   {threatModel.threat_count || 0} STRIDE Threats
                 </span>
-                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-900/30 text-orange-400">
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
                   {(() => {
                     const mm = getMitreMapping()
                     const techs = mm.techniques || mm
@@ -937,7 +937,7 @@ export default function VulnerabilitiesPage() {
           </button>
 
           {showThreatModelPanel && (
-            <div className="border-t border-gray-700 p-6 space-y-6">
+            <div className="border-t border-gray-200 p-6 space-y-6">
               {/* Attack Chain Visualization */}
               {(() => {
                 const mm = getMitreMapping()
@@ -956,7 +956,7 @@ export default function VulnerabilitiesPage() {
                 })
 
                 return attackChain.length > 0 ? (
-                  <div className="bg-gradient-to-r from-orange-900/20 to-red-900/20 border border-orange-700 rounded-lg p-5">
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-5">
                     <div className="flex items-center space-x-2 mb-4">
                       <Route className="w-5 h-5 text-orange-600" />
                       <h4 className="font-semibold text-orange-900">Potential Attack Chain</h4>
@@ -964,9 +964,9 @@ export default function VulnerabilitiesPage() {
                     <div className="flex items-center flex-wrap gap-3">
                       {attackChain.map((step: any, idx: number) => (
                         <div key={idx} className="flex items-center">
-                          <div className="bg-gray-800 border-2 border-orange-300 rounded-lg p-3 shadow-sm">
+                          <div className="bg-white border-2 border-orange-300 rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-orange-600 font-medium">{step.tactic}</p>
-                            <p className="text-sm font-semibold text-white">{step.technique}</p>
+                            <p className="text-sm font-semibold text-gray-900">{step.technique}</p>
                             {step.url && (
                               <a
                                 href={step.url}
@@ -992,7 +992,7 @@ export default function VulnerabilitiesPage() {
               <div>
                 <div className="flex items-center space-x-2 mb-3">
                   <Shield className="w-5 h-5 text-purple-600" />
-                  <h4 className="font-semibold text-white">STRIDE Threat Categories</h4>
+                  <h4 className="font-semibold text-gray-900">STRIDE Threat Categories</h4>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                   {Object.entries(threatModel.stride_analysis).map(([category, threats]: [string, any]) => {
@@ -1001,10 +1001,10 @@ export default function VulnerabilitiesPage() {
                       v.stride_category?.toLowerCase() === category.toLowerCase()
                     ).length
                     return (
-                      <div key={category} className="bg-gray-800 border border-gray-700 rounded-lg p-3 hover:shadow-md transition">
+                      <div key={category} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
                         <p className="text-xs font-medium text-purple-600 mb-1">{category}</p>
-                        <p className="text-lg font-bold text-white">{threats.length}</p>
-                        <p className="text-xs text-gray-400">threats</p>
+                        <p className="text-lg font-bold text-gray-900">{threats.length}</p>
+                        <p className="text-xs text-gray-500">threats</p>
                         {matchingVulns > 0 && (
                           <p className="text-xs text-red-600 font-medium mt-1">
                             {matchingVulns} finding{matchingVulns > 1 ? 's' : ''} linked
@@ -1044,32 +1044,32 @@ export default function VulnerabilitiesPage() {
                   <div>
                     <div className="flex items-center space-x-2 mb-3">
                       <Target className="w-5 h-5 text-orange-600" />
-                      <h4 className="font-semibold text-white">MITRE ATT&CK Techniques</h4>
-                      <span className="text-sm text-gray-400">({techniques.length} mapped)</span>
+                      <h4 className="font-semibold text-gray-900">MITRE ATT&CK Techniques</h4>
+                      <span className="text-sm text-gray-500">({techniques.length} mapped)</span>
                     </div>
                     <div className="space-y-3">
                       {tacticOrder.map(tactic => {
                         const techs = tacticGroups[tactic]
                         if (!techs || techs.length === 0) return null
                         return (
-                          <div key={tactic} className="border border-gray-700 rounded-lg overflow-hidden">
-                            <div className="bg-gray-800/50 px-4 py-2 border-b border-gray-700 flex items-center justify-between">
-                              <h5 className="font-medium text-white text-sm">{tactic}</h5>
-                              <span className="text-xs text-gray-400">{techs.length} technique(s)</span>
+                          <div key={tactic} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                              <h5 className="font-medium text-gray-900 text-sm">{tactic}</h5>
+                              <span className="text-xs text-gray-500">{techs.length} technique(s)</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
                               {techs.map((tech: any) => (
-                                <div key={tech.id} className="border border-gray-700 rounded-lg p-3 hover:shadow-sm transition">
+                                <div key={tech.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-sm transition">
                                   <div className="flex items-start justify-between mb-1">
-                                    <span className="text-xs font-mono bg-orange-900/30 text-orange-400 px-1.5 py-0.5 rounded">
+                                    <span className="text-xs font-mono bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
                                       {tech.id}
                                     </span>
                                     {tech.threat_count > 0 && (
-                                      <span className="text-xs text-gray-400">{tech.threat_count} threats</span>
+                                      <span className="text-xs text-gray-500">{tech.threat_count} threats</span>
                                     )}
                                   </div>
-                                  <h6 className="font-medium text-white text-sm mb-1">{tech.name}</h6>
-                                  <p className="text-xs text-gray-400 line-clamp-2">{tech.description}</p>
+                                  <h6 className="font-medium text-gray-900 text-sm mb-1">{tech.name}</h6>
+                                  <p className="text-xs text-gray-600 line-clamp-2">{tech.description}</p>
                                   <div className="flex items-center justify-between mt-2">
                                     {tech.related_stride && (
                                       <span className="text-xs text-purple-600">STRIDE: {tech.related_stride}</span>
@@ -1151,15 +1151,15 @@ export default function VulnerabilitiesPage() {
                 {/* Group Header */}
                 <button
                   onClick={() => toggleGroup(groupName)}
-                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-700 transition-colors"
+                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
                     {isExpanded ? (
-                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                      <ChevronDown className="w-5 h-5 text-gray-600" />
                     ) : (
-                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                      <ChevronUp className="w-5 h-5 text-gray-600" />
                     )}
-                    <h3 className="text-lg font-semibold text-white">{groupName}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">{groupName}</h3>
                     <span className="badge badge-info">
                       {groupVulns.length} {groupVulns.length === 1 ? 'vulnerability' : 'vulnerabilities'}
                     </span>
@@ -1189,7 +1189,7 @@ export default function VulnerabilitiesPage() {
 
                 {/* Group Content */}
                 {isExpanded && (
-                  <div className="border-t border-gray-700 divide-y divide-gray-700">
+                  <div className="border-t border-gray-200 divide-y divide-gray-200">
                     {groupVulns.map((vuln) => (
                       <div key={vuln.id} className="p-4">
                         <VulnerabilityCard
@@ -1217,10 +1217,10 @@ export default function VulnerabilitiesPage() {
 
 function SeverityCard({ title, count, color }: any) {
   const colorClasses: { [key: string]: string } = {
-    red: 'bg-red-900/30 text-red-600 border-red-700',
-    orange: 'bg-orange-900/30 text-orange-600 border-orange-700',
-    yellow: 'bg-yellow-900/30 text-yellow-600 border-yellow-700',
-    blue: 'bg-blue-900/30 text-blue-600 border-blue-700',
+    red: 'bg-red-100 text-red-600 border-red-200',
+    orange: 'bg-orange-100 text-orange-600 border-orange-200',
+    yellow: 'bg-yellow-100 text-yellow-600 border-yellow-200',
+    blue: 'bg-blue-100 text-blue-600 border-blue-200',
   }
 
   return (
@@ -1313,9 +1313,9 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
   }
 
   const scanTypeColors: any = {
-    sast: 'bg-blue-900/30 text-blue-300',
-    sca: 'bg-purple-900/30 text-purple-300',
-    secret: 'bg-red-900/30 text-red-300',
+    sast: 'bg-blue-100 text-blue-800',
+    sca: 'bg-purple-100 text-purple-800',
+    secret: 'bg-red-100 text-red-800',
   }
 
   const handleAutoRemediate = async () => {
@@ -1415,14 +1415,14 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
     <div className="card">
       {/* Header */}
       <div
-        className="p-6 cursor-pointer hover:bg-gray-700 transition"
+        className="p-6 cursor-pointer hover:bg-gray-50 transition"
         onClick={onToggle}
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-3 mb-2 flex-wrap gap-y-1">
-              <Bug className="w-5 h-5 text-gray-400" />
-              <h3 className="font-semibold text-white">{vulnerability.title}</h3>
+              <Bug className="w-5 h-5 text-gray-500" />
+              <h3 className="font-semibold text-gray-900">{vulnerability.title}</h3>
               <span className={`badge ${severityColors[vulnerability.severity]}`}>
                 {vulnerability.severity.toUpperCase()}
               </span>
@@ -1447,30 +1447,30 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                 </span>
               )}
               {correlatedThreats.length > 0 && !hasActiveExploit && (
-                <span className="px-2 py-1 text-xs rounded bg-orange-900/30 text-orange-300 font-medium inline-flex items-center space-x-1">
+                <span className="px-2 py-1 text-xs rounded bg-orange-100 text-orange-800 font-medium inline-flex items-center space-x-1">
                   <Shield className="w-3 h-3" />
                   <span>{correlatedThreats.length} Threat Match{correlatedThreats.length > 1 ? 'es' : ''}</span>
                 </span>
               )}
               {matchingStrideThreats.length > 0 && (
-                <span className="px-2 py-1 text-xs rounded bg-indigo-900/30 text-indigo-300 font-medium inline-flex items-center space-x-1">
+                <span className="px-2 py-1 text-xs rounded bg-indigo-100 text-indigo-800 font-medium inline-flex items-center space-x-1">
                   <Network className="w-3 h-3" />
                   <span>{matchingStrideThreats.length} STRIDE</span>
                 </span>
               )}
               {vulnerability.status === 'resolved' && (
-                <span className="px-2 py-1 text-xs rounded bg-green-900/30 text-green-300 font-medium">
+                <span className="px-2 py-1 text-xs rounded bg-green-100 text-green-800 font-medium">
                   ✓ RESOLVED
                 </span>
               )}
               {vulnerability.status === 'false_positive' && (
-                <span className="px-2 py-1 text-xs rounded bg-gray-700 text-gray-100 font-medium">
+                <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-800 font-medium">
                   FALSE POSITIVE
                 </span>
               )}
             </div>
 
-            <p className="text-sm text-gray-400 mb-3">{vulnerability.description}</p>
+            <p className="text-sm text-gray-600 mb-3">{vulnerability.description}</p>
 
             {/* Vulnerable Source Location - Different display for SCA vs other scans */}
             {vulnerability.scan_type === 'sca' ? (
@@ -1478,10 +1478,10 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               (() => {
                 const depType = parseScaDependencyType(vulnerability)
                 const isTransitive = depType?.isTransitive || false
-                const bgColor = isTransitive ? 'bg-amber-900/20 border-l-amber-500' : 'bg-red-900/20 border-l-red-500'
+                const bgColor = isTransitive ? 'bg-amber-50 border-l-amber-500' : 'bg-red-50 border-l-red-500'
                 const textColor = isTransitive ? 'text-amber-900' : 'text-red-900'
-                const accentColor = isTransitive ? 'text-amber-800' : 'text-red-300'
-                const headerBg = isTransitive ? 'bg-amber-100' : 'bg-red-900/30'
+                const accentColor = isTransitive ? 'text-amber-800' : 'text-red-800'
+                const headerBg = isTransitive ? 'bg-amber-100' : 'bg-red-100'
 
                 return (
                   <div className={`${bgColor} border-l-4 p-4 mb-3 rounded-r`}>
@@ -1497,7 +1497,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                               Update parent package to fix
                             </span>
                           ) : (
-                            <span className="text-xs text-red-400 bg-red-200 px-2 py-0.5 rounded">
+                            <span className="text-xs text-red-700 bg-red-200 px-2 py-0.5 rounded">
                               Directly update this package
                             </span>
                           )}
@@ -1509,15 +1509,15 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
                         {/* Dependency Chain Visualization for Transitive */}
                         {isTransitive && depType?.dependencyChain && (
-                          <div className="mt-3 bg-gray-800 border border-amber-200 rounded-lg p-3">
+                          <div className="mt-3 bg-white border border-amber-200 rounded-lg p-3">
                             <p className="text-xs font-semibold text-amber-800 mb-2">📦 Dependency Chain (How this package was introduced):</p>
                             <div className="flex items-center flex-wrap gap-2">
                               {depType.dependencyChain.split(' → ').map((pkg, idx, arr) => (
                                 <span key={idx} className="flex items-center">
                                   <span className={`px-2 py-1 rounded text-xs font-mono ${
-                                    idx === 0 ? 'bg-green-900/30 text-green-300 border border-green-300' :
-                                    idx === arr.length - 1 ? 'bg-red-900/30 text-red-300 border border-red-300 font-bold' :
-                                    'bg-gray-700 text-gray-300 border border-gray-600'
+                                    idx === 0 ? 'bg-green-100 text-green-800 border border-green-300' :
+                                    idx === arr.length - 1 ? 'bg-red-100 text-red-800 border border-red-300 font-bold' :
+                                    'bg-gray-100 text-gray-700 border border-gray-300'
                                   }`}>
                                     {idx === 0 && '📁 '}
                                     {idx === arr.length - 1 && '⚠️ '}
@@ -1555,12 +1555,12 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               })()
             ) : (
               // Standard display for SAST/Secret scans
-              <div className="bg-red-900/20 border-l-4 border-red-500 p-4 mb-3 rounded-r">
+              <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-3 rounded-r">
                 <div className="flex items-start space-x-3">
                   <FileText className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-red-900 mb-1">VULNERABLE FILE LOCATION:</p>
-                    <p className="font-mono text-sm text-red-300 font-bold break-all">
+                    <p className="font-mono text-sm text-red-800 font-bold break-all">
                       {vulnerability.file_path}
                       {vulnerability.line_number > 0 && (
                         <span className="ml-2 text-red-600">
@@ -1592,7 +1592,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                           href={`https://nvd.nist.gov/vuln/detail/${cve}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-900/30 text-red-300 hover:bg-red-200 border border-red-300"
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 border border-red-300"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Shield className="w-3 h-3 mr-1" />
@@ -1601,7 +1601,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                         </a>
                       ))}
                       {cves.length > 3 && (
-                        <span className="text-xs text-gray-400">+{cves.length - 3} more</span>
+                        <span className="text-xs text-gray-500">+{cves.length - 3} more</span>
                       )}
                     </div>
                   ) : null
@@ -1612,7 +1612,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                 )
               )}
               {vulnerability.cvss_score && (
-                <span className="text-gray-400">CVSS: {vulnerability.cvss_score}</span>
+                <span className="text-gray-500">CVSS: {vulnerability.cvss_score}</span>
               )}
             </div>
           </div>
@@ -1629,28 +1629,28 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="border-t border-gray-700 p-6 space-y-6">
+        <div className="border-t border-gray-200 p-6 space-y-6">
           {/* Taint Flow Analysis Section (for SAST) */}
           {vulnerability.scan_type === 'sast' && (
             <div className="space-y-4">
               {/* Quick Source/Sink Summary */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-red-900/20 border border-red-700 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-red-900 mb-2 flex items-center">
                     <Target className="w-4 h-4 mr-2" />
                     Source (User Input)
                   </h4>
-                  <p className="text-xs text-red-300 font-mono">{vulnerability.file_path}:{vulnerability.line_number}</p>
-                  <p className="text-sm text-red-400 mt-2">Untrusted data enters here</p>
+                  <p className="text-xs text-red-800 font-mono">{vulnerability.file_path}:{vulnerability.line_number}</p>
+                  <p className="text-sm text-red-700 mt-2">Untrusted data enters here</p>
                 </div>
 
-                <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-orange-900 mb-2 flex items-center">
                     <AlertTriangle className="w-4 h-4 mr-2" />
                     Sink (Dangerous Operation)
                   </h4>
-                  <p className="text-xs text-orange-300 font-mono">Flows to dangerous function</p>
-                  <p className="text-sm text-orange-400 mt-2">Data used without proper validation</p>
+                  <p className="text-xs text-orange-800 font-mono">Flows to dangerous function</p>
+                  <p className="text-sm text-orange-700 mt-2">Data used without proper validation</p>
                 </div>
               </div>
 
@@ -1691,7 +1691,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
           {vulnerability.scan_type === 'sca' && (() => {
             const scaInfo = parseScaSource(vulnerability)
             return (
-              <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-3">
                   <Package className="w-5 h-5 text-purple-600" />
                   <h4 className="text-sm font-semibold text-purple-900">Dependency Vulnerability Details</h4>
@@ -1699,23 +1699,23 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   {/* Package Info */}
-                  <div className="bg-gray-800 rounded-lg p-3 border border-purple-100">
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <p className="text-xs text-purple-600 font-medium mb-1">Package</p>
-                    <p className="text-sm font-semibold text-white font-mono">
+                    <p className="text-sm font-semibold text-gray-900 font-mono">
                       {scaInfo?.package || vulnerability.title?.split(':')[0]?.replace('Vulnerable Dependency', '').trim() || 'Unknown'}
                     </p>
                   </div>
 
                   {/* Version */}
-                  <div className="bg-gray-800 rounded-lg p-3 border border-purple-100">
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <p className="text-xs text-purple-600 font-medium mb-1">Version</p>
-                    <p className="text-sm font-semibold text-white font-mono">
+                    <p className="text-sm font-semibold text-gray-900 font-mono">
                       {scaInfo?.version || 'See details'}
                     </p>
                   </div>
 
                   {/* Source */}
-                  <div className="bg-gray-800 rounded-lg p-3 border border-purple-100">
+                  <div className="bg-white rounded-lg p-3 border border-purple-100">
                     <p className="text-xs text-purple-600 font-medium mb-1">Data Source</p>
                     <div className="mt-1">
                       {scaInfo ? <SourceBadge source={scaInfo.source} /> : <SourceBadge source="local" />}
@@ -1766,7 +1766,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
           {/* Code Snippet */}
           {vulnerability.code_snippet && (
             <div>
-              <h4 className="text-sm font-semibold text-white mb-2">
+              <h4 className="text-sm font-semibold text-gray-900 mb-2">
                 {vulnerability.scan_type === 'sast' ? 'Vulnerable Code' :
                  vulnerability.scan_type === 'secret' ? 'Exposed Secret Location' :
                  'Affected Dependency Details'}
@@ -1782,26 +1782,26 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
             {/* Classification Badges Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {vulnerability.owasp_category && (
-                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-blue-900 mb-2">OWASP Category</h4>
-                  <p className="text-sm text-blue-300">{vulnerability.owasp_category}</p>
+                  <p className="text-sm text-blue-800">{vulnerability.owasp_category}</p>
                 </div>
               )}
 
               {vulnerability.stride_category && (
-                <div className="bg-purple-900/20 border border-purple-700 rounded-lg p-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-purple-900 mb-2">STRIDE Category</h4>
-                  <p className="text-sm text-purple-300">{vulnerability.stride_category}</p>
+                  <p className="text-sm text-purple-800">{vulnerability.stride_category}</p>
                 </div>
               )}
 
               {vulnerability.mitre_attack_id && (
-                <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-yellow-900 mb-2">MITRE ATT&CK</h4>
-                  <p className="text-sm text-yellow-300">
+                  <p className="text-sm text-yellow-800">
                     {vulnerability.mitre_attack_id}
                     {vulnerability.mitre_attack_name && (
-                      <span className="block text-xs text-yellow-400 mt-1">{vulnerability.mitre_attack_name}</span>
+                      <span className="block text-xs text-yellow-700 mt-1">{vulnerability.mitre_attack_name}</span>
                     )}
                   </p>
                 </div>
@@ -1810,43 +1810,43 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
             {/* Matching STRIDE Threats from Threat Model */}
             {matchingStrideThreats.length > 0 && (
-              <div className="bg-gradient-to-r from-indigo-900/20 to-purple-900/20 border border-indigo-700 rounded-lg p-4">
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-3">
                   <Shield className="w-5 h-5 text-indigo-600" />
                   <h4 className="text-sm font-semibold text-indigo-900">Related Threat Model Threats</h4>
-                  <span className="text-xs bg-indigo-900/30 text-indigo-400 px-2 py-0.5 rounded-full">
+                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
                     {matchingStrideThreats.length} matched
                   </span>
                 </div>
                 <div className="space-y-2">
                   {matchingStrideThreats.map((threat: any, idx: number) => (
-                    <div key={idx} className="bg-gray-800 border border-indigo-100 rounded-lg p-3">
+                    <div key={idx} className="bg-white border border-indigo-100 rounded-lg p-3">
                       <div className="flex items-start justify-between mb-1">
                         <div className="flex items-center space-x-2">
-                          <span className="text-xs font-medium bg-purple-900/30 text-purple-400 px-2 py-0.5 rounded">
+                          <span className="text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
                             {threat.stride_category}
                           </span>
                           {threat.severity && (
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              threat.severity === 'critical' ? 'bg-red-900/30 text-red-400' :
-                              threat.severity === 'high' ? 'bg-orange-900/30 text-orange-400' :
-                              threat.severity === 'medium' ? 'bg-yellow-900/30 text-yellow-400' :
-                              'bg-green-900/30 text-green-400'
+                              threat.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                              threat.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                              threat.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-green-100 text-green-700'
                             }`}>
                               {threat.severity}
                             </span>
                           )}
                         </div>
                       </div>
-                      <p className="text-sm font-medium text-white">{threat.threat || threat.title}</p>
+                      <p className="text-sm font-medium text-gray-900">{threat.threat || threat.title}</p>
                       {threat.description && (
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{threat.description}</p>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
                       )}
                       {threat.mitre_techniques && threat.mitre_techniques.length > 0 && (
                         <div className="flex items-center flex-wrap gap-1.5 mt-2">
-                          <span className="text-xs text-gray-400">MITRE:</span>
+                          <span className="text-xs text-gray-500">MITRE:</span>
                           {threat.mitre_techniques.slice(0, 3).map((tech: string, tIdx: number) => (
-                            <span key={tIdx} className="text-xs font-mono bg-orange-900/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-700">
+                            <span key={tIdx} className="text-xs font-mono bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">
                               {tech}
                             </span>
                           ))}
@@ -1854,9 +1854,9 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                       )}
                       {threat.affected_components && (
                         <div className="flex items-center flex-wrap gap-1.5 mt-2">
-                          <span className="text-xs text-gray-400">Affected:</span>
+                          <span className="text-xs text-gray-500">Affected:</span>
                           {(Array.isArray(threat.affected_components) ? threat.affected_components : [threat.affected_components]).slice(0, 3).map((comp: string, cIdx: number) => (
-                            <span key={cIdx} className="text-xs bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">
+                            <span key={cIdx} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
                               {comp}
                             </span>
                           ))}
@@ -1877,18 +1877,18 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               if (!matchedTech) return null
 
               return (
-                <div className="bg-gradient-to-r from-orange-900/20 to-yellow-900/20 border border-orange-700 rounded-lg p-4">
+                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4">
                   <div className="flex items-center space-x-2 mb-3">
                     <Target className="w-5 h-5 text-orange-600" />
                     <h4 className="text-sm font-semibold text-orange-900">MITRE ATT&CK Technique Detail</h4>
                   </div>
-                  <div className="bg-gray-800 border border-orange-100 rounded-lg p-4">
+                  <div className="bg-white border border-orange-100 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <span className="text-xs font-mono bg-orange-900/30 text-orange-400 px-2 py-0.5 rounded">
+                        <span className="text-xs font-mono bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
                           {vulnMitreId}
                         </span>
-                        <span className="text-xs text-gray-400 ml-2">{matchedTech.tactic}</span>
+                        <span className="text-xs text-gray-500 ml-2">{matchedTech.tactic}</span>
                       </div>
                       {matchedTech.url && (
                         <a
@@ -1902,8 +1902,8 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                         </a>
                       )}
                     </div>
-                    <h5 className="font-medium text-white mb-1">{matchedTech.name}</h5>
-                    <p className="text-sm text-gray-400">{matchedTech.description}</p>
+                    <h5 className="font-medium text-gray-900 mb-1">{matchedTech.name}</h5>
+                    <p className="text-sm text-gray-600">{matchedTech.description}</p>
                     {matchedTech.related_stride && (
                       <p className="text-xs text-purple-600 mt-2">STRIDE: {matchedTech.related_stride}</p>
                     )}
@@ -1915,7 +1915,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
           {/* Threat Intelligence Correlation */}
           {correlatedThreats.length > 0 && (
-            <div className={`rounded-lg p-4 ${hasActiveExploit ? 'bg-gradient-to-r from-red-900/20 to-orange-900/20 border-2 border-red-300' : 'bg-gradient-to-r from-orange-900/20 to-yellow-900/20 border border-orange-700'}`}>
+            <div className={`rounded-lg p-4 ${hasActiveExploit ? 'bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-300' : 'bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200'}`}>
               <div className="flex items-center space-x-2 mb-3">
                 <Shield className={`w-5 h-5 ${hasActiveExploit ? 'text-red-600' : 'text-orange-600'}`} />
                 <h4 className={`text-sm font-semibold ${hasActiveExploit ? 'text-red-900' : 'text-orange-900'}`}>
@@ -1932,7 +1932,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                 {correlatedThreats.map((threat: any, idx: number) => (
                   <div
                     key={idx}
-                    className={`bg-gray-800 rounded-lg p-3 border ${threat.actively_exploited ? 'border-red-300' : 'border-gray-700'}`}
+                    className={`bg-white rounded-lg p-3 border ${threat.actively_exploited ? 'border-red-300' : 'border-gray-200'}`}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -1940,29 +1940,29 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                           {threat.cve_id && (
                             <span className="font-mono text-sm font-semibold text-primary-600">{threat.cve_id}</span>
                           )}
-                          <span className="text-xs px-2 py-0.5 bg-gray-700 text-gray-400 rounded">
+                          <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
                             Match: {threat.match_type}
                           </span>
                           {threat.actively_exploited && (
-                            <span className="text-xs px-2 py-0.5 bg-red-900/30 text-red-400 rounded inline-flex items-center">
+                            <span className="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded inline-flex items-center">
                               <Zap className="w-3 h-3 mr-1" />
                               Actively Exploited
                             </span>
                           )}
                           {threat.cvss_score && (
                             <span className={`text-xs px-2 py-0.5 rounded ${
-                              parseFloat(threat.cvss_score) >= 9 ? 'bg-red-900/30 text-red-400' :
-                              parseFloat(threat.cvss_score) >= 7 ? 'bg-orange-900/30 text-orange-400' :
-                              'bg-yellow-900/30 text-yellow-400'
+                              parseFloat(threat.cvss_score) >= 9 ? 'bg-red-100 text-red-700' :
+                              parseFloat(threat.cvss_score) >= 7 ? 'bg-orange-100 text-orange-700' :
+                              'bg-yellow-100 text-yellow-700'
                             }`}>
                               CVSS: {threat.cvss_score}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm font-medium text-white">{threat.name}</p>
-                        <p className="text-xs text-gray-400 mt-1 line-clamp-2">{threat.description}</p>
+                        <p className="text-sm font-medium text-gray-900">{threat.name}</p>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
                         {threat.required_action && (
-                          <p className="text-xs text-red-400 mt-2 font-medium">
+                          <p className="text-xs text-red-700 mt-2 font-medium">
                             Required Action: {threat.required_action}
                           </p>
                         )}
@@ -1979,17 +1979,17 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                             NVD <ExternalLink className="w-3 h-3 ml-1" />
                           </a>
                         )}
-                        <span className="text-xs text-gray-400">{threat.source || 'CISA KEV'}</span>
+                        <span className="text-xs text-gray-500">{threat.source || 'CISA KEV'}</span>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-3 pt-3 border-t border-orange-700">
+              <div className="mt-3 pt-3 border-t border-orange-200">
                 <Link
                   to="/threat-intel"
-                  className="text-sm text-orange-400 hover:text-orange-900 font-medium inline-flex items-center"
+                  className="text-sm text-orange-700 hover:text-orange-900 font-medium inline-flex items-center"
                   onClick={(e) => e.stopPropagation()}
                 >
                   View all threat intelligence
@@ -2000,16 +2000,16 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
           )}
 
           {/* Remediation */}
-          <div className="bg-green-900/20 border border-green-700 rounded-lg p-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <h4 className="text-sm font-semibold text-green-900 mb-2">
               Remediation Guidance
             </h4>
             <p className="text-sm text-green-900 mb-3">{vulnerability.remediation}</p>
 
             {vulnerability.remediation_code && (
-              <div className="bg-gray-800 rounded p-3 border border-green-300">
-                <p className="text-xs text-green-400 font-medium mb-2">Secure Code Example:</p>
-                <pre className="text-xs text-gray-100 whitespace-pre-wrap">
+              <div className="bg-white rounded p-3 border border-green-300">
+                <p className="text-xs text-green-700 font-medium mb-2">Secure Code Example:</p>
+                <pre className="text-xs text-gray-800 whitespace-pre-wrap">
                   {vulnerability.remediation_code}
                 </pre>
               </div>
@@ -2022,8 +2022,8 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               {/* Status Header */}
               <div className={`border-l-4 rounded-r-lg p-4 ${
                 remediationResult.success
-                  ? 'bg-gradient-to-r from-green-900/20 to-green-100 border-green-500'
-                  : 'bg-gradient-to-r from-red-900/20 to-red-100 border-red-500'
+                  ? 'bg-gradient-to-r from-green-50 to-green-100 border-green-500'
+                  : 'bg-gradient-to-r from-red-50 to-red-100 border-red-500'
               }`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -2039,7 +2039,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                         {remediationResult.success ? 'AI Auto-Remediation Complete' : 'Auto-Remediation Failed'}
                       </h4>
                       <p className={`text-sm ${
-                        remediationResult.success ? 'text-green-400' : 'text-red-400'
+                        remediationResult.success ? 'text-green-700' : 'text-red-700'
                       }`}>
                         {remediationResult.message}
                       </p>
@@ -2048,7 +2048,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                   {remediationResult.success && (
                     <div className="flex items-center space-x-2">
                       <div className="text-right">
-                        <p className="text-xs font-semibold text-green-300">Confidence Score</p>
+                        <p className="text-xs font-semibold text-green-800">Confidence Score</p>
                         <p className="text-2xl font-bold text-green-600">95%</p>
                       </div>
                       <Sparkles className="w-8 h-8 text-green-500" />
@@ -2059,7 +2059,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
               {/* Detailed Explanation */}
               {remediationResult.explanation && (
-                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h4 className="text-sm font-semibold text-blue-900 mb-2 flex items-center">
                     <MessageSquare className="w-4 h-4 mr-2" />
                     What Was Changed and Why
@@ -2070,7 +2070,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
               {/* Before/After Code Comparison */}
               {remediationResult.fixed_code && (
-                <div className="border border-gray-600 rounded-lg overflow-hidden">
+                <div className="border border-gray-300 rounded-lg overflow-hidden">
                   <div className="bg-gradient-to-r from-gray-700 to-gray-800 px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <Code className="w-5 h-5 text-white" />
@@ -2079,7 +2079,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                     </div>
                     <button
                       onClick={handleCopyCode}
-                      className="flex items-center space-x-2 px-3 py-1.5 bg-gray-800/10 hover:bg-gray-800/20 rounded text-xs text-white transition"
+                      className="flex items-center space-x-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-xs text-white transition"
                     >
                       {copiedCode ? (
                         <>
@@ -2097,8 +2097,8 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
                   <div className="grid grid-cols-2 divide-x divide-gray-300">
                     {/* Before Code */}
-                    <div className="bg-red-900/20">
-                      <div className="bg-red-900/30 px-4 py-2 border-b border-red-700">
+                    <div className="bg-red-50">
+                      <div className="bg-red-100 px-4 py-2 border-b border-red-200">
                         <p className="text-xs font-semibold text-red-900 flex items-center">
                           <XCircle className="w-3 h-3 mr-1" />
                           Vulnerable Code (Before)
@@ -2112,8 +2112,8 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                     </div>
 
                     {/* After Code */}
-                    <div className="bg-green-900/20">
-                      <div className="bg-green-900/30 px-4 py-2 border-b border-green-700">
+                    <div className="bg-green-50">
+                      <div className="bg-green-100 px-4 py-2 border-b border-green-200">
                         <p className="text-xs font-semibold text-green-900 flex items-center">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Secure Code (After)
@@ -2131,7 +2131,7 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
               {/* Git Integration Panel */}
               {showGitPanel && remediationResult.success && (
-                <div className="border border-gray-600 rounded-lg overflow-hidden bg-gradient-to-br from-indigo-900/20 to-purple-900/20">
+                <div className="border border-gray-300 rounded-lg overflow-hidden bg-gradient-to-br from-indigo-50 to-purple-50">
                   <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 flex items-center space-x-2">
                     <GitBranch className="w-5 h-5 text-white" />
                     <h4 className="text-sm font-semibold text-white">Commit Fix to Repository</h4>
@@ -2139,11 +2139,11 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
 
                   <div className="p-5 space-y-4">
                     {commitSuccess ? (
-                      <div className="bg-green-900/30 border border-green-300 rounded-lg p-4 flex items-start space-x-3">
+                      <div className="bg-green-100 border border-green-300 rounded-lg p-4 flex items-start space-x-3">
                         <CheckCircle className="w-6 h-6 text-green-600 mt-0.5" />
                         <div>
                           <h5 className="text-sm font-semibold text-green-900 mb-1">Successfully Committed!</h5>
-                          <p className="text-sm text-green-300">
+                          <p className="text-sm text-green-800">
                             Changes have been committed to branch <code className="px-2 py-0.5 bg-green-200 rounded font-mono text-xs">{gitBranch}</code>
                           </p>
                         </div>
@@ -2152,43 +2152,43 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                       <>
                         {/* Branch Name */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Target Branch
                           </label>
                           <div className="flex items-center space-x-2">
-                            <GitBranch className="w-4 h-4 text-gray-400" />
+                            <GitBranch className="w-4 h-4 text-gray-500" />
                             <input
                               type="text"
                               value={gitBranch}
                               onChange={(e) => setGitBranch(e.target.value)}
-                              className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
                               placeholder="e.g., security-fix-sql-injection"
                             />
                           </div>
-                          <p className="text-xs text-gray-400 mt-1">Branch will be created if it doesn't exist</p>
+                          <p className="text-xs text-gray-500 mt-1">Branch will be created if it doesn't exist</p>
                         </div>
 
                         {/* Commit Message */}
                         <div>
-                          <label className="block text-sm font-medium text-gray-300 mb-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             Commit Message
                           </label>
                           <div className="flex items-start space-x-2">
-                            <GitCommit className="w-4 h-4 text-gray-400 mt-2" />
+                            <GitCommit className="w-4 h-4 text-gray-500 mt-2" />
                             <textarea
                               value={commitMessage}
                               onChange={(e) => setCommitMessage(e.target.value)}
                               rows={4}
-                              className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
                               placeholder="Describe the security fix..."
                             />
                           </div>
                         </div>
 
                         {/* File Info */}
-                        <div className="bg-gray-800 border border-gray-700 rounded-lg p-3">
-                          <p className="text-xs font-semibold text-gray-300 mb-1">Changes will be applied to:</p>
-                          <code className="text-xs text-indigo-400 font-mono">{vulnerability.file_path}</code>
+                        <div className="bg-white border border-gray-200 rounded-lg p-3">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">Changes will be applied to:</p>
+                          <code className="text-xs text-indigo-700 font-mono">{vulnerability.file_path}</code>
                         </div>
 
                         {/* Commit Button */}
