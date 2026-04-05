@@ -23,6 +23,13 @@ conn = sqlite3.connect(DB_PATH)
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 
+# Ensure missing columns exist on threat_models
+for col in ["fair_risk_analysis", "attack_trees", "kill_chain_analysis"]:
+    try:
+        c.execute(f"ALTER TABLE threat_models ADD COLUMN {col} JSON")
+    except Exception:
+        pass
+
 # Ensure security_controls table exists (created by app migration on startup)
 c.execute("""
     CREATE TABLE IF NOT EXISTS security_controls (
@@ -142,7 +149,7 @@ story_ids = []
 for s in stories:
     c.execute("""
         INSERT INTO user_stories (project_id, title, description, acceptance_criteria, source, external_id, external_url, is_analyzed, risk_score, threat_count, requirement_count, created_by, created_at)
-        VALUES (?, ?, ?, ?, 'jira', ?, ?, 1, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, 'JIRA', ?, ?, 1, ?, ?, ?, ?, ?)
     """, (
         PROJECT_ID, s["title"], s["description"], s["acceptance_criteria"],
         s["external_id"], s["external_url"],
@@ -452,6 +459,108 @@ for i, sid in enumerate(story_ids[2:], start=2):
     ))
 
 print(f"   → Security analyses created for all {len(story_ids)} stories")
+
+# ============================================================
+# 9. THREAT MODEL
+# ============================================================
+print("[9/9] Adding threat model...")
+
+dfd_nodes = [
+    {"id": "comp_0", "label": "Web Banking Portal", "type": "process", "category": "frontend", "technology": "React SPA", "trust_level": "untrusted", "internet_facing": True, "handles_sensitive_data": True},
+    {"id": "comp_1", "label": "Mobile Banking API Gateway", "type": "process", "category": "api_gateway", "technology": "FastAPI", "trust_level": "trusted", "internet_facing": True, "handles_sensitive_data": True},
+    {"id": "comp_2", "label": "Authentication Service", "type": "process", "category": "backend", "technology": "Spring Boot", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_3", "label": "Payment Engine", "type": "process", "category": "backend", "technology": "Spring Boot", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_4", "label": "SWIFT Alliance Gateway", "type": "external_entity", "category": "external", "technology": "SWIFT", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_5", "label": "PostgreSQL Database", "type": "datastore", "category": "database", "technology": "PostgreSQL", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_6", "label": "Redis Cache", "type": "datastore", "category": "cache", "technology": "Redis", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_7", "label": "Kafka Event Bus", "type": "process", "category": "messaging", "technology": "Apache Kafka", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_8", "label": "Compliance Engine", "type": "process", "category": "backend", "technology": "Python", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_9", "label": "Customer Browser", "type": "external_entity", "category": "client", "technology": "Browser", "trust_level": "untrusted", "internet_facing": True, "handles_sensitive_data": False},
+    {"id": "comp_10", "label": "KYC Document Store", "type": "datastore", "category": "storage", "technology": "AWS S3", "trust_level": "trusted", "internet_facing": False, "handles_sensitive_data": True},
+    {"id": "comp_11", "label": "Admin Portal", "type": "process", "category": "frontend", "technology": "React", "trust_level": "trusted", "internet_facing": True, "handles_sensitive_data": True},
+]
+
+dfd_edges = [
+    {"source": "comp_9", "target": "comp_0", "label": "HTTPS requests", "protocol": "HTTPS/TLS 1.3", "data_classification": "sensitive"},
+    {"source": "comp_0", "target": "comp_1", "label": "API calls", "protocol": "HTTPS", "data_classification": "sensitive"},
+    {"source": "comp_1", "target": "comp_2", "label": "Auth requests", "protocol": "gRPC/mTLS", "data_classification": "critical"},
+    {"source": "comp_1", "target": "comp_3", "label": "Transfer requests", "protocol": "gRPC/mTLS", "data_classification": "critical"},
+    {"source": "comp_2", "target": "comp_5", "label": "User credentials", "protocol": "TCP/TLS", "data_classification": "critical"},
+    {"source": "comp_2", "target": "comp_6", "label": "Session data", "protocol": "TCP", "data_classification": "sensitive"},
+    {"source": "comp_3", "target": "comp_5", "label": "Transaction data", "protocol": "TCP/TLS", "data_classification": "critical"},
+    {"source": "comp_3", "target": "comp_4", "label": "SWIFT MT103 messages", "protocol": "SWIFTNet", "data_classification": "critical"},
+    {"source": "comp_3", "target": "comp_7", "label": "Transaction events", "protocol": "SASL/TLS", "data_classification": "sensitive"},
+    {"source": "comp_7", "target": "comp_8", "label": "Transaction monitoring", "protocol": "SASL/TLS", "data_classification": "sensitive"},
+    {"source": "comp_8", "target": "comp_5", "label": "SAR filings", "protocol": "TCP/TLS", "data_classification": "critical"},
+    {"source": "comp_1", "target": "comp_10", "label": "KYC documents", "protocol": "HTTPS/S3", "data_classification": "critical"},
+    {"source": "comp_11", "target": "comp_1", "label": "Admin operations", "protocol": "HTTPS", "data_classification": "sensitive"},
+]
+
+dfd_trust_boundaries = [
+    {"id": "tb_0", "label": "Internet DMZ", "components": ["comp_9"], "trust_level": "untrusted"},
+    {"id": "tb_1", "label": "Application Zone", "components": ["comp_0", "comp_1", "comp_11"], "trust_level": "semi-trusted"},
+    {"id": "tb_2", "label": "Internal Services Zone", "components": ["comp_2", "comp_3", "comp_7", "comp_8"], "trust_level": "trusted"},
+    {"id": "tb_3", "label": "Data Zone", "components": ["comp_5", "comp_6", "comp_10"], "trust_level": "highly-trusted"},
+    {"id": "tb_4", "label": "SWIFT Network", "components": ["comp_4"], "trust_level": "external-trusted"},
+]
+
+stride_threats = {
+    "Spoofing": [
+        {"id": "threat_0", "component": "Web Banking Portal", "component_id": "comp_0", "component_type": "process", "component_category": "frontend", "category": "Spoofing", "threat": "Session Hijacking via XSS Cookie Theft", "severity": "high", "risk_score": 8.0, "cwe": "CWE-79", "cwe_id": "CWE-79", "mitre": ["T1189"], "mitre_techniques": ["T1189"], "likelihood": "high", "impact": "high", "description": "Attacker injects JavaScript to steal session cookies from the banking portal, enabling account takeover.", "mitigation": "Implement strict CSP headers. Set HttpOnly and Secure flags on all session cookies. Enable SameSite=Strict.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/79.html"}},
+        {"id": "threat_1", "component": "Authentication Service", "component_id": "comp_2", "component_type": "process", "component_category": "backend", "category": "Spoofing", "threat": "JWT Token Forgery via Algorithm Confusion", "severity": "critical", "risk_score": 9.5, "cwe": "CWE-347", "cwe_id": "CWE-347", "mitre": ["T1078"], "mitre_techniques": ["T1078"], "likelihood": "high", "impact": "critical", "description": "Attacker sets JWT algorithm to 'none' to forge valid authentication tokens, impersonating any user including admin.", "mitigation": "Explicitly validate JWT algorithm. Only accept RS256. Reject alg:none tokens.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/347.html"}},
+        {"id": "threat_2", "component": "Authentication Service", "component_id": "comp_2", "component_type": "process", "component_category": "backend", "category": "Spoofing", "threat": "Credential Stuffing Attack on Login API", "severity": "high", "risk_score": 7.5, "cwe": "CWE-307", "cwe_id": "CWE-307", "mitre": ["T1110.004"], "mitre_techniques": ["T1110.004"], "likelihood": "high", "impact": "high", "description": "Automated credential stuffing using leaked credential databases. No rate limiting allows unlimited login attempts.", "mitigation": "Implement rate limiting (5 attempts/min). Add CAPTCHA after 3 failures. Deploy bot detection.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/307.html"}},
+        {"id": "threat_3", "component": "Mobile Banking API Gateway", "component_id": "comp_1", "component_type": "process", "component_category": "api_gateway", "category": "Spoofing", "threat": "API Key Leakage from Mobile App", "severity": "medium", "risk_score": 5.5, "cwe": "CWE-798", "cwe_id": "CWE-798", "mitre": ["T1552"], "mitre_techniques": ["T1552"], "likelihood": "medium", "impact": "medium", "description": "Hardcoded API keys in mobile application can be extracted via reverse engineering.", "mitigation": "Use certificate pinning and dynamic token exchange. Never embed secrets in mobile binaries.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/798.html"}},
+    ],
+    "Tampering": [
+        {"id": "threat_4", "component": "Payment Engine", "component_id": "comp_3", "component_type": "process", "component_category": "backend", "category": "Tampering", "threat": "SQL Injection in Wire Transfer Query", "severity": "critical", "risk_score": 9.8, "cwe": "CWE-89", "cwe_id": "CWE-89", "mitre": ["T1190"], "mitre_techniques": ["T1190"], "likelihood": "high", "impact": "critical", "description": "SQL injection in beneficiary account lookup allows attacker to redirect wire transfers to attacker-controlled accounts.", "mitigation": "Use parameterized queries. Implement input validation. Deploy WAF rules for SQL injection.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/89.html"}},
+        {"id": "threat_5", "component": "Payment Engine", "component_id": "comp_3", "component_type": "process", "component_category": "backend", "category": "Tampering", "threat": "CSRF on Wire Transfer Submission", "severity": "high", "risk_score": 8.0, "cwe": "CWE-352", "cwe_id": "CWE-352", "mitre": ["T1557"], "mitre_techniques": ["T1557"], "likelihood": "medium", "impact": "critical", "description": "Missing CSRF protection on fund transfer form allows attacker to craft malicious page that submits transfers on behalf of logged-in users.", "mitigation": "Enable CSRF tokens on all state-changing forms. Require MFA for transfers.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/352.html"}},
+        {"id": "threat_6", "component": "Authentication Service", "component_id": "comp_2", "component_type": "process", "component_category": "backend", "category": "Tampering", "threat": "Mass Assignment in Customer Profile Update", "severity": "high", "risk_score": 7.5, "cwe": "CWE-915", "cwe_id": "CWE-915", "mitre": ["T1098"], "mitre_techniques": ["T1098"], "likelihood": "medium", "impact": "high", "description": "Customer profile update binds all request parameters to entity, allowing modification of role, accountStatus, and kycVerified fields.", "mitigation": "Use DTOs with explicit field allowlists. Never bind requests directly to entities.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/915.html"}},
+    ],
+    "Repudiation": [
+        {"id": "threat_7", "component": "Admin Portal", "component_id": "comp_11", "component_type": "process", "component_category": "frontend", "category": "Repudiation", "threat": "Missing Audit Trail for Admin Actions", "severity": "high", "risk_score": 7.0, "cwe": "CWE-778", "cwe_id": "CWE-778", "mitre": ["T1070"], "mitre_techniques": ["T1070"], "likelihood": "medium", "impact": "high", "description": "Admin actions (role changes, account freezes, limit overrides) not logged. Violates SOX compliance requirements.", "mitigation": "Log all admin actions to immutable audit trail with who, what, when, where, before/after values.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/778.html"}},
+        {"id": "threat_8", "component": "Payment Engine", "component_id": "comp_3", "component_type": "process", "component_category": "backend", "category": "Repudiation", "threat": "Incomplete Wire Transfer Approval Audit", "severity": "medium", "risk_score": 6.0, "cwe": "CWE-778", "cwe_id": "CWE-778", "mitre": ["T1070"], "mitre_techniques": ["T1070"], "likelihood": "low", "impact": "high", "description": "Wire transfer dual-approval actions not fully logged, preventing forensic reconstruction of approval chain.", "mitigation": "Log all approval/rejection actions with timestamp, IP, user identity, and transaction details.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/778.html"}},
+    ],
+    "Information Disclosure": [
+        {"id": "threat_9", "component": "Payment Engine", "component_id": "comp_3", "component_type": "process", "component_category": "backend", "category": "Information Disclosure", "threat": "PII Leakage via Application Logs", "severity": "high", "risk_score": 7.5, "cwe": "CWE-532", "cwe_id": "CWE-532", "mitre": ["T1005"], "mitre_techniques": ["T1005"], "likelihood": "high", "impact": "high", "description": "Customer SSN, account numbers, and email addresses logged at DEBUG level. PII exposed to all operations staff via Splunk.", "mitigation": "Never log PII. Implement PII redaction filter. Use structured logging with data classification.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/532.html"}},
+        {"id": "threat_10", "component": "Mobile Banking API Gateway", "component_id": "comp_1", "component_type": "process", "component_category": "api_gateway", "category": "Information Disclosure", "threat": "IDOR in Account Balance API", "severity": "high", "risk_score": 8.0, "cwe": "CWE-639", "cwe_id": "CWE-639", "mitre": ["T1530"], "mitre_techniques": ["T1530"], "likelihood": "high", "impact": "high", "description": "Account balance endpoint uses sequential account IDs without ownership verification. Any user can access any account balance.", "mitigation": "Implement ownership verification. Compare authenticated user's accounts with requested accountId.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/639.html"}},
+        {"id": "threat_11", "component": "Web Banking Portal", "component_id": "comp_0", "component_type": "process", "component_category": "frontend", "category": "Information Disclosure", "threat": "Verbose Error Messages Exposing Stack Traces", "severity": "medium", "risk_score": 5.0, "cwe": "CWE-209", "cwe_id": "CWE-209", "mitre": ["T1592"], "mitre_techniques": ["T1592"], "likelihood": "medium", "impact": "medium", "description": "API returns full Java stack traces revealing internal class names, database schema, and SQL queries.", "mitigation": "Return generic error messages. Log full details server-side with correlation IDs.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/209.html"}},
+    ],
+    "Denial of Service": [
+        {"id": "threat_12", "component": "Mobile Banking API Gateway", "component_id": "comp_1", "component_type": "process", "component_category": "api_gateway", "category": "Denial of Service", "threat": "API Rate Limiting Bypass", "severity": "medium", "risk_score": 6.0, "cwe": "CWE-770", "cwe_id": "CWE-770", "mitre": ["T1499"], "mitre_techniques": ["T1499"], "likelihood": "medium", "impact": "high", "description": "Absence of rate limiting on critical APIs allows flooding wire transfer and login endpoints.", "mitigation": "Implement per-user and per-IP rate limiting. Add circuit breaker for downstream services.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/770.html"}},
+        {"id": "threat_13", "component": "Kafka Event Bus", "component_id": "comp_7", "component_type": "process", "component_category": "messaging", "category": "Denial of Service", "threat": "Event Bus Flooding via Malicious Transactions", "severity": "medium", "risk_score": 5.5, "cwe": "CWE-400", "cwe_id": "CWE-400", "mitre": ["T1499"], "mitre_techniques": ["T1499"], "likelihood": "low", "impact": "high", "description": "Flood of fraudulent transaction events overwhelms Kafka consumers, delaying legitimate transaction processing.", "mitigation": "Implement backpressure handling. Add message validation at producer. Configure consumer group scaling.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/400.html"}},
+    ],
+    "Elevation of Privilege": [
+        {"id": "threat_14", "component": "Compliance Engine", "component_id": "comp_8", "component_type": "process", "component_category": "backend", "category": "Elevation of Privilege", "threat": "OFAC Sanctions Screening Bypass", "severity": "critical", "risk_score": 9.2, "cwe": "CWE-862", "cwe_id": "CWE-862", "mitre": ["T1548"], "mitre_techniques": ["T1548"], "likelihood": "medium", "impact": "critical", "description": "Wire transfers under $3,000 skip OFAC/SDN sanctions screening due to flawed threshold logic. Violates BSA/AML regulations.", "mitigation": "Screen ALL transfers regardless of amount. Remove amount threshold from sanctions check.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/862.html"}},
+        {"id": "threat_15", "component": "Admin Portal", "component_id": "comp_11", "component_type": "process", "component_category": "frontend", "category": "Elevation of Privilege", "threat": "Dual-Approval Bypass via Role Manipulation", "severity": "critical", "risk_score": 8.5, "cwe": "CWE-269", "cwe_id": "CWE-269", "mitre": ["T1078"], "mitre_techniques": ["T1078"], "likelihood": "low", "impact": "critical", "description": "Compromised approver can self-approve wire transfers, bypassing dual-control requirement.", "mitigation": "Enforce separation of duties: initiator cannot be approver. Validate role at both steps.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/269.html"}},
+        {"id": "threat_16", "component": "KYC Document Store", "component_id": "comp_10", "component_type": "datastore", "component_category": "storage", "category": "Elevation of Privilege", "threat": "Unrestricted File Upload leading to RCE", "severity": "critical", "risk_score": 9.0, "cwe": "CWE-434", "cwe_id": "CWE-434", "mitre": ["T1105"], "mitre_techniques": ["T1105"], "likelihood": "medium", "impact": "critical", "description": "KYC document upload accepts any file type. Attacker uploads malicious files that execute server-side.", "mitigation": "Validate file types against allowlist (PDF, JPG, PNG). Sanitize filenames. Store outside webroot.", "review_status": "open", "references": {"cwe": "https://cwe.mitre.org/data/definitions/434.html"}},
+    ],
+}
+
+total_threats = sum(len(v) for v in stride_threats.values())
+
+c.execute("""
+    INSERT INTO threat_models (project_id, name, dfd_level, dfd_data, stride_analysis, trust_boundaries, data_flows, assets, threat_count, created_at, updated_at)
+    VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    PROJECT_ID,
+    "Apex Banking Threat Model",
+    json.dumps({"level": 1, "nodes": dfd_nodes, "edges": dfd_edges, "trust_boundaries": dfd_trust_boundaries}),
+    json.dumps(stride_threats),
+    json.dumps(dfd_trust_boundaries),
+    json.dumps(dfd_edges),
+    json.dumps([
+        {"id": "asset_0", "name": "Customer PII", "type": "data", "classification": "critical", "description": "Names, SSN, addresses, phone numbers"},
+        {"id": "asset_1", "name": "Financial Transactions", "type": "data", "classification": "critical", "description": "Account balances, wire transfers, payment history"},
+        {"id": "asset_2", "name": "Authentication Credentials", "type": "data", "classification": "critical", "description": "Passwords, JWT tokens, MFA seeds, session data"},
+        {"id": "asset_3", "name": "SWIFT Credentials", "type": "data", "classification": "critical", "description": "SWIFT operator credentials and Alliance Gateway certificates"},
+        {"id": "asset_4", "name": "KYC Documents", "type": "data", "classification": "sensitive", "description": "Passport scans, driver's license, proof of address"},
+        {"id": "asset_5", "name": "Encryption Keys", "type": "data", "classification": "critical", "description": "AES-256 keys for data at rest, TLS certificates"},
+    ]),
+    total_threats,
+    NOW, NOW,
+))
+
+print(f"   → Threat model created with {total_threats} threats across 6 STRIDE categories")
 
 # ============================================================
 # COMMIT
