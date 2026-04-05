@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp, GitMerge, Package, Database, Github, Globe, Play, Lock } from 'lucide-react'
+import { Bug, ArrowLeft, Code, FileText, MessageSquare, ChevronDown, ChevronUp, Sparkles, Loader2, CheckCircle, XCircle, GitBranch, GitCommit, Copy, Check, CheckCheck, AlertCircle, AlertTriangle, Search, Layers, Zap, Shield, Target, ExternalLink, TrendingUp, GitMerge, Package, Database, Github, Globe, Play, Lock, ChevronRight, Route, Network } from 'lucide-react'
 import axios from 'axios'
 import TaintFlowVisualization from '../components/TaintFlowVisualization'
 import DependencyTreeVisualization, { buildDependencyTree } from '../components/DependencyTreeVisualization'
@@ -307,6 +307,8 @@ export default function VulnerabilitiesPage() {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [showThreatCorrelation, setShowThreatCorrelation] = useState(true)
   const [deduplicating, setDeduplicating] = useState(false)
+  const [threatModel, setThreatModel] = useState<any>(null)
+  const [showThreatModelPanel, setShowThreatModelPanel] = useState(false)
 
   const handleDeduplicateSca = async () => {
     setDeduplicating(true)
@@ -384,6 +386,16 @@ export default function VulnerabilitiesPage() {
       } catch (threatError) {
         console.error('Failed to fetch threat intel:', threatError)
       }
+
+      // Fetch threat model for STRIDE/MITRE mapping integration
+      try {
+        const tmRes = await axios.get(`/api/projects/${id}/threat-model`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        setThreatModel(tmRes.data)
+      } catch (tmError) {
+        console.error('Failed to fetch threat model:', tmError)
+      }
     } catch (error) {
       console.error('Failed to fetch scans:', error)
     } finally {
@@ -430,6 +442,41 @@ export default function VulnerabilitiesPage() {
     })
 
     return correlatedThreats.slice(0, 3) // Return top 3 matches
+  }
+
+  // Get matching STRIDE threats from threat model for a vulnerability
+  const getMatchingStrideThreats = (vuln: any) => {
+    if (!threatModel?.stride_analysis) return []
+    const matched: any[] = []
+    const vulnCategory = vuln.stride_category?.toLowerCase() || ''
+    const vulnTitle = (vuln.title || '').toLowerCase()
+    const vulnCwe = vuln.cwe_id || ''
+
+    Object.entries(threatModel.stride_analysis).forEach(([category, threats]: [string, any]) => {
+      if (!Array.isArray(threats)) return
+      threats.forEach((threat: any) => {
+        // Match by STRIDE category
+        const categoryMatch = vulnCategory && category.toLowerCase().includes(vulnCategory.toLowerCase())
+        // Match by keyword overlap
+        const threatDesc = ((threat.description || '') + ' ' + (threat.threat || '')).toLowerCase()
+        const keywordMatch = vulnTitle.split(' ').filter((w: string) => w.length > 3).some((word: string) => threatDesc.includes(word))
+        // Match by CWE reference in threat
+        const cweMatch = vulnCwe && threatDesc.includes(vulnCwe.toLowerCase())
+
+        if (categoryMatch || cweMatch || keywordMatch) {
+          if (!matched.find(m => m.threat === threat.threat)) {
+            matched.push({ ...threat, stride_category: category })
+          }
+        }
+      })
+    })
+    return matched.slice(0, 3)
+  }
+
+  // Get MITRE mapping data from threat model
+  const getMitreMapping = () => {
+    if (!threatModel?.mitre_mapping) return { techniques: {}, attack_chain: {} }
+    return threatModel.mitre_mapping
   }
 
   useEffect(() => {
@@ -849,6 +896,209 @@ export default function VulnerabilitiesPage() {
         </div>
       </div>
 
+      {/* Threat Model Mapping Panel - Integrated within SAST view */}
+      {threatModel?.stride_analysis && (
+        <div className="card overflow-hidden">
+          <button
+            onClick={() => setShowThreatModelPanel(!showThreatModelPanel)}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors bg-gradient-to-r from-indigo-50 to-purple-50"
+          >
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                <Network className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900">Threat Model Mapping</h3>
+                <p className="text-sm text-gray-600">
+                  STRIDE threats & MITRE ATT&CK techniques correlated with scan findings
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-700">
+                  {threatModel.threat_count || 0} STRIDE Threats
+                </span>
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-700">
+                  {(() => {
+                    const mm = getMitreMapping()
+                    const techs = mm.techniques || mm
+                    return Object.keys(techs).filter(k => !['attack_chain', 'total_techniques', 'tactics_covered'].includes(k)).length
+                  })()} MITRE Techniques
+                </span>
+              </div>
+              {showThreatModelPanel ? (
+                <ChevronUp className="w-5 h-5 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+          </button>
+
+          {showThreatModelPanel && (
+            <div className="border-t border-gray-200 p-6 space-y-6">
+              {/* Attack Chain Visualization */}
+              {(() => {
+                const mm = getMitreMapping()
+                const attackChainData = mm.attack_chain || {}
+                const tacticOrder = [
+                  'Initial Access', 'Execution', 'Persistence', 'Privilege Escalation',
+                  'Defense Evasion', 'Credential Access', 'Discovery', 'Lateral Movement',
+                  'Collection', 'Exfiltration', 'Impact'
+                ]
+                const attackChain: any[] = []
+                tacticOrder.forEach(tactic => {
+                  const techsInTactic = attackChainData[tactic]
+                  if (techsInTactic && techsInTactic.length > 0) {
+                    attackChain.push({ tactic, ...techsInTactic[0] })
+                  }
+                })
+
+                return attackChain.length > 0 ? (
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-5">
+                    <div className="flex items-center space-x-2 mb-4">
+                      <Route className="w-5 h-5 text-orange-600" />
+                      <h4 className="font-semibold text-orange-900">Potential Attack Chain</h4>
+                    </div>
+                    <div className="flex items-center flex-wrap gap-3">
+                      {attackChain.map((step: any, idx: number) => (
+                        <div key={idx} className="flex items-center">
+                          <div className="bg-white border-2 border-orange-300 rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-orange-600 font-medium">{step.tactic}</p>
+                            <p className="text-sm font-semibold text-gray-900">{step.technique}</p>
+                            {step.url && (
+                              <a
+                                href={step.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-blue-600 hover:underline flex items-center mt-1"
+                              >
+                                {step.id} <ExternalLink className="w-3 h-3 ml-1" />
+                              </a>
+                            )}
+                          </div>
+                          {idx < attackChain.length - 1 && (
+                            <ChevronRight className="w-5 h-5 text-orange-400 mx-1 flex-shrink-0" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
+              {/* STRIDE Categories Summary with Finding Counts */}
+              <div>
+                <div className="flex items-center space-x-2 mb-3">
+                  <Shield className="w-5 h-5 text-purple-600" />
+                  <h4 className="font-semibold text-gray-900">STRIDE Threat Categories</h4>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {Object.entries(threatModel.stride_analysis).map(([category, threats]: [string, any]) => {
+                    if (!Array.isArray(threats)) return null
+                    const matchingVulns = vulnerabilities.filter(v =>
+                      v.stride_category?.toLowerCase() === category.toLowerCase()
+                    ).length
+                    return (
+                      <div key={category} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition">
+                        <p className="text-xs font-medium text-purple-600 mb-1">{category}</p>
+                        <p className="text-lg font-bold text-gray-900">{threats.length}</p>
+                        <p className="text-xs text-gray-500">threats</p>
+                        {matchingVulns > 0 && (
+                          <p className="text-xs text-red-600 font-medium mt-1">
+                            {matchingVulns} finding{matchingVulns > 1 ? 's' : ''} linked
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* MITRE ATT&CK Techniques Grid */}
+              {(() => {
+                const mm = getMitreMapping()
+                const techniquesData = mm.techniques || mm
+                const techniques = Object.entries(techniquesData).filter(([key]) =>
+                  !['attack_chain', 'total_techniques', 'tactics_covered'].includes(key)
+                )
+
+                if (techniques.length === 0) return null
+
+                // Group by tactic
+                const tacticGroups: { [key: string]: any[] } = {}
+                techniques.forEach(([tid, data]: [string, any]) => {
+                  const tactic = data.tactic || 'Unknown'
+                  if (!tacticGroups[tactic]) tacticGroups[tactic] = []
+                  tacticGroups[tactic].push({ id: tid, ...data })
+                })
+
+                const tacticOrder = [
+                  'Initial Access', 'Execution', 'Persistence', 'Privilege Escalation',
+                  'Defense Evasion', 'Credential Access', 'Discovery', 'Lateral Movement',
+                  'Collection', 'Exfiltration', 'Impact'
+                ]
+
+                return (
+                  <div>
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Target className="w-5 h-5 text-orange-600" />
+                      <h4 className="font-semibold text-gray-900">MITRE ATT&CK Techniques</h4>
+                      <span className="text-sm text-gray-500">({techniques.length} mapped)</span>
+                    </div>
+                    <div className="space-y-3">
+                      {tacticOrder.map(tactic => {
+                        const techs = tacticGroups[tactic]
+                        if (!techs || techs.length === 0) return null
+                        return (
+                          <div key={tactic} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+                              <h5 className="font-medium text-gray-900 text-sm">{tactic}</h5>
+                              <span className="text-xs text-gray-500">{techs.length} technique(s)</span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
+                              {techs.map((tech: any) => (
+                                <div key={tech.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-sm transition">
+                                  <div className="flex items-start justify-between mb-1">
+                                    <span className="text-xs font-mono bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded">
+                                      {tech.id}
+                                    </span>
+                                    {tech.threat_count > 0 && (
+                                      <span className="text-xs text-gray-500">{tech.threat_count} threats</span>
+                                    )}
+                                  </div>
+                                  <h6 className="font-medium text-gray-900 text-sm mb-1">{tech.name}</h6>
+                                  <p className="text-xs text-gray-600 line-clamp-2">{tech.description}</p>
+                                  <div className="flex items-center justify-between mt-2">
+                                    {tech.related_stride && (
+                                      <span className="text-xs text-purple-600">STRIDE: {tech.related_stride}</span>
+                                    )}
+                                    {tech.url && (
+                                      <a
+                                        href={tech.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:underline flex items-center"
+                                      >
+                                        Details <ExternalLink className="w-3 h-3 ml-1" />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Vulnerabilities List */}
       <div className="space-y-4">
         {filteredVulnerabilities.length === 0 ? (
@@ -886,6 +1136,8 @@ export default function VulnerabilitiesPage() {
               projectId={id!}
               onUpdate={fetchAllScans}
               correlatedThreats={showThreatCorrelation ? getCorrelatedThreats(vuln) : []}
+              matchingStrideThreats={getMatchingStrideThreats(vuln)}
+              mitreMapping={getMitreMapping()}
             />
           ))
         ) : (
@@ -946,6 +1198,8 @@ export default function VulnerabilitiesPage() {
                           projectId={id!}
                           onUpdate={fetchAllScans}
                           correlatedThreats={showThreatCorrelation ? getCorrelatedThreats(vuln) : []}
+                          matchingStrideThreats={getMatchingStrideThreats(vuln)}
+                          mitreMapping={getMitreMapping()}
                         />
                       </div>
                     ))}
@@ -976,7 +1230,7 @@ function SeverityCard({ title, count, color }: any) {
   )
 }
 
-function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onUpdate, correlatedThreats = [] }: any) {
+function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onUpdate, correlatedThreats = [], matchingStrideThreats = [], mitreMapping = {} }: any) {
   const [autoRemediating, setAutoRemediating] = useState(false)
   const [remediationResult, setRemediationResult] = useState<any>(null)
   const [showGitPanel, setShowGitPanel] = useState(false)
@@ -1169,6 +1423,12 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                 <span className="px-2 py-1 text-xs rounded bg-orange-100 text-orange-800 font-medium inline-flex items-center space-x-1">
                   <Shield className="w-3 h-3" />
                   <span>{correlatedThreats.length} Threat Match{correlatedThreats.length > 1 ? 'es' : ''}</span>
+                </span>
+              )}
+              {matchingStrideThreats.length > 0 && (
+                <span className="px-2 py-1 text-xs rounded bg-indigo-100 text-indigo-800 font-medium inline-flex items-center space-x-1">
+                  <Network className="w-3 h-3" />
+                  <span>{matchingStrideThreats.length} STRIDE</span>
                 </span>
               )}
               {vulnerability.status === 'resolved' && (
@@ -1461,28 +1721,140 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
             </div>
           )}
 
-          {/* OWASP & STRIDE Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {vulnerability.owasp_category && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-blue-900 mb-2">OWASP Category</h4>
-                <p className="text-sm text-blue-800">{vulnerability.owasp_category}</p>
+          {/* Threat Model Mapping - Integrated OWASP, STRIDE & MITRE */}
+          <div className="space-y-4">
+            {/* Classification Badges Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {vulnerability.owasp_category && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">OWASP Category</h4>
+                  <p className="text-sm text-blue-800">{vulnerability.owasp_category}</p>
+                </div>
+              )}
+
+              {vulnerability.stride_category && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-purple-900 mb-2">STRIDE Category</h4>
+                  <p className="text-sm text-purple-800">{vulnerability.stride_category}</p>
+                </div>
+              )}
+
+              {vulnerability.mitre_attack_id && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h4 className="text-sm font-semibold text-yellow-900 mb-2">MITRE ATT&CK</h4>
+                  <p className="text-sm text-yellow-800">
+                    {vulnerability.mitre_attack_id}
+                    {vulnerability.mitre_attack_name && (
+                      <span className="block text-xs text-yellow-700 mt-1">{vulnerability.mitre_attack_name}</span>
+                    )}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Matching STRIDE Threats from Threat Model */}
+            {matchingStrideThreats.length > 0 && (
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Shield className="w-5 h-5 text-indigo-600" />
+                  <h4 className="text-sm font-semibold text-indigo-900">Related Threat Model Threats</h4>
+                  <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                    {matchingStrideThreats.length} matched
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {matchingStrideThreats.map((threat: any, idx: number) => (
+                    <div key={idx} className="bg-white border border-indigo-100 rounded-lg p-3">
+                      <div className="flex items-start justify-between mb-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
+                            {threat.stride_category}
+                          </span>
+                          {threat.severity && (
+                            <span className={`text-xs px-2 py-0.5 rounded ${
+                              threat.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                              threat.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                              threat.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {threat.severity}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">{threat.threat || threat.title}</p>
+                      {threat.description && (
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{threat.description}</p>
+                      )}
+                      {threat.mitre_techniques && threat.mitre_techniques.length > 0 && (
+                        <div className="flex items-center flex-wrap gap-1.5 mt-2">
+                          <span className="text-xs text-gray-500">MITRE:</span>
+                          {threat.mitre_techniques.slice(0, 3).map((tech: string, tIdx: number) => (
+                            <span key={tIdx} className="text-xs font-mono bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded border border-orange-200">
+                              {tech}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {threat.affected_components && (
+                        <div className="flex items-center flex-wrap gap-1.5 mt-2">
+                          <span className="text-xs text-gray-500">Affected:</span>
+                          {(Array.isArray(threat.affected_components) ? threat.affected_components : [threat.affected_components]).slice(0, 3).map((comp: string, cIdx: number) => (
+                            <span key={cIdx} className="text-xs bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">
+                              {comp}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {vulnerability.stride_category && (
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-purple-900 mb-2">STRIDE Category</h4>
-                <p className="text-sm text-purple-800">{vulnerability.stride_category}</p>
-              </div>
-            )}
+            {/* Relevant MITRE ATT&CK Techniques for this vulnerability */}
+            {vulnerability.mitre_attack_id && (() => {
+              const techniquesData = mitreMapping.techniques || mitreMapping
+              const vulnMitreId = vulnerability.mitre_attack_id
+              const matchedTech = techniquesData[vulnMitreId]
 
-            {vulnerability.mitre_attack_id && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <h4 className="text-sm font-semibold text-yellow-900 mb-2">MITRE ATT&CK</h4>
-                <p className="text-sm text-yellow-800">{vulnerability.mitre_attack_id}</p>
-              </div>
-            )}
+              if (!matchedTech) return null
+
+              return (
+                <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Target className="w-5 h-5 text-orange-600" />
+                    <h4 className="text-sm font-semibold text-orange-900">MITRE ATT&CK Technique Detail</h4>
+                  </div>
+                  <div className="bg-white border border-orange-100 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <span className="text-xs font-mono bg-orange-100 text-orange-700 px-2 py-0.5 rounded">
+                          {vulnMitreId}
+                        </span>
+                        <span className="text-xs text-gray-500 ml-2">{matchedTech.tactic}</span>
+                      </div>
+                      {matchedTech.url && (
+                        <a
+                          href={matchedTech.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          MITRE ATT&CK <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
+                      )}
+                    </div>
+                    <h5 className="font-medium text-gray-900 mb-1">{matchedTech.name}</h5>
+                    <p className="text-sm text-gray-600">{matchedTech.description}</p>
+                    {matchedTech.related_stride && (
+                      <p className="text-xs text-purple-600 mt-2">STRIDE: {matchedTech.related_stride}</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* Threat Intelligence Correlation */}
