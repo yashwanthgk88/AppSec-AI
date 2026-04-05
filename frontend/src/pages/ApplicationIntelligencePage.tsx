@@ -254,11 +254,11 @@ const ApplicationIntelligencePage: React.FC = () => {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-600 text-gray-900';
-      case 'high': return 'bg-orange-500 text-gray-900';
+      case 'critical': return 'bg-red-600 text-white';
+      case 'high': return 'bg-orange-500 text-white';
       case 'medium': return 'bg-yellow-500 text-black';
-      case 'low': return 'bg-blue-500 text-gray-900';
-      default: return 'bg-gray-500 text-gray-900';
+      case 'low': return 'bg-blue-500 text-white';
+      default: return 'bg-gray-500 text-white';
     }
   };
 
@@ -768,7 +768,7 @@ const ApplicationIntelligencePage: React.FC = () => {
 
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-        <div className="bg-gray-800 rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl">
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-start">
               <div>
@@ -843,7 +843,7 @@ const ApplicationIntelligencePage: React.FC = () => {
           <select
             value={selectedProjectId || ''}
             onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-            className="bg-gray-800 border border-gray-200 rounded-lg px-4 py-2 min-w-[200px]"
+            className="bg-white border border-gray-300 rounded-lg px-4 py-2 min-w-[200px]"
           >
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
@@ -857,14 +857,14 @@ const ApplicationIntelligencePage: React.FC = () => {
         {(isPolling || (profile?.status && profile.status !== 'completed')) && renderProgressBar()}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-gray-800 p-1 rounded-lg w-fit">
+        <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
           {['overview', 'techstack', 'security', 'suggestions'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-gray-900'
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
                   : 'text-gray-500 hover:text-gray-900'
               }`}
             >
@@ -875,7 +875,7 @@ const ApplicationIntelligencePage: React.FC = () => {
 
         {/* Content */}
         {!profile && !isPolling ? (
-          <div className="text-center py-16 bg-gray-800 rounded-xl">
+          <div className="text-center py-16 bg-white border border-gray-200 rounded-xl shadow-sm">
             <div className="text-6xl mb-4">&#128269;</div>
             <h2 className="text-xl font-semibold mb-2">No Profile Found</h2>
             <p className="text-gray-500 mb-6">

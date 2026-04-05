@@ -158,7 +158,7 @@ export default function ReportCenterPage() {
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg">
-            <BookOpen className="w-6 h-6 text-gray-900" />
+            <BookOpen className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Report Center</h1>
         </div>
@@ -183,7 +183,7 @@ export default function ReportCenterPage() {
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-3 bg-gray-100 hover:bg-gray-100 text-gray-900 px-5 py-3 rounded-lg border border-gray-300 transition-colors min-w-[280px] justify-between"
+                className="flex items-center gap-3 bg-white hover:bg-gray-50 text-gray-900 px-5 py-3 rounded-lg border border-gray-300 transition-colors min-w-[280px] justify-between"
               >
                 <span className="truncate">
                   {selectedProjectObj?.name || 'Select a project...'}
@@ -193,7 +193,7 @@ export default function ReportCenterPage() {
                 />
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-full bg-gray-100 border border-gray-300 rounded-lg shadow-xl z-10 max-h-60 overflow-y-auto">
+                <div className="absolute right-0 mt-2 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-10 max-h-60 overflow-y-auto">
                   {projects.map((project) => (
                     <button
                       key={project.id}
@@ -201,10 +201,10 @@ export default function ReportCenterPage() {
                         setSelectedProject(project.id)
                         setDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors ${
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
                         selectedProject === project.id
                           ? 'bg-violet-50 text-violet-700'
-                          : 'text-gray-200'
+                          : 'text-gray-700'
                       }`}
                     >
                       <div className="font-medium">{project.name}</div>
@@ -245,14 +245,14 @@ export default function ReportCenterPage() {
                 <div className={`bg-gradient-to-r ${format.gradient} p-5`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Icon className="w-8 h-8 text-gray-900" />
+                      <Icon className="w-8 h-8 text-white" />
                       <div>
-                        <h3 className="text-lg font-bold text-gray-900">{format.name}</h3>
-                        <span className="text-xs text-gray-500 font-mono">{format.ext}</span>
+                        <h3 className="text-lg font-bold text-white">{format.name}</h3>
+                        <span className="text-xs text-white/70 font-mono">{format.ext}</span>
                       </div>
                     </div>
                     {isSuccess && (
-                      <CheckCircle className="w-6 h-6 text-gray-900 animate-bounce" />
+                      <CheckCircle className="w-6 h-6 text-white animate-bounce" />
                     )}
                   </div>
                 </div>
@@ -278,10 +278,10 @@ export default function ReportCenterPage() {
                       !selectedProject
                         ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                         : isLoading
-                          ? 'bg-gray-600 text-gray-600 cursor-wait'
+                          ? 'bg-gray-200 text-gray-500 cursor-wait'
                           : isSuccess
-                            ? 'bg-green-600 text-gray-900'
-                            : `bg-gradient-to-r ${format.gradient} text-gray-900 hover:shadow-lg hover:scale-[1.02]`
+                            ? 'bg-green-600 text-white'
+                            : `bg-gradient-to-r ${format.gradient} text-white hover:shadow-lg hover:scale-[1.02]`
                     }`}
                   >
                     {isLoading ? (
@@ -365,7 +365,7 @@ export default function ReportCenterPage() {
               return (
                 <div
                   key={section.title}
-                  className="bg-gray-100/30 rounded-lg p-4 border border-gray-200/50"
+                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <SIcon className={`w-4 h-4 ${section.color}`} />
