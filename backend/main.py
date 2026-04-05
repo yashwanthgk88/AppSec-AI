@@ -129,7 +129,7 @@ app.include_router(security_controls.router)
 # One-time seed endpoint for demo data (Apex Banking)
 # ---------------------------------------------------------------------------
 @app.post("/api/seed-demo")
-async def seed_demo_data(current_user: User = Depends(get_current_user)):
+async def seed_demo_data(current_user: User = Depends(get_current_active_user)):
     """Run Apex Banking seed script. Admin only. Safe to call multiple times (idempotent)."""
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")

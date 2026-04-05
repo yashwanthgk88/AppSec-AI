@@ -40,4 +40,4 @@ ENV PORT=8080
 EXPOSE 8080
 
 # Fast startup
-CMD ["sh", "-c", "python3 -c 'from models.database import init_db; init_db()' && python3 migrate_db.py 2>/dev/null || true && python3 init_custom_rules_sqlite.py && python3 seed_apex_banking.py 2>/dev/null || true && gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120"]
+CMD ["sh", "-c", "python3 -c 'from models.database import init_db; init_db()' && python3 migrate_db.py 2>/dev/null || true && python3 init_custom_rules_sqlite.py && gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 600 --graceful-timeout 600 --keep-alive 120"]
