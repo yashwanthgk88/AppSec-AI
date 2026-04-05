@@ -1474,6 +1474,72 @@ def _migrate_threat_intel_tables():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix)")
 
+    # Threat Intelligence Feeds
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS threat_intel_feeds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            feed_type TEXT NOT NULL,
+            url TEXT NOT NULL,
+            api_key TEXT,
+            collection_id TEXT,
+            poll_interval_minutes INTEGER DEFAULT 1440,
+            is_active INTEGER DEFAULT 1,
+            last_polled_at TEXT,
+            last_poll_status TEXT,
+            last_poll_count INTEGER DEFAULT 0,
+            total_iocs_ingested INTEGER DEFAULT 0,
+            created_by TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    # IOC (Indicators of Compromise)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS threat_intel_iocs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feed_id INTEGER,
+            ioc_type TEXT NOT NULL,
+            ioc_value TEXT NOT NULL,
+            confidence INTEGER DEFAULT 50,
+            severity TEXT DEFAULT 'medium',
+            threat_type TEXT,
+            description TEXT,
+            source TEXT,
+            tags TEXT,
+            first_seen TEXT,
+            last_seen TEXT DEFAULT (datetime('now')),
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (feed_id) REFERENCES threat_intel_feeds(id)
+        )
+    """)
+
+    # IOC Correlations with scan findings
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS threat_intel_correlations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL,
+            ioc_id INTEGER NOT NULL,
+            vulnerability_id INTEGER,
+            match_type TEXT NOT NULL,
+            match_context TEXT,
+            confidence INTEGER DEFAULT 50,
+            severity TEXT DEFAULT 'medium',
+            status TEXT DEFAULT 'new',
+            notes TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        )
+    """)
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_feeds_active ON threat_intel_feeds(is_active)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_iocs_type ON threat_intel_iocs(ioc_type)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_iocs_value ON threat_intel_iocs(ioc_value)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_iocs_feed ON threat_intel_iocs(feed_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_corr_project ON threat_intel_correlations(project_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_corr_ioc ON threat_intel_correlations(ioc_id)")
+
     conn.commit()
     conn.close()
     print("[MIGRATION] Threat intel tables ready")

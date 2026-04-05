@@ -1141,3 +1141,513 @@ async def external_get_intel(
                     row[field] = []
 
     return {"entries": rows, "total": len(rows)}
+
+
+# ---------------------------------------------------------------------------
+# Threat Intelligence Feed Management
+# ---------------------------------------------------------------------------
+class FeedCreate(BaseModel):
+    name: str
+    feed_type: str
+    url: str
+    api_key: Optional[str] = None
+    collection_id: Optional[str] = None
+    poll_interval_minutes: int = 1440
+
+
+class FeedUpdate(BaseModel):
+    name: Optional[str] = None
+    url: Optional[str] = None
+    api_key: Optional[str] = None
+    collection_id: Optional[str] = None
+    poll_interval_minutes: Optional[int] = None
+    is_active: Optional[int] = None
+
+
+VALID_FEED_TYPES = {"taxii", "misp", "stix_url", "csv_url", "alienvault_otx", "abuse_ipdb"}
+
+
+@router.post("/feeds")
+async def create_feed(body: FeedCreate, current_user: User = Depends(get_current_active_user)):
+    if body.feed_type not in VALID_FEED_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid feed type. Supported: {VALID_FEED_TYPES}")
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """INSERT INTO threat_intel_feeds (name, feed_type, url, api_key, collection_id, poll_interval_minutes, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (body.name, body.feed_type, body.url, body.api_key, body.collection_id, body.poll_interval_minutes, current_user.email),
+    )
+    conn.commit()
+    feed_id = cursor.lastrowid
+    conn.close()
+    return {"id": feed_id, "message": f"Feed '{body.name}' created."}
+
+
+@router.get("/feeds")
+async def list_feeds(current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM threat_intel_feeds ORDER BY created_at DESC")
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+    for row in rows:
+        if row.get("api_key"):
+            row["api_key"] = row["api_key"][:8] + "..." if len(row["api_key"]) > 8 else "***"
+    return {"feeds": rows, "total": len(rows)}
+
+
+@router.put("/feeds/{feed_id}")
+async def update_feed(feed_id: int, body: FeedUpdate, current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM threat_intel_feeds WHERE id = ?", (feed_id,))
+    if not cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=404, detail="Feed not found.")
+    updates, params = [], []
+    for field_name, value in body.dict(exclude_unset=True).items():
+        if value is not None:
+            updates.append(f"{field_name} = ?")
+            params.append(value)
+    if updates:
+        updates.append("updated_at = datetime('now')")
+        params.append(feed_id)
+        cursor.execute(f"UPDATE threat_intel_feeds SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+    conn.close()
+    return {"message": "Feed updated."}
+
+
+@router.delete("/feeds/{feed_id}")
+async def delete_feed(feed_id: int, current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM threat_intel_iocs WHERE feed_id = ?", (feed_id,))
+    cursor.execute("DELETE FROM threat_intel_feeds WHERE id = ?", (feed_id,))
+    conn.commit()
+    deleted = cursor.rowcount
+    conn.close()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Feed not found.")
+    return {"message": "Feed and associated IOCs deleted."}
+
+
+# ---------------------------------------------------------------------------
+# Feed Polling & Ingestion
+# ---------------------------------------------------------------------------
+@router.post("/feeds/{feed_id}/poll")
+async def poll_feed(feed_id: int, current_user: User = Depends(get_current_active_user)):
+    """Manually trigger a feed poll to ingest new IOCs."""
+    import re as _re
+    import httpx
+
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM threat_intel_feeds WHERE id = ?", (feed_id,))
+    feed_row = cursor.fetchone()
+    if not feed_row:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Feed not found.")
+
+    feed = dict(feed_row)
+    feed_type = feed["feed_type"]
+    url = feed["url"]
+    api_key = feed.get("api_key")
+    ingested = 0
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            headers = {}
+            if api_key:
+                if feed_type == "alienvault_otx":
+                    headers["X-OTX-API-KEY"] = api_key
+                elif feed_type == "abuse_ipdb":
+                    headers["Key"] = api_key
+                    headers["Accept"] = "application/json"
+                else:
+                    headers["Authorization"] = f"Bearer {api_key}"
+
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+
+            iocs_to_insert: list = []
+
+            if feed_type == "stix_url":
+                data = response.json()
+                objects = data.get("objects", []) if isinstance(data, dict) else data if isinstance(data, list) else []
+                for obj in objects:
+                    if obj.get("type") == "indicator":
+                        pattern = obj.get("pattern", "")
+                        labels = obj.get("labels", [])
+                        threat_type = labels[0] if labels else None
+                        confidence = obj.get("confidence", 50)
+                        desc = obj.get("description", "")
+                        for ip in _re.findall(r"ipv4-addr:value\s*=\s*'([^']+)'", pattern):
+                            iocs_to_insert.append(("ip", ip, confidence, threat_type, desc, labels))
+                        for domain in _re.findall(r"domain-name:value\s*=\s*'([^']+)'", pattern):
+                            iocs_to_insert.append(("domain", domain, confidence, threat_type, desc, labels))
+                        for _, hash_val in _re.findall(r"file:hashes\.'([^']+)'\s*=\s*'([^']+)'", pattern):
+                            ht = "hash_sha256" if len(hash_val) == 64 else "hash_sha1" if len(hash_val) == 40 else "hash_md5"
+                            iocs_to_insert.append((ht, hash_val, confidence, threat_type, desc, labels))
+                        for u in _re.findall(r"url:value\s*=\s*'([^']+)'", pattern):
+                            iocs_to_insert.append(("url", u, confidence, threat_type, desc, labels))
+                    elif obj.get("type") == "vulnerability":
+                        name = obj.get("name", "")
+                        if name.startswith("CVE"):
+                            iocs_to_insert.append(("cve", name, 80, "exploit", obj.get("description", ""), obj.get("labels", [])))
+
+            elif feed_type == "csv_url":
+                import csv as csv_mod
+                reader = csv_mod.DictReader(io.StringIO(response.text))
+                for row in reader:
+                    ioc_value = (row.get("indicator") or row.get("ioc") or row.get("value") or row.get("ip") or row.get("domain") or "").strip()
+                    if not ioc_value:
+                        continue
+                    ioc_type_val = (row.get("type") or row.get("ioc_type") or "ip").strip().lower()
+                    if _re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ioc_value):
+                        ioc_type_val = "ip"
+                    elif _re.match(r'^[a-fA-F0-9]{64}$', ioc_value):
+                        ioc_type_val = "hash_sha256"
+                    elif _re.match(r'^[a-fA-F0-9]{40}$', ioc_value):
+                        ioc_type_val = "hash_sha1"
+                    elif _re.match(r'^[a-fA-F0-9]{32}$', ioc_value):
+                        ioc_type_val = "hash_md5"
+                    elif _re.match(r'^https?://', ioc_value):
+                        ioc_type_val = "url"
+                    elif _re.match(r'^CVE-\d{4}-\d+$', ioc_value):
+                        ioc_type_val = "cve"
+                    elif "." in ioc_value and not ioc_value.startswith("http"):
+                        ioc_type_val = "domain"
+                    confidence_val = int(row.get("confidence", 50)) if str(row.get("confidence", "")).isdigit() else 50
+                    iocs_to_insert.append((ioc_type_val, ioc_value, confidence_val, row.get("threat_type") or row.get("category"), row.get("description", ""), []))
+
+            elif feed_type == "alienvault_otx":
+                data = response.json()
+                for pulse in (data.get("results", []) if isinstance(data, dict) else [])[:50]:
+                    ioc_type_map = {"IPv4": "ip", "IPv6": "ip", "domain": "domain", "hostname": "domain", "URL": "url", "FileHash-MD5": "hash_md5", "FileHash-SHA1": "hash_sha1", "FileHash-SHA256": "hash_sha256", "email": "email", "CVE": "cve"}
+                    for indicator in pulse.get("indicators", []):
+                        mapped = ioc_type_map.get(indicator.get("type"), "")
+                        if mapped:
+                            iocs_to_insert.append((mapped, indicator.get("indicator", "").strip(), 70, pulse.get("adversary") or "unknown", (indicator.get("description") or pulse.get("description", ""))[:200], pulse.get("tags", [])))
+
+            elif feed_type == "abuse_ipdb":
+                data = response.json()
+                for entry in (data.get("data", []) if isinstance(data, dict) else []):
+                    ip_addr = entry.get("ipAddress", "")
+                    if ip_addr:
+                        iocs_to_insert.append(("ip", ip_addr, entry.get("abuseConfidenceScore", 50), "malicious_ip", f"Reports: {entry.get('totalReports', 0)}, Country: {entry.get('countryCode', 'Unknown')}", [entry.get("countryCode", "")]))
+
+            elif feed_type in ("taxii", "misp"):
+                conn.close()
+                return {"message": f"{feed_type.upper()} feeds: use STIX URL type for HTTP-accessible TAXII collections, or push IOCs from MISP via the API.", "ingested": 0}
+
+            for ioc_tuple in iocs_to_insert:
+                ioc_type_val, ioc_value, confidence_val, threat_type_val, desc, tags_list = ioc_tuple
+                try:
+                    cursor.execute(
+                        """INSERT OR REPLACE INTO threat_intel_iocs
+                           (feed_id, ioc_type, ioc_value, confidence, severity, threat_type, description, source, tags, first_seen, last_seen)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                   COALESCE((SELECT first_seen FROM threat_intel_iocs WHERE ioc_type=? AND ioc_value=? AND feed_id=?), datetime('now')),
+                                   datetime('now'))""",
+                        (feed_id, ioc_type_val, ioc_value, confidence_val,
+                         "critical" if confidence_val >= 80 else "high" if confidence_val >= 60 else "medium" if confidence_val >= 40 else "low",
+                         threat_type_val, (desc[:500] if desc else None), feed["name"],
+                         json.dumps(tags_list if isinstance(tags_list, list) else []),
+                         ioc_type_val, ioc_value, feed_id),
+                    )
+                    ingested += 1
+                except Exception:
+                    continue
+
+            cursor.execute(
+                """UPDATE threat_intel_feeds
+                   SET last_polled_at=datetime('now'), last_poll_status=?, last_poll_count=?,
+                       total_iocs_ingested=total_iocs_ingested+?, updated_at=datetime('now')
+                   WHERE id=?""",
+                ("success", ingested, ingested, feed_id),
+            )
+            conn.commit()
+
+    except Exception as e:
+        cursor.execute("UPDATE threat_intel_feeds SET last_polled_at=datetime('now'), last_poll_status=? WHERE id=?", (f"error: {str(e)[:200]}", feed_id))
+        conn.commit()
+        conn.close()
+        raise HTTPException(status_code=502, detail=f"Feed poll failed: {str(e)[:200]}")
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    return {"ingested": ingested, "message": f"Polled feed '{feed['name']}': {ingested} IOCs ingested."}
+
+
+# ---------------------------------------------------------------------------
+# IOC (Indicator of Compromise) Management
+# ---------------------------------------------------------------------------
+VALID_IOC_TYPES = {"ip", "domain", "url", "hash_md5", "hash_sha1", "hash_sha256", "email", "cve", "file_path"}
+
+
+class IOCCreate(BaseModel):
+    ioc_type: str
+    ioc_value: str
+    confidence: int = 50
+    severity: str = "medium"
+    threat_type: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
+    tags: Optional[List[str]] = None
+    feed_id: Optional[int] = None
+
+
+class IOCBulkCreate(BaseModel):
+    iocs: List[IOCCreate]
+
+
+@router.post("/iocs")
+async def create_ioc(body: IOCCreate, current_user: User = Depends(get_current_active_user)):
+    if body.ioc_type not in VALID_IOC_TYPES:
+        raise HTTPException(status_code=400, detail=f"Invalid IOC type. Supported: {VALID_IOC_TYPES}")
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute(
+        """INSERT OR REPLACE INTO threat_intel_iocs
+           (feed_id, ioc_type, ioc_value, confidence, severity, threat_type, description, source, tags, first_seen, last_seen)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+        (body.feed_id, body.ioc_type, body.ioc_value.strip(), body.confidence, body.severity,
+         body.threat_type, body.description, body.source or "manual", json.dumps(body.tags or [])),
+    )
+    conn.commit()
+    ioc_id = cursor.lastrowid
+    conn.close()
+    return {"id": ioc_id, "message": "IOC created."}
+
+
+@router.post("/iocs/bulk")
+async def bulk_create_iocs(body: IOCBulkCreate, current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    created = 0
+    for ioc in body.iocs:
+        if ioc.ioc_type not in VALID_IOC_TYPES:
+            continue
+        try:
+            cursor.execute(
+                """INSERT OR REPLACE INTO threat_intel_iocs
+                   (feed_id, ioc_type, ioc_value, confidence, severity, threat_type, description, source, tags, first_seen, last_seen)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                (ioc.feed_id, ioc.ioc_type, ioc.ioc_value.strip(), ioc.confidence, ioc.severity,
+                 ioc.threat_type, ioc.description, ioc.source or "manual", json.dumps(ioc.tags or [])),
+            )
+            created += 1
+        except Exception:
+            continue
+    conn.commit()
+    conn.close()
+    return {"created": created, "message": f"{created} IOCs ingested."}
+
+
+@router.get("/iocs")
+async def list_iocs(
+    ioc_type: Optional[str] = Query(default=None),
+    threat_type: Optional[str] = Query(default=None),
+    severity: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    feed_id: Optional[int] = Query(default=None),
+    limit: int = Query(default=100, le=1000),
+    offset: int = Query(default=0),
+    current_user: User = Depends(get_current_active_user),
+):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    query = "SELECT i.*, f.name as feed_name FROM threat_intel_iocs i LEFT JOIN threat_intel_feeds f ON i.feed_id = f.id WHERE i.is_active = 1"
+    count_query = "SELECT COUNT(*) FROM threat_intel_iocs i WHERE i.is_active = 1"
+    params: list = []
+    count_params: list = []
+
+    for col, val in [("i.ioc_type", ioc_type), ("i.threat_type", threat_type), ("i.severity", severity)]:
+        if val:
+            query += f" AND {col} = ?"
+            count_query += f" AND {col} = ?"
+            params.append(val)
+            count_params.append(val)
+    if search:
+        query += " AND i.ioc_value LIKE ?"
+        count_query += " AND i.ioc_value LIKE ?"
+        params.append(f"%{search}%")
+        count_params.append(f"%{search}%")
+    if feed_id:
+        query += " AND i.feed_id = ?"
+        count_query += " AND i.feed_id = ?"
+        params.append(feed_id)
+        count_params.append(feed_id)
+
+    cursor.execute(count_query, count_params)
+    total = cursor.fetchone()[0]
+
+    query += " ORDER BY i.last_seen DESC LIMIT ? OFFSET ?"
+    params.extend([limit, offset])
+    cursor.execute(query, params)
+    rows = [dict(r) for r in cursor.fetchall()]
+
+    cursor.execute("SELECT ioc_type, COUNT(*) as count FROM threat_intel_iocs WHERE is_active = 1 GROUP BY ioc_type ORDER BY count DESC")
+    type_counts = {r["ioc_type"]: r["count"] for r in cursor.fetchall()}
+    cursor.execute("SELECT COUNT(*) FROM threat_intel_iocs WHERE is_active = 1")
+    total_all = cursor.fetchone()[0]
+    conn.close()
+
+    for row in rows:
+        if row.get("tags"):
+            try:
+                row["tags"] = json.loads(row["tags"])
+            except Exception:
+                row["tags"] = []
+
+    return {"iocs": rows, "total": total, "total_all": total_all, "type_counts": type_counts}
+
+
+@router.delete("/iocs/{ioc_id}")
+async def delete_ioc(ioc_id: int, current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE threat_intel_iocs SET is_active = 0 WHERE id = ?", (ioc_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "IOC deactivated."}
+
+
+# ---------------------------------------------------------------------------
+# IOC Correlation Against Scan Findings
+# ---------------------------------------------------------------------------
+@router.post("/correlate/{project_id}")
+async def correlate_iocs_with_findings(project_id: int, current_user: User = Depends(get_current_active_user)):
+    """Correlate IOCs against project scan findings (CVE, IP, domain, hash matches)."""
+    import re as _re
+
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT * FROM threat_intel_iocs WHERE is_active = 1")
+    iocs = [dict(r) for r in cursor.fetchall()]
+    if not iocs:
+        conn.close()
+        return {"correlations": [], "total": 0, "message": "No IOCs to correlate."}
+
+    cursor.execute("SELECT id, title, description, code_snippet, severity, scan_type, file_path FROM vulnerabilities WHERE project_id = ?", (project_id,))
+    vulns = [dict(r) for r in cursor.fetchall()]
+
+    cve_iocs = {i["ioc_value"].upper(): i for i in iocs if i["ioc_type"] == "cve"}
+    ip_iocs = {i["ioc_value"]: i for i in iocs if i["ioc_type"] == "ip"}
+    domain_iocs = {i["ioc_value"].lower(): i for i in iocs if i["ioc_type"] == "domain"}
+    url_iocs = {i["ioc_value"]: i for i in iocs if i["ioc_type"] == "url"}
+    hash_iocs = {i["ioc_value"].lower(): i for i in iocs if i["ioc_type"].startswith("hash_")}
+
+    new_correlations = []
+    for vuln in vulns:
+        title = (vuln.get("title") or "").upper()
+        searchable = f"{title} {vuln.get('code_snippet') or ''} {vuln.get('description') or ''}"
+
+        for cve in _re.findall(r'CVE-\d{4}-\d+', title):
+            if cve.upper() in cve_iocs:
+                ioc = cve_iocs[cve.upper()]
+                new_correlations.append({"project_id": project_id, "ioc_id": ioc["id"], "vulnerability_id": vuln["id"], "match_type": "cve_match", "match_context": f"CVE {cve} in: {vuln.get('title', '')[:100]}", "confidence": max(ioc.get("confidence", 50), 70), "severity": vuln.get("severity", "medium")})
+
+        for ip_val, ioc in ip_iocs.items():
+            if ip_val in searchable:
+                new_correlations.append({"project_id": project_id, "ioc_id": ioc["id"], "vulnerability_id": vuln["id"], "match_type": "ip_in_code", "match_context": f"Malicious IP {ip_val} in {vuln.get('file_path', 'unknown')}", "confidence": ioc.get("confidence", 50), "severity": ioc.get("severity", "medium")})
+
+        for domain_val, ioc in domain_iocs.items():
+            if domain_val in searchable.lower():
+                new_correlations.append({"project_id": project_id, "ioc_id": ioc["id"], "vulnerability_id": vuln["id"], "match_type": "domain_in_code", "match_context": f"Malicious domain {domain_val} in {vuln.get('file_path', 'unknown')}", "confidence": ioc.get("confidence", 50), "severity": ioc.get("severity", "medium")})
+
+        for url_val, ioc in url_iocs.items():
+            if url_val in searchable:
+                new_correlations.append({"project_id": project_id, "ioc_id": ioc["id"], "vulnerability_id": vuln["id"], "match_type": "url_in_code", "match_context": f"Malicious URL in {vuln.get('file_path', 'unknown')}", "confidence": ioc.get("confidence", 50), "severity": ioc.get("severity", "medium")})
+
+        for hash_val, ioc in hash_iocs.items():
+            if hash_val in searchable.lower():
+                new_correlations.append({"project_id": project_id, "ioc_id": ioc["id"], "vulnerability_id": vuln["id"], "match_type": "hash_in_code", "match_context": f"Malicious hash in {vuln.get('file_path', 'unknown')}", "confidence": ioc.get("confidence", 50), "severity": "critical"})
+
+    cursor.execute("DELETE FROM threat_intel_correlations WHERE project_id = ?", (project_id,))
+    for corr in new_correlations:
+        cursor.execute(
+            """INSERT INTO threat_intel_correlations (project_id, ioc_id, vulnerability_id, match_type, match_context, confidence, severity)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (corr["project_id"], corr["ioc_id"], corr["vulnerability_id"], corr["match_type"], corr["match_context"], corr["confidence"], corr["severity"]),
+        )
+    conn.commit()
+    conn.close()
+
+    return {"correlations": new_correlations[:100], "total": len(new_correlations), "vulnerabilities_scanned": len(vulns), "iocs_checked": len(iocs)}
+
+
+@router.get("/correlations/{project_id}")
+async def get_correlations(project_id: int, status: Optional[str] = Query(default=None), current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    query = """SELECT c.*, i.ioc_type, i.ioc_value, i.threat_type as ioc_threat_type,
+               v.title as vuln_title, v.severity as vuln_severity, v.scan_type, v.file_path
+               FROM threat_intel_correlations c
+               LEFT JOIN threat_intel_iocs i ON c.ioc_id = i.id
+               LEFT JOIN vulnerabilities v ON c.vulnerability_id = v.id
+               WHERE c.project_id = ?"""
+    params: list = [project_id]
+    if status:
+        query += " AND c.status = ?"
+        params.append(status)
+    query += " ORDER BY c.confidence DESC"
+    cursor.execute(query, params)
+    rows = [dict(r) for r in cursor.fetchall()]
+    conn.close()
+
+    summary = {"total": len(rows), "by_type": {}, "by_severity": {}, "by_status": {}}
+    for r in rows:
+        for key, field in [("by_type", "match_type"), ("by_severity", "severity"), ("by_status", "status")]:
+            val = r.get(field, "unknown")
+            summary[key][val] = summary[key].get(val, 0) + 1
+
+    return {"correlations": rows, "summary": summary}
+
+
+@router.put("/correlations/{correlation_id}")
+async def update_correlation_status(correlation_id: int, status: str = Query(...), notes: Optional[str] = Query(default=None), current_user: User = Depends(get_current_active_user)):
+    valid_statuses = {"new", "investigating", "confirmed", "false_positive", "resolved"}
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Supported: {valid_statuses}")
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    if notes:
+        cursor.execute("UPDATE threat_intel_correlations SET status=?, notes=? WHERE id=?", (status, notes, correlation_id))
+    else:
+        cursor.execute("UPDATE threat_intel_correlations SET status=? WHERE id=?", (status, correlation_id))
+    conn.commit()
+    conn.close()
+    return {"message": f"Correlation status updated to '{status}'."}
+
+
+# ---------------------------------------------------------------------------
+# IOC Dashboard Stats
+# ---------------------------------------------------------------------------
+@router.get("/iocs/dashboard/stats")
+async def get_ioc_dashboard_stats(current_user: User = Depends(get_current_active_user)):
+    conn = _sqlite_conn()
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM threat_intel_iocs WHERE is_active = 1")
+    total_iocs = cursor.fetchone()[0]
+    cursor.execute("SELECT ioc_type, COUNT(*) as count FROM threat_intel_iocs WHERE is_active = 1 GROUP BY ioc_type ORDER BY count DESC")
+    by_type = [{"type": r["ioc_type"], "count": r["count"]} for r in cursor.fetchall()]
+    cursor.execute("SELECT severity, COUNT(*) as count FROM threat_intel_iocs WHERE is_active = 1 GROUP BY severity")
+    by_severity = {r["severity"]: r["count"] for r in cursor.fetchall()}
+    cursor.execute("SELECT threat_type, COUNT(*) as count FROM threat_intel_iocs WHERE is_active = 1 AND threat_type IS NOT NULL GROUP BY threat_type ORDER BY count DESC LIMIT 10")
+    by_threat_type = [{"type": r["threat_type"], "count": r["count"]} for r in cursor.fetchall()]
+    cursor.execute("SELECT COUNT(*) FROM threat_intel_feeds WHERE is_active = 1")
+    active_feeds = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM threat_intel_iocs WHERE is_active = 1 AND last_seen >= datetime('now', '-1 day')")
+    recent_24h = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM threat_intel_correlations")
+    total_correlations = cursor.fetchone()[0]
+    conn.close()
+    return {"total_iocs": total_iocs, "by_type": by_type, "by_severity": by_severity, "by_threat_type": by_threat_type, "active_feeds": active_feeds, "recent_24h": recent_24h, "total_correlations": total_correlations}

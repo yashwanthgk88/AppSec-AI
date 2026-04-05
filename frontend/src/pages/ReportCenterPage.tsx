@@ -30,7 +30,7 @@ const REPORT_FORMATS: {
     ext: '.xlsx',
     mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     icon: FileSpreadsheet,
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     gradient: 'from-emerald-600 to-teal-600',
     description: 'Comprehensive workbook for security analysts with workflow tracking',
     features: [
@@ -51,7 +51,7 @@ const REPORT_FORMATS: {
     ext: '.pdf',
     mime: 'application/pdf',
     icon: FileText,
-    color: 'text-red-400',
+    color: 'text-red-600',
     gradient: 'from-red-600 to-rose-600',
     description: 'Professional security assessment report for executives and stakeholders',
     features: [
@@ -74,7 +74,7 @@ const REPORT_FORMATS: {
     ext: '.xml',
     mime: 'application/xml',
     icon: File,
-    color: 'text-blue-400',
+    color: 'text-blue-600',
     gradient: 'from-blue-600 to-indigo-600',
     description: 'Machine-readable format for tool integration and automation',
     features: [
@@ -153,37 +153,37 @@ export default function ReportCenterPage() {
   const selectedProjectObj = projects.find((p) => p.id === selectedProject)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2 bg-gradient-to-br from-violet-600 to-purple-600 rounded-lg">
-            <BookOpen className="w-6 h-6 text-white" />
+            <BookOpen className="w-6 h-6 text-gray-900" />
           </div>
-          <h1 className="text-3xl font-bold text-white">Report Center</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Report Center</h1>
         </div>
-        <p className="text-gray-400 ml-12">
+        <p className="text-gray-500 ml-12">
           Generate enterprise-grade security reports matching Checkmarx, Snyk & Veracode quality
         </p>
       </div>
 
       <div className="max-w-7xl mx-auto">
         {/* Project Selector */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 mb-8 backdrop-blur-sm">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Shield className="w-5 h-5 text-violet-400" />
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-violet-600" />
                 Select Project
               </h2>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-gray-500 mt-1">
                 Choose the project to generate reports for
               </p>
             </div>
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-3 bg-gray-700 hover:bg-gray-600 text-white px-5 py-3 rounded-lg border border-gray-600 transition-colors min-w-[280px] justify-between"
+                className="flex items-center gap-3 bg-gray-100 hover:bg-gray-100 text-gray-900 px-5 py-3 rounded-lg border border-gray-300 transition-colors min-w-[280px] justify-between"
               >
                 <span className="truncate">
                   {selectedProjectObj?.name || 'Select a project...'}
@@ -193,7 +193,7 @@ export default function ReportCenterPage() {
                 />
               </button>
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl z-10 max-h-60 overflow-y-auto">
+                <div className="absolute right-0 mt-2 w-full bg-gray-100 border border-gray-300 rounded-lg shadow-xl z-10 max-h-60 overflow-y-auto">
                   {projects.map((project) => (
                     <button
                       key={project.id}
@@ -201,15 +201,15 @@ export default function ReportCenterPage() {
                         setSelectedProject(project.id)
                         setDropdownOpen(false)
                       }}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-600 transition-colors ${
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-100 transition-colors ${
                         selectedProject === project.id
-                          ? 'bg-violet-600/20 text-violet-300'
+                          ? 'bg-violet-50 text-violet-700'
                           : 'text-gray-200'
                       }`}
                     >
                       <div className="font-medium">{project.name}</div>
                       {project.description && (
-                        <div className="text-xs text-gray-400 truncate mt-0.5">
+                        <div className="text-xs text-gray-500 truncate mt-0.5">
                           {project.description}
                         </div>
                       )}
@@ -223,9 +223,9 @@ export default function ReportCenterPage() {
 
         {/* Error / Success Messages */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-            <span className="text-red-300">{error}</span>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="text-red-600">{error}</span>
           </div>
         )}
 
@@ -239,33 +239,33 @@ export default function ReportCenterPage() {
             return (
               <div
                 key={format.id}
-                className="bg-gray-800/50 border border-gray-700 rounded-xl overflow-hidden hover:border-gray-600 transition-all group"
+                className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 transition-all group"
               >
                 {/* Card Header */}
                 <div className={`bg-gradient-to-r ${format.gradient} p-5`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Icon className="w-8 h-8 text-white" />
+                      <Icon className="w-8 h-8 text-gray-900" />
                       <div>
-                        <h3 className="text-lg font-bold text-white">{format.name}</h3>
-                        <span className="text-xs text-white/70 font-mono">{format.ext}</span>
+                        <h3 className="text-lg font-bold text-gray-900">{format.name}</h3>
+                        <span className="text-xs text-gray-500 font-mono">{format.ext}</span>
                       </div>
                     </div>
                     {isSuccess && (
-                      <CheckCircle className="w-6 h-6 text-white animate-bounce" />
+                      <CheckCircle className="w-6 h-6 text-gray-900 animate-bounce" />
                     )}
                   </div>
                 </div>
 
                 {/* Card Body */}
                 <div className="p-5">
-                  <p className="text-gray-300 text-sm mb-4">{format.description}</p>
+                  <p className="text-gray-600 text-sm mb-4">{format.description}</p>
 
                   <div className="space-y-2 mb-5">
                     {format.features.map((feature, idx) => (
                       <div key={idx} className="flex items-start gap-2">
-                        <CheckCircle className="w-3.5 h-3.5 text-green-400 mt-0.5 flex-shrink-0" />
-                        <span className="text-xs text-gray-400">{feature}</span>
+                        <CheckCircle className="w-3.5 h-3.5 text-green-600 mt-0.5 flex-shrink-0" />
+                        <span className="text-xs text-gray-500">{feature}</span>
                       </div>
                     ))}
                   </div>
@@ -276,12 +276,12 @@ export default function ReportCenterPage() {
                     disabled={!selectedProject || isLoading}
                     className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
                       !selectedProject
-                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                         : isLoading
-                          ? 'bg-gray-600 text-gray-300 cursor-wait'
+                          ? 'bg-gray-600 text-gray-600 cursor-wait'
                           : isSuccess
-                            ? 'bg-green-600 text-white'
-                            : `bg-gradient-to-r ${format.gradient} text-white hover:shadow-lg hover:scale-[1.02]`
+                            ? 'bg-green-600 text-gray-900'
+                            : `bg-gradient-to-r ${format.gradient} text-gray-900 hover:shadow-lg hover:scale-[1.02]`
                     }`}
                   >
                     {isLoading ? (
@@ -308,9 +308,9 @@ export default function ReportCenterPage() {
         </div>
 
         {/* Report Details Section */}
-        <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
-          <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
-            <BarChart3 className="w-5 h-5 text-violet-400" />
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+            <BarChart3 className="w-5 h-5 text-violet-600" />
             Report Contents Overview
           </h2>
 
@@ -319,7 +319,7 @@ export default function ReportCenterPage() {
               {
                 title: 'SAST Analysis',
                 icon: Shield,
-                color: 'text-blue-400',
+                color: 'text-blue-600',
                 items: [
                   'Findings by severity (Critical → Info)',
                   'Grouped by CWE, OWASP, File',
@@ -330,7 +330,7 @@ export default function ReportCenterPage() {
               {
                 title: 'SCA Analysis',
                 icon: Table,
-                color: 'text-emerald-400',
+                color: 'text-emerald-600',
                 items: [
                   'Vulnerable dependencies',
                   'CVE details & CVSS scores',
@@ -341,7 +341,7 @@ export default function ReportCenterPage() {
               {
                 title: 'Secrets Detection',
                 icon: AlertTriangle,
-                color: 'text-red-400',
+                color: 'text-red-600',
                 items: [
                   'Hardcoded credentials',
                   'API keys & tokens',
@@ -352,7 +352,7 @@ export default function ReportCenterPage() {
               {
                 title: 'Threat Model',
                 icon: BookOpen,
-                color: 'text-purple-400',
+                color: 'text-purple-600',
                 items: [
                   'STRIDE analysis per component',
                   'MITRE ATT&CK techniques',
@@ -365,15 +365,15 @@ export default function ReportCenterPage() {
               return (
                 <div
                   key={section.title}
-                  className="bg-gray-700/30 rounded-lg p-4 border border-gray-700/50"
+                  className="bg-gray-100/30 rounded-lg p-4 border border-gray-200/50"
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <SIcon className={`w-4 h-4 ${section.color}`} />
-                    <h3 className="text-sm font-semibold text-white">{section.title}</h3>
+                    <h3 className="text-sm font-semibold text-gray-900">{section.title}</h3>
                   </div>
                   <ul className="space-y-1.5">
                     {section.items.map((item, idx) => (
-                      <li key={idx} className="text-xs text-gray-400 flex items-start gap-1.5">
+                      <li key={idx} className="text-xs text-gray-500 flex items-start gap-1.5">
                         <span className="text-gray-600 mt-0.5">•</span>
                         {item}
                       </li>

@@ -7,7 +7,15 @@ export default function ThreatIntelPage() {
   const [stats, setStats] = useState<any>(null)
   const [correlations, setCorrelations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'threats' | 'correlations' | 'rules' | 'custom' | 'api-keys'>('threats')
+  const [activeTab, setActiveTab] = useState<'threats' | 'correlations' | 'rules' | 'custom' | 'api-keys' | 'feeds'>('threats')
+  const [feeds, setFeeds] = useState<any[]>([])
+  const [iocs, setIocs] = useState<any[]>([])
+  const [iocStats, setIocStats] = useState<any>(null)
+  const [feedFormOpen, setFeedFormOpen] = useState(false)
+  const [newFeed, setNewFeed] = useState({ name: '', feed_type: 'stix_url', url: '', api_key: '', poll_interval_minutes: 1440 })
+  const [pollingFeedId, setPollingFeedId] = useState<number | null>(null)
+  const [iocSearch, setIocSearch] = useState('')
+  const [iocTypeFilter, setIocTypeFilter] = useState('all')
   const [selectedThreat, setSelectedThreat] = useState<any>(null)
   const [generatingRule, setGeneratingRule] = useState(false)
   const [generatedRule, setGeneratedRule] = useState<any>(null)
@@ -406,6 +414,19 @@ export default function ThreatIntelPage() {
               </span>
             </button>
             <button
+              onClick={() => setActiveTab('feeds')}
+              className={`py-4 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'feeds'
+                  ? 'border-primary-600 text-primary-600'
+                  : 'border-transparent text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                Threat Feeds & IOCs
+              </span>
+            </button>
+            <button
               onClick={() => setActiveTab('api-keys')}
               className={`py-4 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'api-keys'
@@ -504,12 +525,371 @@ export default function ThreatIntelPage() {
             <CustomIntelTab />
           )}
 
+          {/* Threat Feeds & IOCs Tab */}
+          {activeTab === 'feeds' && (
+            <ThreatFeedsTab
+              feeds={feeds} setFeeds={setFeeds}
+              iocs={iocs} setIocs={setIocs}
+              iocStats={iocStats} setIocStats={setIocStats}
+              feedFormOpen={feedFormOpen} setFeedFormOpen={setFeedFormOpen}
+              newFeed={newFeed} setNewFeed={setNewFeed}
+              pollingFeedId={pollingFeedId} setPollingFeedId={setPollingFeedId}
+              iocSearch={iocSearch} setIocSearch={setIocSearch}
+              iocTypeFilter={iocTypeFilter} setIocTypeFilter={setIocTypeFilter}
+            />
+          )}
+
           {/* API Keys Tab */}
           {activeTab === 'api-keys' && (
             <APIKeysTab />
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Threat Feeds & IOCs Tab
+// ---------------------------------------------------------------------------
+function ThreatFeedsTab({ feeds, setFeeds, iocs, setIocs, iocStats, setIocStats, feedFormOpen, setFeedFormOpen, newFeed, setNewFeed, pollingFeedId, setPollingFeedId, iocSearch, setIocSearch, iocTypeFilter, setIocTypeFilter }: any) {
+  const [subTab, setSubTab] = useState<'feeds' | 'iocs'>('feeds')
+  const [loadingFeeds, setLoadingFeeds] = useState(false)
+  const [loadingIocs, setLoadingIocs] = useState(false)
+
+  const token = localStorage.getItem('token')
+  const headers = { Authorization: `Bearer ${token}` }
+
+  const fetchFeeds = async () => {
+    setLoadingFeeds(true)
+    try {
+      const res = await axios.get('/api/threat-intel/feeds', { headers })
+      setFeeds(res.data.feeds || [])
+    } catch { /* */ }
+    setLoadingFeeds(false)
+  }
+
+  const fetchIocs = async () => {
+    setLoadingIocs(true)
+    try {
+      const params: any = { limit: 100 }
+      if (iocSearch) params.search = iocSearch
+      if (iocTypeFilter !== 'all') params.ioc_type = iocTypeFilter
+      const res = await axios.get('/api/threat-intel/iocs', { headers, params })
+      setIocs(res.data.iocs || [])
+      setIocStats({ total: res.data.total_all, type_counts: res.data.type_counts })
+    } catch { /* */ }
+    setLoadingIocs(false)
+  }
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await axios.get('/api/threat-intel/iocs/dashboard/stats', { headers })
+      setIocStats(res.data)
+    } catch { /* */ }
+  }
+
+  useEffect(() => {
+    fetchFeeds()
+    fetchIocs()
+    fetchDashboard()
+  }, [])
+
+  const handleCreateFeed = async () => {
+    if (!newFeed.name || !newFeed.url) return
+    try {
+      await axios.post('/api/threat-intel/feeds', newFeed, { headers })
+      setFeedFormOpen(false)
+      setNewFeed({ name: '', feed_type: 'stix_url', url: '', api_key: '', poll_interval_minutes: 1440 })
+      fetchFeeds()
+    } catch { /* */ }
+  }
+
+  const handlePollFeed = async (feedId: number) => {
+    setPollingFeedId(feedId)
+    try {
+      const res = await axios.post(`/api/threat-intel/feeds/${feedId}/poll`, {}, { headers })
+      alert(`Ingested ${res.data.ingested} IOCs`)
+      fetchFeeds()
+      fetchIocs()
+      fetchDashboard()
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Poll failed')
+    }
+    setPollingFeedId(null)
+  }
+
+  const handleDeleteFeed = async (feedId: number) => {
+    if (!confirm('Delete this feed and all its IOCs?')) return
+    try {
+      await axios.delete(`/api/threat-intel/feeds/${feedId}`, { headers })
+      fetchFeeds()
+      fetchIocs()
+    } catch { /* */ }
+  }
+
+  const handleToggleFeed = async (feedId: number, active: number) => {
+    try {
+      await axios.put(`/api/threat-intel/feeds/${feedId}`, { is_active: active ? 0 : 1 }, { headers })
+      fetchFeeds()
+    } catch { /* */ }
+  }
+
+  const FEED_TYPE_LABELS: Record<string, string> = {
+    stix_url: 'STIX/TAXII URL', csv_url: 'CSV Feed', alienvault_otx: 'AlienVault OTX',
+    abuse_ipdb: 'AbuseIPDB', taxii: 'TAXII 2.1', misp: 'MISP',
+  }
+
+  const IOC_TYPE_ICONS: Record<string, string> = {
+    ip: '🌐', domain: '🔗', url: '🔗', hash_md5: '#', hash_sha1: '#', hash_sha256: '#',
+    email: '✉', cve: '🛡', file_path: '📁',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Row */}
+      {iocStats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="text-2xl font-bold text-blue-700">{iocStats.total_iocs || iocStats.total || 0}</div>
+            <div className="text-sm text-blue-600">Total IOCs</div>
+          </div>
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <div className="text-2xl font-bold text-green-700">{iocStats.active_feeds || 0}</div>
+            <div className="text-sm text-green-600">Active Feeds</div>
+          </div>
+          <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+            <div className="text-2xl font-bold text-orange-700">{iocStats.recent_24h || 0}</div>
+            <div className="text-sm text-orange-600">New (24h)</div>
+          </div>
+          <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+            <div className="text-2xl font-bold text-red-700">{iocStats.total_correlations || 0}</div>
+            <div className="text-sm text-red-600">Correlations</div>
+          </div>
+        </div>
+      )}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2">
+        <button onClick={() => setSubTab('feeds')} className={`px-4 py-2 rounded-lg text-sm font-medium ${subTab === 'feeds' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+          Feed Management
+        </button>
+        <button onClick={() => { setSubTab('iocs'); fetchIocs() }} className={`px-4 py-2 rounded-lg text-sm font-medium ${subTab === 'iocs' ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+          IOC Browser
+        </button>
+      </div>
+
+      {/* Feed Management Sub-tab */}
+      {subTab === 'feeds' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900">Configured Feeds</h3>
+            <button onClick={() => setFeedFormOpen(!feedFormOpen)} className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
+              <Plus className="w-4 h-4" /> Add Feed
+            </button>
+          </div>
+
+          {/* Add Feed Form */}
+          {feedFormOpen && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 space-y-4">
+              <h4 className="font-semibold text-gray-900">New Feed Subscription</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Feed Name</label>
+                  <input className="input" placeholder="e.g., AlienVault OTX Pulse" value={newFeed.name} onChange={e => setNewFeed({ ...newFeed, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Feed Type</label>
+                  <select className="input" value={newFeed.feed_type} onChange={e => setNewFeed({ ...newFeed, feed_type: e.target.value })}>
+                    <option value="stix_url">STIX/TAXII URL</option>
+                    <option value="csv_url">CSV Feed URL</option>
+                    <option value="alienvault_otx">AlienVault OTX</option>
+                    <option value="abuse_ipdb">AbuseIPDB</option>
+                    <option value="taxii">TAXII 2.1</option>
+                    <option value="misp">MISP</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="label">Feed URL</label>
+                  <input className="input" placeholder="https://..." value={newFeed.url} onChange={e => setNewFeed({ ...newFeed, url: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">API Key (optional)</label>
+                  <input className="input" type="password" placeholder="API key for authenticated feeds" value={newFeed.api_key} onChange={e => setNewFeed({ ...newFeed, api_key: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Poll Interval (minutes)</label>
+                  <input className="input" type="number" value={newFeed.poll_interval_minutes} onChange={e => setNewFeed({ ...newFeed, poll_interval_minutes: parseInt(e.target.value) || 1440 })} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={handleCreateFeed} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">Create Feed</button>
+                <button onClick={() => setFeedFormOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {/* Feeds List */}
+          {loadingFeeds ? (
+            <div className="text-center py-8 text-gray-500">Loading feeds...</div>
+          ) : feeds.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Globe className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg font-medium">No feeds configured</p>
+              <p className="text-sm mt-1">Add a STIX, CSV, AlienVault OTX, or AbuseIPDB feed to start ingesting IOCs.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {feeds.map((feed: any) => (
+                <div key={feed.id} className={`bg-white border rounded-lg p-4 ${feed.is_active ? 'border-gray-200' : 'border-gray-200 opacity-60'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <h4 className="font-semibold text-gray-900">{feed.name}</h4>
+                        <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700">{FEED_TYPE_LABELS[feed.feed_type] || feed.feed_type}</span>
+                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${feed.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {feed.is_active ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1 truncate max-w-xl">{feed.url}</p>
+                      <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                        <span>IOCs: <strong>{feed.total_iocs_ingested || 0}</strong></span>
+                        <span>Last poll: {feed.last_polled_at || 'Never'}</span>
+                        {feed.last_poll_status && (
+                          <span className={feed.last_poll_status === 'success' ? 'text-green-600' : 'text-red-600'}>
+                            {feed.last_poll_status}
+                          </span>
+                        )}
+                        <span>Interval: {feed.poll_interval_minutes}m</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => handlePollFeed(feed.id)}
+                        disabled={pollingFeedId === feed.id}
+                        className="px-3 py-1.5 bg-blue-600 text-white rounded text-xs hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {pollingFeedId === feed.id ? 'Polling...' : 'Poll Now'}
+                      </button>
+                      <button onClick={() => handleToggleFeed(feed.id, feed.is_active)} className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200">
+                        {feed.is_active ? 'Disable' : 'Enable'}
+                      </button>
+                      <button onClick={() => handleDeleteFeed(feed.id)} className="px-3 py-1.5 bg-red-50 text-red-600 rounded text-xs hover:bg-red-100">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* IOC Browser Sub-tab */}
+      {subTab === 'iocs' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="flex-1 relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                className="input pl-10"
+                placeholder="Search IOCs (IP, domain, hash, CVE...)"
+                value={iocSearch}
+                onChange={e => setIocSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && fetchIocs()}
+              />
+            </div>
+            <select className="input w-auto" value={iocTypeFilter} onChange={e => { setIocTypeFilter(e.target.value); setTimeout(fetchIocs, 0) }}>
+              <option value="all">All Types</option>
+              <option value="ip">IP Address</option>
+              <option value="domain">Domain</option>
+              <option value="url">URL</option>
+              <option value="hash_sha256">SHA-256</option>
+              <option value="hash_sha1">SHA-1</option>
+              <option value="hash_md5">MD5</option>
+              <option value="email">Email</option>
+              <option value="cve">CVE</option>
+            </select>
+            <button onClick={fetchIocs} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
+              Search
+            </button>
+          </div>
+
+          {/* Type distribution */}
+          {iocStats?.type_counts && Object.keys(iocStats.type_counts).length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(iocStats.type_counts).map(([type, count]: any) => (
+                <button
+                  key={type}
+                  onClick={() => { setIocTypeFilter(type); setTimeout(fetchIocs, 0) }}
+                  className={`px-3 py-1 text-xs rounded-full border ${iocTypeFilter === type ? 'bg-primary-100 border-primary-300 text-primary-700' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                >
+                  {IOC_TYPE_ICONS[type] || '?'} {type} ({count})
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* IOC Table */}
+          {loadingIocs ? (
+            <div className="text-center py-8 text-gray-500">Loading IOCs...</div>
+          ) : iocs.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Shield className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <p className="text-lg font-medium">No IOCs found</p>
+              <p className="text-sm mt-1">Configure and poll a feed to ingest indicators of compromise.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200 text-left">
+                    <th className="py-3 px-3 font-medium text-gray-500">Type</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Value</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Severity</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Confidence</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Threat</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Source</th>
+                    <th className="py-3 px-3 font-medium text-gray-500">Last Seen</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {iocs.map((ioc: any) => (
+                    <tr key={ioc.id} className="hover:bg-gray-50">
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 text-xs font-mono rounded bg-gray-100 text-gray-700">
+                          {IOC_TYPE_ICONS[ioc.ioc_type]} {ioc.ioc_type}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-xs max-w-xs truncate" title={ioc.ioc_value}>{ioc.ioc_value}</td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 text-xs rounded font-medium ${
+                          ioc.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                          ioc.severity === 'high' ? 'bg-orange-100 text-orange-800' :
+                          ioc.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>{ioc.severity}</span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                            <div className={`h-1.5 rounded-full ${ioc.confidence >= 80 ? 'bg-red-500' : ioc.confidence >= 60 ? 'bg-orange-500' : ioc.confidence >= 40 ? 'bg-yellow-500' : 'bg-blue-500'}`} style={{ width: `${ioc.confidence}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500">{ioc.confidence}%</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-3 text-xs text-gray-600">{ioc.threat_type || '-'}</td>
+                      <td className="py-2.5 px-3 text-xs text-gray-500">{ioc.feed_name || ioc.source || '-'}</td>
+                      <td className="py-2.5 px-3 text-xs text-gray-500">{ioc.last_seen ? new Date(ioc.last_seen).toLocaleDateString() : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
