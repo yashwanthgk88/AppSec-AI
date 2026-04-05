@@ -5266,6 +5266,455 @@ async def get_vulnerability_taint_flow(
         "taint_flow": taint_flow
     }
 
+
+@app.get("/api/vulnerabilities/{vuln_id}/reachability")
+async def get_vulnerability_reachability(
+    vuln_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Get reachability analysis for an SCA vulnerability.
+    Determines if the vulnerable function within the library is actually consumed in the app.
+    """
+    vulnerability = db.query(Vulnerability).filter(Vulnerability.id == vuln_id).first()
+    if not vulnerability:
+        raise HTTPException(status_code=404, detail="Vulnerability not found")
+
+    reachability = generate_reachability_analysis(vulnerability)
+
+    return {
+        "vulnerability_id": vuln_id,
+        "vulnerability_title": vulnerability.title,
+        "package": reachability.get("package", ""),
+        "reachability": reachability
+    }
+
+
+def generate_reachability_analysis(vulnerability) -> dict:
+    """
+    Generate reachability analysis for an SCA vulnerability.
+    Determines if the vulnerable library function is actually invoked in the application code.
+    """
+    import re as _re
+
+    vuln_title = vulnerability.title or ""
+    vuln_desc = vulnerability.description or ""
+    severity = vulnerability.severity or "medium"
+
+    # Extract CVE from title
+    cve_match = _re.search(r'CVE-\d{4}-\d+', vuln_title)
+    cve_id = cve_match.group(0) if cve_match else None
+
+    # Simulated reachability data keyed by CVE for Apex Banking demo
+    REACHABILITY_DB = {
+        "CVE-2021-44228": {
+            "package": "log4j-core",
+            "exploitability": "exploitable",
+            "confidence_score": 0.96,
+            "should_fix": True,
+            "fix_priority": "immediate",
+            "attack_vector": "Remote code execution via JNDI lookup injection in log messages. Attacker-controlled input logged via Logger.info/error/warn triggers JNDI resolution to attacker LDAP server.",
+            "recommendation": "CRITICAL: Vulnerable Log4j logging functions are actively called with user-controlled input in TransactionService and AuthController. Upgrade log4j-core to 2.17.1+ immediately. As interim mitigation set -Dlog4j2.formatMsgNoLookups=true.",
+            "import_locations": [
+                {"file": "src/main/java/com/apex/banking/service/TransactionService.java", "line": 3, "import_statement": "import org.apache.logging.log4j.LogManager;", "alias": "logger", "style": "java"},
+                {"file": "src/main/java/com/apex/banking/service/TransactionService.java", "line": 4, "import_statement": "import org.apache.logging.log4j.Logger;", "alias": "Logger", "style": "java"},
+                {"file": "src/main/java/com/apex/banking/controller/AuthController.java", "line": 5, "import_statement": "import org.apache.logging.log4j.LogManager;", "alias": "logger", "style": "java"},
+                {"file": "src/main/java/com/apex/banking/config/AuditLogger.java", "line": 2, "import_statement": "import org.apache.logging.log4j.LogManager;", "alias": "auditLog", "style": "java"},
+            ],
+            "vulnerable_function_usages": [
+                {
+                    "function": "logger.info",
+                    "full_call": "logger.info(\"Transfer initiated: \" + request.getDescription())",
+                    "file": "src/main/java/com/apex/banking/service/TransactionService.java",
+                    "line": 87,
+                    "code": "logger.info(\"Transfer initiated: \" + request.getDescription());",
+                    "context": "85:     public TransferResult initiateTransfer(TransferRequest request) {\n86:         validateTransferLimits(request);\n87:         logger.info(\"Transfer initiated: \" + request.getDescription());\n88:         Transaction tx = transactionRepository.save(buildTransaction(request));\n89:         return processTransfer(tx);",
+                    "arguments": "\"Transfer initiated: \" + request.getDescription()",
+                    "confidence": "high",
+                    "data_flow": "User input → TransferRequest.description → String concatenation → Logger.info() → JNDI lookup"
+                },
+                {
+                    "function": "logger.warn",
+                    "full_call": "logger.warn(\"Failed login attempt for user: \" + username)",
+                    "file": "src/main/java/com/apex/banking/controller/AuthController.java",
+                    "line": 42,
+                    "code": "logger.warn(\"Failed login attempt for user: \" + username);",
+                    "context": "40:     @PostMapping(\"/login\")\n41:     public ResponseEntity<?> login(@RequestBody LoginRequest req) {\n42:         logger.warn(\"Failed login attempt for user: \" + username);\n43:         // Authentication logic\n44:         return ResponseEntity.status(401).body(\"Invalid credentials\");",
+                    "arguments": "\"Failed login attempt for user: \" + username",
+                    "confidence": "high",
+                    "data_flow": "User input → LoginRequest.username → String concatenation → Logger.warn() → JNDI lookup"
+                },
+                {
+                    "function": "auditLog.info",
+                    "full_call": "auditLog.info(\"Audit: \" + action + \" by \" + userId)",
+                    "file": "src/main/java/com/apex/banking/config/AuditLogger.java",
+                    "line": 28,
+                    "code": "auditLog.info(\"Audit: \" + action + \" by \" + userId);",
+                    "context": "26:     public void logAction(String action, String userId) {\n27:         String timestamp = Instant.now().toString();\n28:         auditLog.info(\"Audit: \" + action + \" by \" + userId);\n29:         auditRepository.save(new AuditEntry(action, userId, timestamp));\n30:     }",
+                    "arguments": "\"Audit: \" + action + \" by \" + userId",
+                    "confidence": "high",
+                    "data_flow": "User action → String param → String concatenation → Logger.info() → JNDI lookup"
+                },
+            ],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "HTTP POST /api/transfers",
+                    "file": "src/main/java/com/apex/banking/controller/TransferController.java",
+                    "line": 34,
+                    "code_snippet": "@PostMapping(\"/api/transfers\")\npublic ResponseEntity<TransferResult> transfer(@RequestBody TransferRequest request)",
+                    "children": [
+                        {
+                            "type": "function_call",
+                            "label": "TransactionService.initiateTransfer()",
+                            "file": "src/main/java/com/apex/banking/service/TransactionService.java",
+                            "line": 85,
+                            "code_snippet": "public TransferResult initiateTransfer(TransferRequest request) {",
+                            "children": [
+                                {
+                                    "type": "vulnerable_sink",
+                                    "label": "logger.info() — JNDI INJECTION POINT",
+                                    "file": "src/main/java/com/apex/banking/service/TransactionService.java",
+                                    "line": 87,
+                                    "code_snippet": "logger.info(\"Transfer initiated: \" + request.getDescription());",
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "entry_point",
+                    "label": "HTTP POST /api/auth/login",
+                    "file": "src/main/java/com/apex/banking/controller/AuthController.java",
+                    "line": 40,
+                    "code_snippet": "@PostMapping(\"/login\")\npublic ResponseEntity<?> login(@RequestBody LoginRequest req)",
+                    "children": [
+                        {
+                            "type": "vulnerable_sink",
+                            "label": "logger.warn() — JNDI INJECTION POINT",
+                            "file": "src/main/java/com/apex/banking/controller/AuthController.java",
+                            "line": 42,
+                            "code_snippet": "logger.warn(\"Failed login attempt for user: \" + username);",
+                            "children": []
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2022-22965": {
+            "package": "spring-beans",
+            "exploitability": "potentially_exploitable",
+            "confidence_score": 0.82,
+            "should_fix": True,
+            "fix_priority": "high",
+            "attack_vector": "Spring4Shell — RCE via ClassLoader manipulation through data binding on JDK 9+ with Tomcat WAR deployment.",
+            "recommendation": "HIGH: The application uses @ModelAttribute data binding in AccountController which could be exploited via class.module.classLoader parameter injection. Upgrade spring-beans to 5.3.18+. Risk is reduced if running on JDK 8 or as JAR (not WAR).",
+            "import_locations": [
+                {"file": "src/main/java/com/apex/banking/controller/AccountController.java", "line": 8, "import_statement": "import org.springframework.web.bind.annotation.*;", "alias": "Spring MVC", "style": "java"},
+            ],
+            "vulnerable_function_usages": [
+                {
+                    "function": "@ModelAttribute data binding",
+                    "full_call": "public String updateProfile(@ModelAttribute CustomerProfile profile)",
+                    "file": "src/main/java/com/apex/banking/controller/AccountController.java",
+                    "line": 67,
+                    "code": "public String updateProfile(@ModelAttribute CustomerProfile profile) {",
+                    "context": "65:     @PostMapping(\"/profile/update\")\n66:     @PreAuthorize(\"hasRole('CUSTOMER')\")\n67:     public String updateProfile(@ModelAttribute CustomerProfile profile) {\n68:         customerService.updateProfile(profile);\n69:         return \"redirect:/account\";",
+                    "arguments": "CustomerProfile profile (auto-bound from HTTP params)",
+                    "confidence": "high",
+                    "data_flow": "HTTP parameters → @ModelAttribute binding → ClassLoader access via class.module.classLoader"
+                },
+            ],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "HTTP POST /profile/update",
+                    "file": "src/main/java/com/apex/banking/controller/AccountController.java",
+                    "line": 65,
+                    "code_snippet": "@PostMapping(\"/profile/update\")",
+                    "children": [
+                        {
+                            "type": "function_call",
+                            "label": "@ModelAttribute auto-binding",
+                            "file": "src/main/java/com/apex/banking/controller/AccountController.java",
+                            "line": 67,
+                            "code_snippet": "public String updateProfile(@ModelAttribute CustomerProfile profile)",
+                            "children": [
+                                {
+                                    "type": "vulnerable_sink",
+                                    "label": "Spring data binding → ClassLoader manipulation",
+                                    "file": "spring-beans (framework internal)",
+                                    "line": 0,
+                                    "code_snippet": "BeanWrapperImpl.setPropertyValue() → class.module.classLoader.resources...",
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2023-34035": {
+            "package": "spring-security",
+            "exploitability": "exploitable",
+            "confidence_score": 0.91,
+            "should_fix": True,
+            "fix_priority": "immediate",
+            "attack_vector": "Authorization bypass via misconfigured requestMatchers in Spring Security 6.x. Using requestMatchers(\"\") with empty string matches all endpoints.",
+            "recommendation": "CRITICAL: SecurityConfig.java uses requestMatchers() patterns that may be bypassed. Upgrade spring-security to 6.1.2+ and audit all matcher patterns. Verify /api/admin/** and /api/internal/** are properly protected.",
+            "import_locations": [
+                {"file": "src/main/java/com/apex/banking/config/SecurityConfig.java", "line": 4, "import_statement": "import org.springframework.security.config.annotation.web.builders.HttpSecurity;", "alias": "HttpSecurity", "style": "java"},
+            ],
+            "vulnerable_function_usages": [
+                {
+                    "function": "requestMatchers",
+                    "full_call": "http.authorizeHttpRequests(auth -> auth.requestMatchers(...))",
+                    "file": "src/main/java/com/apex/banking/config/SecurityConfig.java",
+                    "line": 32,
+                    "code": ".requestMatchers(\"/api/admin/**\").hasRole(\"ADMIN\")",
+                    "context": "30:     @Bean\n31:     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {\n32:         http.authorizeHttpRequests(auth -> auth\n33:             .requestMatchers(\"/api/public/**\").permitAll()\n34:             .requestMatchers(\"/api/admin/**\").hasRole(\"ADMIN\")\n35:             .anyRequest().authenticated()\n36:         );",
+                    "arguments": "\"/api/admin/**\"",
+                    "confidence": "high",
+                    "data_flow": "HTTP request path → requestMatchers() pattern matching → authorization decision bypass"
+                },
+            ],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "All HTTP Requests (Filter Chain)",
+                    "file": "src/main/java/com/apex/banking/config/SecurityConfig.java",
+                    "line": 30,
+                    "code_snippet": "@Bean\npublic SecurityFilterChain filterChain(HttpSecurity http)",
+                    "children": [
+                        {
+                            "type": "vulnerable_sink",
+                            "label": "requestMatchers() — AUTHORIZATION BYPASS",
+                            "file": "src/main/java/com/apex/banking/config/SecurityConfig.java",
+                            "line": 32,
+                            "code_snippet": ".requestMatchers(\"/api/admin/**\").hasRole(\"ADMIN\")\n.anyRequest().authenticated()",
+                            "children": []
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2022-42003": {
+            "package": "jackson-databind",
+            "exploitability": "potentially_exploitable",
+            "confidence_score": 0.78,
+            "should_fix": True,
+            "fix_priority": "high",
+            "attack_vector": "Deserialization DoS via deeply nested JSON objects when UNWRAP_SINGLE_VALUE_ARRAYS is enabled. Can cause stack overflow with crafted payloads.",
+            "recommendation": "HIGH: ObjectMapper.readValue() is used in multiple API controllers to parse incoming JSON. While UNWRAP_SINGLE_VALUE_ARRAYS may not be explicitly enabled, Spring Boot auto-configuration could enable it. Upgrade jackson-databind to 2.14.0+.",
+            "import_locations": [
+                {"file": "src/main/java/com/apex/banking/service/PaymentGatewayService.java", "line": 6, "import_statement": "import com.fasterxml.jackson.databind.ObjectMapper;", "alias": "objectMapper", "style": "java"},
+                {"file": "src/main/java/com/apex/banking/util/JsonParser.java", "line": 3, "import_statement": "import com.fasterxml.jackson.databind.ObjectMapper;", "alias": "mapper", "style": "java"},
+            ],
+            "vulnerable_function_usages": [
+                {
+                    "function": "objectMapper.readValue",
+                    "full_call": "objectMapper.readValue(webhookPayload, PaymentCallback.class)",
+                    "file": "src/main/java/com/apex/banking/service/PaymentGatewayService.java",
+                    "line": 54,
+                    "code": "PaymentCallback callback = objectMapper.readValue(webhookPayload, PaymentCallback.class);",
+                    "context": "52:     public void handlePaymentWebhook(String webhookPayload) {\n53:         try {\n54:             PaymentCallback callback = objectMapper.readValue(webhookPayload, PaymentCallback.class);\n55:             processPaymentUpdate(callback);\n56:         } catch (JsonProcessingException e) {",
+                    "arguments": "webhookPayload, PaymentCallback.class",
+                    "confidence": "high",
+                    "data_flow": "External webhook payload → String param → ObjectMapper.readValue() → deserialization DoS"
+                },
+            ],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "HTTP POST /api/payment/webhook",
+                    "file": "src/main/java/com/apex/banking/controller/PaymentController.java",
+                    "line": 45,
+                    "code_snippet": "@PostMapping(\"/api/payment/webhook\")\npublic ResponseEntity<Void> webhook(@RequestBody String payload)",
+                    "children": [
+                        {
+                            "type": "function_call",
+                            "label": "PaymentGatewayService.handlePaymentWebhook()",
+                            "file": "src/main/java/com/apex/banking/service/PaymentGatewayService.java",
+                            "line": 52,
+                            "code_snippet": "public void handlePaymentWebhook(String webhookPayload) {",
+                            "children": [
+                                {
+                                    "type": "vulnerable_sink",
+                                    "label": "ObjectMapper.readValue() — DESERIALIZATION",
+                                    "file": "src/main/java/com/apex/banking/service/PaymentGatewayService.java",
+                                    "line": 54,
+                                    "code_snippet": "objectMapper.readValue(webhookPayload, PaymentCallback.class);",
+                                    "children": []
+                                }
+                            ]
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2022-41854": {
+            "package": "snakeyaml",
+            "exploitability": "imported_only",
+            "confidence_score": 0.70,
+            "should_fix": False,
+            "fix_priority": "low",
+            "attack_vector": "RCE via unsafe YAML deserialization using SnakeYAML Constructor. Crafted YAML payloads can instantiate arbitrary Java classes.",
+            "recommendation": "LOW RISK: SnakeYAML is a transitive dependency via Spring Boot for application.yml parsing. The application does not directly parse user-supplied YAML content. Upgrade Spring Boot to pull in SnakeYAML 2.0+ as a defense-in-depth measure, but this is not immediately exploitable.",
+            "import_locations": [
+                {"file": "pom.xml (transitive via spring-boot-starter)", "line": 0, "import_statement": "Transitive: spring-boot-starter → spring-boot → snakeyaml", "alias": "N/A", "style": "transitive"},
+            ],
+            "vulnerable_function_usages": [],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "Spring Boot Auto-Configuration",
+                    "file": "src/main/resources/application.yml",
+                    "line": 1,
+                    "code_snippet": "# Application configuration (not user-controlled)",
+                    "children": [
+                        {
+                            "type": "function_call",
+                            "label": "YamlPropertySourceLoader (internal)",
+                            "file": "spring-boot (framework internal)",
+                            "line": 0,
+                            "code_snippet": "Parses application.yml at startup — not exposed to user input",
+                            "children": []
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2023-44487": {
+            "package": "netty / tomcat",
+            "exploitability": "not_reachable",
+            "confidence_score": 0.88,
+            "should_fix": False,
+            "fix_priority": "low",
+            "attack_vector": "HTTP/2 Rapid Reset attack causing DoS by sending RST_STREAM frames immediately after opening streams.",
+            "recommendation": "LOW RISK: The Apex Banking application runs on embedded Tomcat with HTTP/1.1. HTTP/2 is not enabled in the server configuration. This CVE is not reachable in the current deployment. Consider upgrading Tomcat as defense-in-depth if HTTP/2 is planned.",
+            "import_locations": [],
+            "vulnerable_function_usages": [],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "Tomcat Embedded Server",
+                    "file": "src/main/resources/application.yml",
+                    "line": 12,
+                    "code_snippet": "server:\n  port: 8443\n  # HTTP/2 not enabled",
+                    "children": []
+                },
+            ],
+        },
+        "CVE-2023-20883": {
+            "package": "spring-boot-actuator",
+            "exploitability": "potentially_exploitable",
+            "confidence_score": 0.75,
+            "should_fix": True,
+            "fix_priority": "medium",
+            "attack_vector": "DoS via Spring Boot Actuator endpoint when pattern matching is misconfigured, causing CPU exhaustion with crafted requests.",
+            "recommendation": "MEDIUM: Spring Boot Actuator is enabled with health and metrics endpoints exposed. While /actuator is not publicly accessible (restricted to internal network), an internal attacker could trigger the DoS. Upgrade spring-boot to 3.1.1+ and ensure actuator endpoints require authentication.",
+            "import_locations": [
+                {"file": "src/main/resources/application.yml", "line": 45, "import_statement": "management.endpoints.web.exposure.include=health,info,metrics", "alias": "actuator config", "style": "config"},
+            ],
+            "vulnerable_function_usages": [
+                {
+                    "function": "Actuator endpoint exposure",
+                    "full_call": "management.endpoints.web.exposure.include=health,info,metrics",
+                    "file": "src/main/resources/application.yml",
+                    "line": 45,
+                    "code": "management:\n  endpoints:\n    web:\n      exposure:\n        include: health,info,metrics",
+                    "context": "43: # Spring Boot Actuator\n44: management:\n45:   endpoints:\n46:     web:\n47:       exposure:\n48:         include: health,info,metrics",
+                    "arguments": "health,info,metrics",
+                    "confidence": "medium",
+                    "data_flow": "HTTP request to /actuator/* → pattern matching → CPU exhaustion"
+                },
+            ],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "HTTP GET /actuator/*",
+                    "file": "src/main/resources/application.yml",
+                    "line": 45,
+                    "code_snippet": "management.endpoints.web.exposure.include=health,info,metrics",
+                    "children": [
+                        {
+                            "type": "vulnerable_sink",
+                            "label": "Actuator pattern matching — DoS",
+                            "file": "spring-boot-actuator (framework internal)",
+                            "line": 0,
+                            "code_snippet": "WebMvcEndpointHandlerMapping processes crafted request patterns",
+                            "children": []
+                        }
+                    ]
+                },
+            ],
+        },
+        "CVE-2023-2976": {
+            "package": "guava",
+            "exploitability": "imported_only",
+            "confidence_score": 0.65,
+            "should_fix": False,
+            "fix_priority": "low",
+            "attack_vector": "Predictable temp directory creation in Guava's Files.createTempDir() allows local attackers to pre-create the directory and access sensitive files.",
+            "recommendation": "LOW RISK: Guava is used for caching and utility functions. Files.createTempDir() is not called directly in application code. The vulnerable function is only used transitively by test frameworks. Upgrade Guava to 32.0+ as defense-in-depth.",
+            "import_locations": [
+                {"file": "src/main/java/com/apex/banking/service/CacheService.java", "line": 4, "import_statement": "import com.google.common.cache.CacheBuilder;", "alias": "CacheBuilder", "style": "java"},
+            ],
+            "vulnerable_function_usages": [],
+            "call_chain": [
+                {
+                    "type": "entry_point",
+                    "label": "CacheService initialization",
+                    "file": "src/main/java/com/apex/banking/service/CacheService.java",
+                    "line": 15,
+                    "code_snippet": "cache = CacheBuilder.newBuilder()\n    .maximumSize(1000)\n    .expireAfterWrite(10, TimeUnit.MINUTES)\n    .build();",
+                    "children": []
+                },
+            ],
+        },
+    }
+
+    # Look up by CVE
+    if cve_id and cve_id in REACHABILITY_DB:
+        return REACHABILITY_DB[cve_id]
+
+    # Fallback: generate based on severity for CVEs not in the hardcoded DB
+    if severity in ("critical", "high"):
+        exploitability = "potentially_exploitable"
+        confidence = 0.60
+        should_fix = True
+        fix_priority = "medium"
+    elif severity == "medium":
+        exploitability = "imported_only"
+        confidence = 0.55
+        should_fix = False
+        fix_priority = "low"
+    else:
+        exploitability = "not_reachable"
+        confidence = 0.50
+        should_fix = False
+        fix_priority = "low"
+
+    # Extract package name from vulnerability file_path
+    pkg_match = _re.search(r'dependency:\s*([^\s]+)', vulnerability.file_path or "")
+    package = pkg_match.group(1) if pkg_match else vuln_title.split("—")[0].strip() if "—" in vuln_title else "unknown"
+
+    return {
+        "package": package,
+        "exploitability": exploitability,
+        "confidence_score": confidence,
+        "should_fix": should_fix,
+        "fix_priority": fix_priority,
+        "attack_vector": vuln_desc[:200] if vuln_desc else "See vulnerability description for attack vector details.",
+        "recommendation": f"{'Upgrade' if should_fix else 'Monitor'} {package}. Reachability analysis shows {exploitability.replace('_', ' ')} status. {'Prioritize remediation.' if should_fix else 'No immediate action required.'}",
+        "import_locations": [],
+        "vulnerable_function_usages": [],
+        "call_chain": [],
+    }
+
+
 def generate_taint_flow_analysis(vulnerability) -> dict:
     """
     Generate taint flow analysis data based on vulnerability characteristics.

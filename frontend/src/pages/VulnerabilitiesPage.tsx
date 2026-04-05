@@ -5,6 +5,7 @@ import axios from 'axios'
 import TaintFlowVisualization from '../components/TaintFlowVisualization'
 import DependencyTreeVisualization, { buildDependencyTree } from '../components/DependencyTreeVisualization'
 import EmptyState from '../components/EmptyState'
+import ReachabilityAnalysis from '../components/ReachabilityAnalysis'
 
 // Helper function to parse SCA source from file_path or code_snippet
 function parseScaSource(vulnerability: any): { source: string; package: string; version: string } | null {
@@ -1248,6 +1249,9 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
   const [showTaintFlow, setShowTaintFlow] = useState(false)
   const [taintFlowData, setTaintFlowData] = useState<any>(null)
   const [loadingTaintFlow, setLoadingTaintFlow] = useState(false)
+  const [showReachability, setShowReachability] = useState(false)
+  const [reachabilityData, setReachabilityData] = useState<any>(null)
+  const [loadingReachability, setLoadingReachability] = useState(false)
 
   const hasActiveExploit = correlatedThreats.some((t: any) => t.actively_exploited)
 
@@ -1275,6 +1279,29 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
       setShowTaintFlow(true)
     } finally {
       setLoadingTaintFlow(false)
+    }
+  }
+
+  const fetchReachability = async () => {
+    if (reachabilityData) {
+      setShowReachability(!showReachability)
+      return
+    }
+    setLoadingReachability(true)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await axios.get(
+        `/api/vulnerabilities/${vulnerability.id}/reachability`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      setReachabilityData(response.data.reachability)
+      setShowReachability(true)
+    } catch (error) {
+      console.error('Failed to fetch reachability:', error)
+      setReachabilityData(null)
+      setShowReachability(true)
+    } finally {
+      setLoadingReachability(false)
     }
   }
 
@@ -1703,6 +1730,35 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
                   ecosystem={vulnerability.file_path?.includes('npm') ? 'npm' : vulnerability.file_path?.includes('pip') ? 'pip' : 'npm'}
                   existingCves={parseScaCveIds(vulnerability)}
                 />
+
+                {/* Reachability Analysis */}
+                <div className="mt-4 space-y-3">
+                  <button
+                    onClick={fetchReachability}
+                    disabled={loadingReachability}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-medium rounded-lg flex items-center justify-center space-x-2 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
+                  >
+                    {loadingReachability ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <span>Analyzing Reachability...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Target className="w-5 h-5" />
+                        <span>{showReachability ? 'Hide' : 'Run'} Reachability Analysis</span>
+                        {showReachability ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                      </>
+                    )}
+                  </button>
+
+                  {showReachability && (
+                    <ReachabilityAnalysis
+                      reachabilityData={reachabilityData}
+                      vulnerabilityTitle={vulnerability.title}
+                    />
+                  )}
+                </div>
               </div>
             )
           })()}
