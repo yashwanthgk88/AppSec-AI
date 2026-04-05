@@ -4106,14 +4106,31 @@ async def delete_project(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Delete all associated scans and their vulnerabilities (cascade should handle this)
+    # Delete all associated data from SQLAlchemy models
     scans = db.query(Scan).filter(Scan.project_id == project_id).all()
     for scan in scans:
         db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).delete()
     db.query(Scan).filter(Scan.project_id == project_id).delete()
-
-    # Delete threat models
     db.query(ThreatModel).filter(ThreatModel.project_id == project_id).delete()
+
+    # Clean up all other SQLAlchemy models with project FK
+    try:
+        from models.models import (
+            ArchitectureVersion, ThreatHistory, ApplicationProfile, SuggestedRule,
+            UserStory, SecurityAnalysis, ComplianceMapping, CustomStandard,
+            ProjectIntegration, SecurityControl,
+        )
+        for model in (
+            ArchitectureVersion, ThreatHistory, ApplicationProfile, SuggestedRule,
+            UserStory, SecurityAnalysis, ComplianceMapping, CustomStandard,
+            ProjectIntegration, SecurityControl, ChatMessage,
+        ):
+            try:
+                db.query(model).filter(model.project_id == project_id).delete()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
     # Clean up SQLite tables that reference this project
     try:
@@ -4121,7 +4138,14 @@ async def delete_project(
         db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        for table in ("client_threat_intel", "threat_intel_correlations", "custom_rules"):
+        for table in (
+            "client_threat_intel", "threat_intel_correlations", "custom_rules",
+            "threat_requirement_links", "security_controls",
+            "github_monitored_repos", "github_commit_scans", "github_commit_findings",
+            "github_developer_profiles", "github_sensitive_file_alerts",
+            "github_commit_ai_analysis", "github_developer_baselines",
+            "github_developer_anomalies",
+        ):
             try:
                 cursor.execute(f"DELETE FROM {table} WHERE project_id = ?", (project_id,))
             except Exception:
