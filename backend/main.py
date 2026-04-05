@@ -4652,25 +4652,116 @@ async def export_excel_report(
 
     threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
 
-    scan_data = {
-        "project_name": project.name,
-        "scan_types": ["SAST", "SCA", "Secrets"],
-        "sast_findings": [
-            {
+    # Categorize vulnerabilities by scan type
+    sast_vulns = []
+    sca_vulns = []
+    secret_vulns = []
+
+    for scan in scans:
+        scan_vulns = db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).all()
+        for v in scan_vulns:
+            vuln_dict = {
+                "id": v.id,
                 "title": v.title,
+                "description": v.description,
                 "severity": v.severity.value,
                 "cwe_id": v.cwe_id,
                 "owasp_category": v.owasp_category,
                 "file_path": v.file_path,
                 "line_number": v.line_number,
                 "cvss_score": v.cvss_score,
-                "remediation": v.remediation
+                "code_snippet": v.code_snippet,
+                "remediation": v.remediation,
+                "stride_category": v.stride_category,
+                "mitre_attack_id": v.mitre_attack_id,
+                "mitre_attack_name": v.mitre_attack_name,
+                "is_resolved": v.is_resolved,
+                "false_positive": v.false_positive,
+                "business_impact": v.business_impact,
+                "technical_impact": v.technical_impact,
+                "recommendations": v.recommendations,
+                "status": "False Positive" if v.false_positive else ("Resolved" if v.is_resolved else "Open"),
             }
-            for v in all_vulns
-        ],
-        "sca_findings": sca_scanner.generate_sample_findings()['vulnerabilities']['findings'],
-        "secret_findings": secret_scanner.generate_sample_findings(),
-        "threat_model": threat_model.__dict__ if threat_model else None
+            if scan.scan_type.value == "sast":
+                sast_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "sca":
+                # Parse package/CVE from SCA title format: "CVE-XXXX-XXXXX — Description"
+                title = v.title or ""
+                cve = ""
+                vulnerability_name = title
+                if "—" in title:
+                    parts = title.split("—", 1)
+                    cve = parts[0].strip()
+                    vulnerability_name = parts[1].strip()
+                elif title.startswith("CVE-"):
+                    cve = title.split(" ")[0] if " " in title else title
+                # Extract package from code_snippet if available
+                package = ""
+                installed_version = ""
+                if v.code_snippet:
+                    import re
+                    art_match = re.search(r'<artifactId>(.*?)</artifactId>', v.code_snippet)
+                    ver_match = re.search(r'<version>(.*?)</version>', v.code_snippet)
+                    grp_match = re.search(r'<groupId>(.*?)</groupId>', v.code_snippet)
+                    if art_match:
+                        package = f"{grp_match.group(1)}:{art_match.group(1)}" if grp_match else art_match.group(1)
+                    if ver_match:
+                        installed_version = ver_match.group(1)
+                vuln_dict.update({
+                    "package": package or v.file_path or "Unknown",
+                    "installed_version": installed_version,
+                    "vulnerability": vulnerability_name,
+                    "cve": cve,
+                })
+                sca_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "secret":
+                vuln_dict["secret_type"] = v.title
+                secret_vulns.append(vuln_dict)
+
+    # Gather GitHub Monitor data
+    github_monitor_data = {}
+    try:
+        import sqlite3, os
+        db_path = "appsec.db"
+        if os.path.exists("/app/data"):
+            db_path = "/app/data/appsec.db"
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            # Repos
+            cursor.execute("SELECT * FROM github_monitored_repos WHERE active = 1")
+            repos = [dict(r) for r in cursor.fetchall()]
+            # Risk distribution
+            cursor.execute("SELECT risk_level, COUNT(*) as cnt FROM github_commit_scans GROUP BY risk_level")
+            risk_dist = {r['risk_level']: r['cnt'] for r in cursor.fetchall()}
+            total_commits = sum(risk_dist.values())
+            # Developer profiles
+            cursor.execute("SELECT * FROM github_developer_profiles ORDER BY avg_risk_score DESC LIMIT 20")
+            devs = [dict(r) for r in cursor.fetchall()]
+            conn.close()
+            if repos or total_commits > 0:
+                github_monitor_data = {
+                    "repos": repos,
+                    "total_commits_scanned": total_commits,
+                    "risk_distribution": risk_dist,
+                    "developer_risk_summary": devs,
+                }
+    except Exception:
+        pass  # GitHub monitor tables may not exist yet
+
+    scan_data = {
+        "project_name": project.name,
+        "project_description": project.description,
+        "technology_stack": project.technology_stack,
+        "industry_sector": project.industry_sector,
+        "scan_types": ["SAST", "SCA", "Secrets"],
+        "sast_findings": sast_vulns,
+        "sca_findings": sca_vulns,
+        "secret_findings": secret_vulns,
+        "threat_model": threat_model.__dict__ if threat_model else None,
+        "scan_date": max([s.started_at for s in scans]).isoformat() if scans else datetime.utcnow().isoformat(),
+        "github_monitor": github_monitor_data,
     }
 
     buffer = report_service.generate_excel_report(scan_data)
@@ -4695,28 +4786,65 @@ async def export_pdf_report(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Gather data (similar to Excel)
+    # Reuse same data gathering as Excel endpoint
     scans = db.query(Scan).filter(Scan.project_id == project_id).all()
-    all_vulns = []
+    threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+
+    sast_vulns = []
+    sca_vulns = []
+    secret_vulns = []
+
     for scan in scans:
-        vulns = db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).all()
-        all_vulns.extend(vulns)
+        scan_vulns = db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).all()
+        for v in scan_vulns:
+            vuln_dict = {
+                "id": v.id, "title": v.title, "description": v.description,
+                "severity": v.severity.value, "cwe_id": v.cwe_id,
+                "owasp_category": v.owasp_category, "file_path": v.file_path,
+                "line_number": v.line_number, "cvss_score": v.cvss_score,
+                "code_snippet": v.code_snippet, "remediation": v.remediation,
+                "stride_category": v.stride_category, "mitre_attack_id": v.mitre_attack_id,
+                "mitre_attack_name": v.mitre_attack_name, "is_resolved": v.is_resolved,
+                "false_positive": v.false_positive, "business_impact": v.business_impact,
+                "technical_impact": v.technical_impact, "recommendations": v.recommendations,
+                "status": "False Positive" if v.false_positive else ("Resolved" if v.is_resolved else "Open"),
+            }
+            if scan.scan_type.value == "sast":
+                sast_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "sca":
+                title = v.title or ""
+                cve = ""
+                vulnerability_name = title
+                if "—" in title:
+                    parts = title.split("—", 1)
+                    cve = parts[0].strip()
+                    vulnerability_name = parts[1].strip()
+                elif title.startswith("CVE-"):
+                    cve = title.split(" ")[0] if " " in title else title
+                package = ""
+                installed_version = ""
+                if v.code_snippet:
+                    import re
+                    art_match = re.search(r'<artifactId>(.*?)</artifactId>', v.code_snippet)
+                    ver_match = re.search(r'<version>(.*?)</version>', v.code_snippet)
+                    grp_match = re.search(r'<groupId>(.*?)</groupId>', v.code_snippet)
+                    if art_match:
+                        package = f"{grp_match.group(1)}:{art_match.group(1)}" if grp_match else art_match.group(1)
+                    if ver_match:
+                        installed_version = ver_match.group(1)
+                vuln_dict.update({"package": package or v.file_path or "Unknown", "installed_version": installed_version, "vulnerability": vulnerability_name, "cve": cve})
+                sca_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "secret":
+                vuln_dict["secret_type"] = v.title
+                secret_vulns.append(vuln_dict)
 
     scan_data = {
-        "project_name": project.name,
+        "project_name": project.name, "project_description": project.description,
+        "technology_stack": project.technology_stack, "industry_sector": project.industry_sector,
         "scan_types": ["SAST", "SCA", "Secrets"],
-        "sast_findings": [
-            {
-                "title": v.title,
-                "severity": v.severity.value,
-                "file_path": v.file_path,
-                "line_number": v.line_number,
-                "remediation": v.remediation
-            }
-            for v in all_vulns
-        ],
-        "sca_findings": sca_scanner.generate_sample_findings()['vulnerabilities']['findings'],
-        "secret_findings": secret_scanner.generate_sample_findings()
+        "sast_findings": sast_vulns, "sca_findings": sca_vulns, "secret_findings": secret_vulns,
+        "threat_model": threat_model.__dict__ if threat_model else None,
+        "scan_date": max([s.started_at for s in scans]).isoformat() if scans else datetime.utcnow().isoformat(),
     }
 
     buffer = report_service.generate_pdf_report(scan_data)
@@ -4741,31 +4869,63 @@ async def export_xml_report(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Gather data
+    # Reuse same data gathering as Excel/PDF endpoints
     scans = db.query(Scan).filter(Scan.project_id == project_id).all()
-    all_vulns = []
+    threat_model = db.query(ThreatModel).filter(ThreatModel.project_id == project_id).first()
+
+    sast_vulns = []
+    sca_vulns = []
+    secret_vulns = []
+
     for scan in scans:
-        vulns = db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).all()
-        all_vulns.extend(vulns)
+        scan_vulns = db.query(Vulnerability).filter(Vulnerability.scan_id == scan.id).all()
+        for v in scan_vulns:
+            vuln_dict = {
+                "id": v.id, "title": v.title, "description": v.description,
+                "severity": v.severity.value, "cwe_id": v.cwe_id,
+                "owasp_category": v.owasp_category, "file_path": v.file_path,
+                "line_number": v.line_number, "cvss_score": v.cvss_score,
+                "code_snippet": v.code_snippet, "remediation": v.remediation,
+                "stride_category": v.stride_category, "mitre_attack_id": v.mitre_attack_id,
+                "mitre_attack_name": v.mitre_attack_name, "is_resolved": v.is_resolved,
+                "false_positive": v.false_positive, "business_impact": v.business_impact,
+                "technical_impact": v.technical_impact,
+                "status": "False Positive" if v.false_positive else ("Resolved" if v.is_resolved else "Open"),
+            }
+            if scan.scan_type.value == "sast":
+                sast_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "sca":
+                title = v.title or ""
+                cve = ""
+                vulnerability_name = title
+                if "—" in title:
+                    parts = title.split("—", 1)
+                    cve = parts[0].strip()
+                    vulnerability_name = parts[1].strip()
+                elif title.startswith("CVE-"):
+                    cve = title.split(" ")[0] if " " in title else title
+                package = ""
+                installed_version = ""
+                if v.code_snippet:
+                    import re
+                    art_match = re.search(r'<artifactId>(.*?)</artifactId>', v.code_snippet)
+                    ver_match = re.search(r'<version>(.*?)</version>', v.code_snippet)
+                    grp_match = re.search(r'<groupId>(.*?)</groupId>', v.code_snippet)
+                    if art_match:
+                        package = f"{grp_match.group(1)}:{art_match.group(1)}" if grp_match else art_match.group(1)
+                    if ver_match:
+                        installed_version = ver_match.group(1)
+                vuln_dict.update({"package": package or v.file_path or "Unknown", "installed_version": installed_version, "vulnerability": vulnerability_name, "cve": cve})
+                sca_vulns.append(vuln_dict)
+            elif scan.scan_type.value == "secret":
+                vuln_dict["secret_type"] = v.title
+                secret_vulns.append(vuln_dict)
 
     scan_data = {
-        "project_name": project.name,
+        "project_name": project.name, "project_description": project.description,
         "scan_types": ["SAST", "SCA", "Secrets"],
-        "sast_findings": [
-            {
-                "title": v.title,
-                "severity": v.severity.value,
-                "cwe_id": v.cwe_id,
-                "owasp_category": v.owasp_category,
-                "file_path": v.file_path,
-                "line_number": v.line_number,
-                "cvss_score": v.cvss_score,
-                "remediation": v.remediation
-            }
-            for v in all_vulns
-        ],
-        "sca_findings": sca_scanner.generate_sample_findings()['vulnerabilities']['findings'],
-        "secret_findings": secret_scanner.generate_sample_findings()
+        "sast_findings": sast_vulns, "sca_findings": sca_vulns, "secret_findings": secret_vulns,
+        "threat_model": threat_model.__dict__ if threat_model else None,
     }
 
     xml_content = report_service.generate_xml_report(scan_data)

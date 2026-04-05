@@ -19,6 +19,7 @@ import SecurityRequirementsPage from './pages/SecurityRequirementsPage'
 import StoryAnalysisPage from './pages/StoryAnalysisPage'
 import GitHubMonitorPage from './pages/GitHubMonitorPage'
 import SecurityControlsPage from './pages/SecurityControlsPage'
+import ReportCenterPage from './pages/ReportCenterPage'
 import Layout from './components/Layout'
 
 function App() {
@@ -70,6 +71,7 @@ function App() {
           <Route path="/scan-monitor" element={<ScanMonitorPage />} />
           <Route path="/application-intelligence" element={<ApplicationIntelligencePage />} />
           <Route path="/github-monitor" element={<GitHubMonitorPage />} />
+          <Route path="/reports" element={<ReportCenterPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
