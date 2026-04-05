@@ -45,7 +45,6 @@ from services.enhanced_sca_scanner import EnhancedSCAScanner
 from services.chatbot_service import ChatbotService
 from services.report_service import ReportService
 from services.repository_scanner import RepositoryScanner
-from services.threat_intel import threat_intel as threat_intel_service
 from services.ast_security_analyzer import ASTSecurityAnalyzer, ast_analyzer
 from services.ai_impact_service import AIImpactService, get_ai_impact_service
 from services.interprocedural_analyzer import analyze_code_interprocedural
@@ -7209,123 +7208,6 @@ async def deep_security_scan(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Deep security scan failed: {str(e)}")
-
-
-# ==================== THREAT INTELLIGENCE ENDPOINTS ====================
-
-@app.get("/api/threat-intel/threats")
-async def get_threat_intelligence(
-    current_user: User = Depends(get_current_active_user)
-):
-    """Get aggregated threat intelligence from multiple sources"""
-    try:
-        threats_data = await threat_intel_service.get_aggregated_threats()
-        return threats_data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch threat intelligence: {str(e)}")
-
-
-@app.get("/api/threat-intel/correlate")
-async def correlate_threats(
-    project_id: Optional[int] = None,
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Correlate vulnerabilities with active threats using the improved async correlation engine.
-    Features:
-    - O(1) lookups using pre-built indices (CVE, CWE, keywords)
-    - CWE hierarchy matching (e.g., CWE-89 SQL Injection matches CWE-74 Injection family)
-    - Weighted scoring based on match type, CVSS, recency, and exploitation status
-    - Confidence levels: very_high, high, medium, low
-    """
-    try:
-        # Use the new async correlation engine with improved efficiency
-        result = await threat_intel_service.correlate_with_vulnerabilities_async(db, project_id)
-
-        return {
-            "total_correlated": result['summary']['correlated_count'],
-            "high_risk": result['summary']['high_risk_count'],
-            "actively_exploited_matches": result['summary'].get('actively_exploited_matches', 0),
-            "confidence_breakdown": result['summary'].get('confidence_breakdown', {}),
-            "processing_time_ms": result['summary'].get('processing_time_ms', 0),
-            "correlations": result['correlations']
-        }
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to correlate threats: {str(e)}")
-
-
-class GenerateRuleRequest(BaseModel):
-    threat_cve_id: str
-
-
-@app.post("/api/threat-intel/generate-rule")
-async def generate_rule_from_threat(
-    request: GenerateRuleRequest,
-    current_user: User = Depends(get_current_active_user)
-):
-    """
-    Auto-generate a custom SAST rule from threat intelligence
-    """
-    try:
-        # Get threat data
-        threats_data = await threat_intel_service.get_aggregated_threats()
-        threats = threats_data.get('threats', [])
-
-        # Find the specific threat
-        threat = next((t for t in threats if t.get('cve_id') == request.threat_cve_id), None)
-
-        if not threat:
-            raise HTTPException(status_code=404, detail="Threat not found")
-
-        # Generate rule
-        rule = threat_intel_service.generate_custom_rule_from_threat(threat)
-
-        return {
-            "success": True,
-            "rule": rule,
-            "message": f"Generated custom rule for {threat.get('name', request.threat_cve_id)}"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate rule: {str(e)}")
-
-
-@app.get("/api/threat-intel/stats")
-async def get_threat_stats(
-    current_user: User = Depends(get_current_active_user)
-):
-    """Get threat intelligence statistics"""
-    try:
-        threats_data = await threat_intel_service.get_aggregated_threats()
-        threats = threats_data.get('threats', [])
-
-        # Calculate stats
-        stats = {
-            "total_threats": len(threats),
-            "actively_exploited": len([t for t in threats if t.get('actively_exploited')]),
-            "by_severity": {
-                "critical": len([t for t in threats if t.get('severity') == 'critical']),
-                "high": len([t for t in threats if t.get('severity') == 'high']),
-                "medium": len([t for t in threats if t.get('severity') == 'medium']),
-                "low": len([t for t in threats if t.get('severity') == 'low']),
-            },
-            "by_source": {},
-            "recent_threats": threats[:10],
-            "last_updated": threats_data.get('last_updated')
-        }
-
-        # Count by source
-        for threat in threats:
-            source = threat.get('source', 'Unknown')
-            stats['by_source'][source] = stats['by_source'].get(source, 0) + 1
-
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get threat stats: {str(e)}")
 
 
 # ==================== SCA LIVE FEEDS & TRANSITIVE ANALYSIS ====================
