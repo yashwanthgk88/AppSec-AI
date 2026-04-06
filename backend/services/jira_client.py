@@ -195,15 +195,20 @@ class JiraClient:
                 return field.get("id")
         return None
 
-    async def update_issue(self, issue_key: str, fields: dict) -> dict:
-        """Update issue fields."""
+    async def update_issue(self, issue_key: str, fields: dict, override_screen: bool = True) -> dict:
+        """Update issue fields. Uses overrideScreenSecurity to bypass screen restrictions."""
         payload = {"fields": fields}
         logger.info("Updating Jira issue %s with fields: %s", issue_key, list(fields.keys()))
+        params = {}
+        if override_screen:
+            params["overrideScreenSecurity"] = "true"
+            params["overrideEditableFlag"] = "true"
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.put(
                 f"{self.base_url}/rest/api/3/issue/{issue_key}",
                 json=payload,
                 headers=self.headers,
+                params=params,
             )
             if resp.status_code >= 400:
                 error_text = resp.text
