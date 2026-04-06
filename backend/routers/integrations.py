@@ -100,6 +100,28 @@ def mask_token(token: str) -> str:
     return token[:4] + "****" + token[-4:]
 
 
+# ==================== Status Endpoint ====================
+
+@router.get("/status")
+async def get_integration_status(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get connection status for all integrations."""
+    result = {}
+    for itype, key in [(IntegrationType.JIRA, "jira"), (IntegrationType.ADO, "ado"), (IntegrationType.SNOW, "snow")]:
+        settings = get_user_integration(db, current_user.id, itype)
+        if settings:
+            result[key] = {
+                "configured": True,
+                "connected": bool(settings.is_connected),
+                "url": settings.base_url,
+            }
+        else:
+            result[key] = {"configured": False, "connected": False}
+    return result
+
+
 # ==================== Jira Endpoints ====================
 
 @router.get("/jira", response_model=Optional[IntegrationResponse])

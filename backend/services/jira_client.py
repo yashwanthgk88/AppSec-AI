@@ -25,9 +25,20 @@ class JiraClient:
             async with httpx.AsyncClient(timeout=30) as client:
                 resp = await client.get(f"{self.base_url}/rest/api/3/myself", headers=self.headers)
                 if resp.status_code == 200:
-                    user = resp.json()
+                    try:
+                        user = resp.json()
+                    except Exception:
+                        return {"success": True, "message": "Connected successfully"}
                     return {"success": True, "message": f"Connected as {user.get('displayName', user.get('emailAddress'))}"}
-                return {"success": False, "message": f"Authentication failed: {resp.status_code}"}
+                if resp.status_code == 401:
+                    return {"success": False, "message": "Authentication failed. Check your email and API token."}
+                if resp.status_code == 403:
+                    return {"success": False, "message": "Access denied. The API token may lack required permissions."}
+                return {"success": False, "message": f"Connection failed with status {resp.status_code}. Verify the Jira URL is correct."}
+        except httpx.ConnectError:
+            return {"success": False, "message": f"Cannot connect to {self.base_url}. Verify the URL is correct and reachable."}
+        except httpx.TimeoutException:
+            return {"success": False, "message": "Connection timed out. Check the Jira URL and your network."}
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -59,6 +70,7 @@ class JiraClient:
 
         logger.info("Fetching issues with JQL: %s", jql)
         async with httpx.AsyncClient(timeout=60) as client:
+            # Try the newer /search/jql endpoint first, fall back to /search
             resp = await client.get(
                 f"{self.base_url}/rest/api/3/search/jql",
                 headers=self.headers,
@@ -68,8 +80,56 @@ class JiraClient:
                     "fields": "summary,description,issuetype,status,created,updated,customfield_*"
                 }
             )
+
+            # Fallback to /rest/api/3/search (POST) if the newer endpoint is not available
+            if resp.status_code in (404, 405):
+                logger.info("Falling back to /rest/api/3/search POST endpoint")
+                resp = await client.post(
+                    f"{self.base_url}/rest/api/3/search",
+                    headers=self.headers,
+                    json={
+                        "jql": jql,
+                        "maxResults": max_results,
+                        "fields": ["summary", "description", "issuetype", "status", "created", "updated"]
+                    }
+                )
+
+            # Fallback to v2 API if v3 fails
+            if resp.status_code in (404, 405):
+                logger.info("Falling back to /rest/api/2/search endpoint")
+                resp = await client.post(
+                    f"{self.base_url}/rest/api/2/search",
+                    headers=self.headers,
+                    json={
+                        "jql": jql,
+                        "maxResults": max_results,
+                        "fields": ["summary", "description", "issuetype", "status", "created", "updated"]
+                    }
+                )
+
+            if resp.status_code == 401:
+                raise ValueError(
+                    "Authentication failed. Please check your Jira credentials in Settings: "
+                    "1) Verify the email matches your Atlassian account, "
+                    "2) Generate a fresh API token at https://id.atlassian.net/manage-profile/security/api-tokens, "
+                    "3) Ensure the token has not expired."
+                )
+            if resp.status_code == 403:
+                raise ValueError(
+                    f"Access denied to project '{project_id}'. Your Jira API token may not have "
+                    f"permission to access this project. Check that the account has 'Browse Projects' permission."
+                )
             if resp.status_code >= 400:
                 logger.error("Jira search failed: %s - %s", resp.status_code, resp.text)
+                try:
+                    err = resp.json()
+                    messages = err.get("errorMessages", [])
+                    if messages:
+                        raise ValueError(f"Jira error: {'; '.join(messages)}")
+                except (ValueError):
+                    raise
+                except Exception:
+                    pass
             resp.raise_for_status()
             data = resp.json()
             return data.get("issues", [])

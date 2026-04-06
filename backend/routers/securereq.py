@@ -8,6 +8,7 @@ from sqlalchemy import func
 from typing import List, Optional, Union
 from pydantic import BaseModel
 from datetime import datetime
+import httpx
 
 from models import get_db
 from models.models import (
@@ -729,6 +730,15 @@ async def sync_stories_from_jira(
             "total_fetched": len(issues)
         }
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except httpx.HTTPStatusError as e:
+        status = e.response.status_code
+        if status == 401:
+            raise HTTPException(status_code=401, detail="Jira authentication failed. Please update your API token in Settings.")
+        elif status == 403:
+            raise HTTPException(status_code=403, detail=f"Access denied to Jira project '{sync_data.external_project_id}'. Check project permissions.")
+        raise HTTPException(status_code=500, detail=f"Jira API error ({status}): {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Jira sync failed: {str(e)}")
 
