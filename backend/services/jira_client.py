@@ -195,20 +195,15 @@ class JiraClient:
                 return field.get("id")
         return None
 
-    async def update_issue(self, issue_key: str, fields: dict, override_screen: bool = True) -> dict:
-        """Update issue fields. Uses overrideScreenSecurity to bypass screen restrictions."""
+    async def update_issue(self, issue_key: str, fields: dict) -> dict:
+        """Update issue fields."""
         payload = {"fields": fields}
         logger.info("Updating Jira issue %s with fields: %s", issue_key, list(fields.keys()))
-        params = {}
-        if override_screen:
-            params["overrideScreenSecurity"] = "true"
-            params["overrideEditableFlag"] = "true"
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.put(
                 f"{self.base_url}/rest/api/3/issue/{issue_key}",
                 json=payload,
                 headers=self.headers,
-                params=params,
             )
             if resp.status_code >= 400:
                 error_text = resp.text
@@ -462,6 +457,38 @@ class JiraClient:
             pass
         return None
 
+    async def _resolve_editable_field(self, issue_key: str, field_setting: Optional[str], default_name: str) -> Optional[str]:
+        """
+        Resolve the correct custom field ID by checking what's actually editable
+        on the target issue. This handles team-managed vs company-managed projects
+        which can have different field IDs for the same field name.
+        """
+        try:
+            meta = await self.get_issue_editmeta(issue_key)
+            editable = meta.get("fields", {})
+        except Exception:
+            editable = {}
+
+        # If a specific field ID was configured, check if it's editable on this issue
+        if field_setting and field_setting.startswith("customfield_"):
+            if field_setting in editable:
+                return field_setting
+            logger.info("Configured field %s not editable on %s, searching by name '%s'...", field_setting, issue_key, default_name)
+
+        # Always search editable fields by the default display name (e.g. "Abuse cases")
+        search_name = default_name.lower()
+        for fid, info in editable.items():
+            if not fid.startswith("customfield_"):
+                continue
+            fname = info.get("name", "").lower()
+            if fname == search_name or search_name in fname or fname in search_name:
+                logger.info("Resolved editable field '%s' -> %s (%s) on %s", default_name, fid, info.get("name"), issue_key)
+                return fid
+
+        # Last resort: fall back to global field lookup (may not be editable)
+        logger.warning("No editable field matching '%s' found on %s, falling back to global lookup", default_name, issue_key)
+        return await self._resolve_field_id(field_setting, default_name)
+
     async def publish_analysis_to_issue(
         self,
         issue_key: str,
@@ -472,7 +499,8 @@ class JiraClient:
         """
         Publish analysis results directly into the Jira issue custom fields.
 
-        Tries ADF (rich text) first, falls back to plain text for string fields.
+        Auto-detects the correct field IDs from the issue's editable fields,
+        then tries ADF first, falling back to plain text.
         """
         abuse_cases = analysis.get("abuse_cases", [])
         requirements = analysis.get("security_requirements", [])
@@ -481,64 +509,50 @@ class JiraClient:
         updated_field_names = []
         missing_fields = []
 
-        logger.info("Looking for custom fields in Jira...")
+        logger.info("Resolving custom fields for issue %s...", issue_key)
 
-        # Resolve field IDs
-        abuse_field_id = await self._resolve_field_id(abuse_cases_field, "Abuse cases")
-        req_field_id = await self._resolve_field_id(security_req_field, "Security requirements")
+        # Resolve field IDs from what's actually editable on this issue
+        abuse_field_id = await self._resolve_editable_field(issue_key, abuse_cases_field, "Abuse cases")
+        req_field_id = await self._resolve_editable_field(issue_key, security_req_field, "Security requirements")
 
         if abuse_field_id:
             logger.info("Found 'Abuse cases' custom field: %s", abuse_field_id)
         else:
-            logger.warning("Custom field 'Abuse cases' not found in Jira")
+            logger.warning("Custom field 'Abuse cases' not found or not editable on %s", issue_key)
             missing_fields.append(abuse_cases_field or "Abuse cases")
 
         if req_field_id:
             logger.info("Found 'Security requirements' custom field: %s", req_field_id)
         else:
-            logger.warning("Custom field 'Security requirements' not found in Jira")
+            logger.warning("Custom field 'Security requirements' not found or not editable on %s", issue_key)
             missing_fields.append(security_req_field or "Security requirements")
 
-        # Determine field types and build content accordingly
+        # Build ADF content (preferred format)
         if abuse_field_id and abuse_cases:
-            field_type = await self._get_field_schema_type(abuse_field_id)
-            if field_type == "string":
-                logger.info("Abuse cases field is string type, using plain text")
-                fields_to_update[abuse_field_id] = self._build_abuse_cases_plaintext(abuse_cases)
-            else:
-                logger.info("Building ADF content for Abuse cases field (%d cases)", len(abuse_cases))
-                fields_to_update[abuse_field_id] = self._build_abuse_cases_adf(abuse_cases)
+            fields_to_update[abuse_field_id] = self._build_abuse_cases_adf(abuse_cases)
             updated_field_names.append("Abuse cases")
 
         if req_field_id and requirements:
-            field_type = await self._get_field_schema_type(req_field_id)
-            if field_type == "string":
-                logger.info("Security requirements field is string type, using plain text")
-                fields_to_update[req_field_id] = self._build_security_requirements_plaintext(requirements)
-            else:
-                logger.info("Building ADF content for Security requirements field (%d reqs)", len(requirements))
-                fields_to_update[req_field_id] = self._build_security_requirements_adf(requirements)
+            fields_to_update[req_field_id] = self._build_security_requirements_adf(requirements)
             updated_field_names.append("Security requirements")
 
         if not fields_to_update:
             if missing_fields:
                 error_msg = (
-                    f"Custom fields not found in Jira: {', '.join(missing_fields)}. "
+                    f"Custom fields not found or not editable in Jira: {', '.join(missing_fields)}. "
                     f"Please check: 1) The field names/IDs in Settings match exactly what's in Jira, "
-                    f"2) Fields exist as custom fields (not built-in), "
-                    f"3) Create them via Project Settings > Fields > Custom Fields > Create Field (Paragraph/Text Area)."
+                    f"2) Fields are added to the issue's edit screen in Project Settings > Fields."
                 )
             else:
                 error_msg = "No analysis data to publish (no abuse cases or security requirements found in the analysis)."
             logger.error(error_msg)
             raise ValueError(error_msg)
 
-        # Try updating; if ADF fails, retry with plain text
+        # Try ADF first, fall back to plain text if it fails
         try:
             result = await self.update_issue(issue_key, fields_to_update)
         except (ValueError, Exception) as first_error:
-            logger.warning("First publish attempt failed: %s. Retrying with plain text...", first_error)
-            # Retry with plain text for all fields
+            logger.warning("ADF publish failed: %s. Retrying with plain text...", first_error)
             plain_fields = {}
             if abuse_field_id and abuse_cases:
                 plain_fields[abuse_field_id] = self._build_abuse_cases_plaintext(abuse_cases)
