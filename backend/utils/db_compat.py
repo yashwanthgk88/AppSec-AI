@@ -226,15 +226,35 @@ class _PgCursor:
 
     def execute(self, sql: str, params: Any = None):
         sql = translate_sqlite_to_postgres(sql)
-        if params is None:
-            self._cur.execute(sql)
-        else:
-            self._cur.execute(sql, params)
+        try:
+            if params is None:
+                self._cur.execute(sql)
+            else:
+                self._cur.execute(sql, params)
+        except Exception:
+            # Postgres aborts the transaction on any error and refuses further
+            # statements until ROLLBACK. SQLite is more permissive — try/except
+            # around a failing statement lets subsequent statements run.
+            # We mimic SQLite by rolling back automatically so existing code
+            # (especially seed scripts with `try: ALTER TABLE ... except: pass`
+            # patterns) keeps working without per-call-site changes.
+            try:
+                self._cur.connection.rollback()
+            except Exception:
+                pass
+            raise
         return self
 
     def executemany(self, sql: str, params_seq):
         sql = translate_sqlite_to_postgres(sql)
-        self._cur.executemany(sql, params_seq)
+        try:
+            self._cur.executemany(sql, params_seq)
+        except Exception:
+            try:
+                self._cur.connection.rollback()
+            except Exception:
+                pass
+            raise
         return self
 
     def fetchone(self):
