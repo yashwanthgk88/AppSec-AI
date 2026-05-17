@@ -4521,7 +4521,7 @@ async def get_dashboard_analytics(
     db: Session = Depends(get_db)
 ):
     """Get comprehensive dashboard analytics with filters"""
-    from datetime import timedelta
+    from datetime import timedelta, timezone
     from collections import defaultdict
 
     # Base query for vulnerabilities
@@ -4532,8 +4532,10 @@ async def get_dashboard_analytics(
     # Get all vulnerabilities
     all_vulns = vuln_query.all()
 
-    # Get date range for trends
-    end_date = datetime.now()
+    # Get date range for trends. Use timezone-aware datetimes because Postgres
+    # returns tz-aware columns (DateTime(timezone=True)) — comparing those
+    # against naive datetimes raises TypeError.
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=days)
 
     # === BASIC METRICS ===

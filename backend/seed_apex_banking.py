@@ -150,7 +150,7 @@ story_ids = []
 for s in stories:
     c.execute("""
         INSERT INTO user_stories (project_id, title, description, acceptance_criteria, source, external_id, external_url, is_analyzed, risk_score, threat_count, requirement_count, created_by, created_at)
-        VALUES (?, ?, ?, ?, 'JIRA', ?, ?, 1, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, 'JIRA', ?, ?, TRUE, ?, ?, ?, ?, ?)
     """, (
         PROJECT_ID, s["title"], s["description"], s["acceptance_criteria"],
         s["external_id"], s["external_url"],
@@ -223,7 +223,7 @@ for f in sast_findings:
     title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed, remed_code, stride, mitre_id, mitre_name = f
     c.execute("""
         INSERT INTO vulnerabilities (scan_id, title, description, severity, cwe_id, owasp_category, cvss_score, file_path, line_number, code_snippet, remediation, remediation_code, stride_category, mitre_attack_id, mitre_attack_name, is_resolved, false_positive, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?)
     """, (SAST_SCAN_ID, title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed, remed_code, stride, mitre_id, mitre_name, NOW))
 
 print(f"   → SAST scan ID {SAST_SCAN_ID}: {len(sast_findings)} findings")
@@ -267,7 +267,7 @@ for f in sca_findings:
     title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed, remed_code, stride, mitre_id, mitre_name = f
     c.execute("""
         INSERT INTO vulnerabilities (scan_id, title, description, severity, cwe_id, owasp_category, cvss_score, file_path, line_number, code_snippet, remediation, remediation_code, stride_category, mitre_attack_id, mitre_attack_name, is_resolved, false_positive, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?)
     """, (SCA_SCAN_ID, title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed, remed_code, stride, mitre_id, mitre_name, NOW))
 
 print(f"   → SCA scan ID {SCA_SCAN_ID}: {len(sca_findings)} findings")
@@ -301,7 +301,7 @@ for f in secret_findings:
     title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed = f
     c.execute("""
         INSERT INTO vulnerabilities (scan_id, title, description, severity, cwe_id, owasp_category, cvss_score, file_path, line_number, code_snippet, remediation, is_resolved, false_positive, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, FALSE, FALSE, ?)
     """, (SECRET_SCAN_ID, title, desc, sev, cwe, owasp, cvss, fpath, line, snippet, remed, NOW))
 
 print(f"   → Secret scan ID {SECRET_SCAN_ID}: {len(secret_findings)} findings")
