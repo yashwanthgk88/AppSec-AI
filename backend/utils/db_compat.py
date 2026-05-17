@@ -188,8 +188,12 @@ def translate_sqlite_to_postgres(sql: str) -> str:
     """Apply all SQLite→Postgres translations."""
     sql = _replace_param_placeholders(sql)
     sql = _DATETIME_NOW.sub("CURRENT_TIMESTAMP", sql)
+    # Produce a TEXT result so the comparison works when the target column is
+    # also TEXT (many of our raw-SQL tables store committed_at, created_at, etc.
+    # as TEXT/ISO-8601 strings, not TIMESTAMP). ISO date strings ('YYYY-MM-DD')
+    # compare correctly against ISO-8601 timestamps lexicographically.
     sql = _DATE_NOW_OFFSET.sub(
-        lambda m: f"(CURRENT_DATE + INTERVAL '{m.group(1)} days')",
+        lambda m: f"TO_CHAR(CURRENT_DATE + INTERVAL '{m.group(1)} days', 'YYYY-MM-DD')",
         sql,
     )
     sql = _AUTOINCREMENT.sub("SERIAL PRIMARY KEY", sql)
