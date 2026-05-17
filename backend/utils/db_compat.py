@@ -97,6 +97,27 @@ _AUTOINCREMENT = re.compile(
 _INSERT_OR_IGNORE = re.compile(r"""INSERT\s+OR\s+IGNORE""", re.IGNORECASE)
 _INSERT_OR_REPLACE = re.compile(r"""INSERT\s+OR\s+REPLACE""", re.IGNORECASE)
 _ON_CONFLICT_PRESENT = re.compile(r"""ON\s+CONFLICT""", re.IGNORECASE)
+# `sqlite_master` is SQLite's system catalog; Postgres uses information_schema.
+# We rewrite it to a UNION subquery aliased back as `sqlite_master` so callers
+# that filter `WHERE type='table'`, `WHERE type='view'`, `WHERE type='index'`,
+# or reference `sqlite_master.name` keep working without per-call-site edits.
+_SQLITE_MASTER_RE = re.compile(r"\bsqlite_master\b", re.IGNORECASE)
+_SQLITE_MASTER_REPLACEMENT = (
+    "(SELECT table_name AS name, 'table' AS type, "
+    "NULL::text AS tbl_name, NULL::text AS sql "
+    "FROM information_schema.tables "
+    "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
+    "UNION ALL "
+    "SELECT table_name AS name, 'view' AS type, "
+    "table_name AS tbl_name, view_definition AS sql "
+    "FROM information_schema.views "
+    "WHERE table_schema = 'public' "
+    "UNION ALL "
+    "SELECT indexname AS name, 'index' AS type, "
+    "tablename AS tbl_name, indexdef AS sql "
+    "FROM pg_indexes "
+    "WHERE schemaname = 'public') AS sqlite_master"
+)
 
 
 def _replace_param_placeholders(sql: str) -> str:
@@ -173,6 +194,7 @@ def translate_sqlite_to_postgres(sql: str) -> str:
     )
     sql = _AUTOINCREMENT.sub("SERIAL PRIMARY KEY", sql)
     sql = _pragma_to_information_schema(sql)
+    sql = _SQLITE_MASTER_RE.sub(_SQLITE_MASTER_REPLACEMENT, sql)
 
     # INSERT OR IGNORE: strip and append ON CONFLICT DO NOTHING if not already present
     if _INSERT_OR_IGNORE.search(sql):
