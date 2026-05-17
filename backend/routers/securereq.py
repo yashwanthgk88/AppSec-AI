@@ -66,7 +66,7 @@ class AnalysisResponse(BaseModel):
     stride_threats: Union[dict, List[dict]]  # Can be dict (by category) or list (flat)
     security_requirements: List[dict]
     risk_score: int
-    risk_factors: List[dict]
+    risk_factors: Union[List[dict], dict, None] = None  # tolerate both list-of-factors and a single dict
     ai_model_used: Optional[str]
     analysis_duration_ms: Optional[int]
     created_at: datetime
