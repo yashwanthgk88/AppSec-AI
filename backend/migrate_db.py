@@ -118,6 +118,13 @@ def migrate():
             ON architecture_versions(project_id, version_number DESC)
         """)
 
+        # Add threat_model_context column to vulnerabilities table
+        cursor.execute("PRAGMA table_info(vulnerabilities)")
+        vuln_columns = [col[1] for col in cursor.fetchall()]
+        if 'threat_model_context' not in vuln_columns:
+            print("Adding threat_model_context column to vulnerabilities table...")
+            cursor.execute("ALTER TABLE vulnerabilities ADD COLUMN threat_model_context JSON")
+
         # Create threat_history table for tracking threat lifecycle
         print("Creating threat_history table if not exists...")
         cursor.execute("""

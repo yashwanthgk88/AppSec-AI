@@ -55,3 +55,19 @@ logs/
 
 # Recalculation script (temporary utility)
 recalculate_risk_scores.py
+
+# Word/Office lock files (created while editing, not real content)
+~$*.docx
+~$*.xlsx
+~$*.pptx
+
+# Build artifacts
+*.vsix
+
+# Generated content (rebuildable from source)
+video-generator/output/
+
+# Terraform state (even in demo repos)
+*.tfstate
+*.tfstate.backup
+.terraform/
