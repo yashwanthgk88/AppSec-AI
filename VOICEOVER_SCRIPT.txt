@@ -1,0 +1,197 @@
+Every 39 seconds, a cyberattack targets a software application somewhere in the world. Yet most security vulnerabilities are introduced during development, long before they ever reach production.
+
+What if your team could catch threats at the design stage, scan code in real time, generate security requirements, and get full business intelligence across your security posture, all powered by AI?
+
+Meet Secure Dev AI. The intelligent application security platform that shifts security left across your entire software development lifecycle.
+
+---
+
+SECTION 1: SECURITY COMMAND CENTER AND BUSINESS INTELLIGENCE DASHBOARD
+
+From the moment you log in, Secure Dev AI gives you a unified security command center packed with business intelligence.
+
+The dashboard presents four key performance indicators front and center: total vulnerabilities with critical and high severity breakdowns, your organization's false positive rate, remediation velocity measured in fixes per day, and average time to fix in days.
+
+Below that, interactive trend charts show vulnerability patterns over configurable time windows of 7, 30, or 90 days. A stacked area chart breaks down severity trends over time, while a pie chart visualizes your severity distribution with percentage labels. A horizontal bar chart tracks finding statuses: open, fixed, in progress, and false positive. A vertical bar chart ranks your top vulnerability categories, and a line chart monitors scan activity frequency day by day.
+
+The Threat Intelligence Overview widget surfaces real-time threat data: actively exploited vulnerabilities from CISA's Known Exploited Vulnerabilities catalog, critical CVEs from the National Vulnerability Database, tracked threat actors, ransomware families, exploit kits, and total threat count. When your vulnerabilities correlate with active threats, a high-risk correlation alert pulses to grab your attention.
+
+A project-level breakdown table shows every project's vulnerability count by severity, risk score, and last scan date, all paginated and filterable. You can drill into any project for a complete security profile.
+
+---
+
+SECTION 2: PROJECT SETUP AND ARCHITECTURE INTELLIGENCE
+
+Getting started is simple. Create a project by defining your name, description, technology stack, and compliance targets.
+
+The architecture input system supports multiple methods: type a text-based architecture description, upload architecture diagrams in PNG, JPG, or SVG format, analyze Word and PDF documents to extract architecture details automatically, use the pre-built component library for common patterns, build visually with the structured architecture builder, or merge inputs from multiple sources into a unified architecture view.
+
+Secure Dev AI automatically generates Data Flow Diagrams at Level 0 and Level 1 using Mermaid.js visualization, with optional Eraser AI integration for professional-grade diagrams. The platform validates your DFDs for completeness, verifies trust boundaries, checks component dependencies, and identifies data flow gaps.
+
+Every architecture change is versioned. You can compare versions side by side, see change summaries with impact scoring, and understand exactly how your system evolved.
+
+---
+
+SECTION 3: AI-POWERED THREAT MODELING WITH FULL ANALYTICS
+
+Here's where Secure Dev AI truly differentiates. Our AI engine performs comprehensive STRIDE-based threat modeling, automatically identifying Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, and Elevation of Privilege threats across every component in your architecture.
+
+Each threat is enriched with AI-generated business impact descriptions, mapped to the MITRE ATT&CK Enterprise v15 framework including sub-technique support, and scored for severity with risk ratings. A threat matrix view displays a heat map of components versus STRIDE categories, with severity color coding and threat count aggregation, available in full-screen mode for presentations.
+
+The platform generates attack path analysis, visualizing multi-hop attack chains that show how an attacker could move laterally through your system, with exploitability assessments for each path.
+
+Threat lifecycle management tracks every threat through its states: new, existing, modified, and resolved. Each status transition is recorded with reasons, affected components, and user attribution. The threat timeline lets you trace the complete history of any individual threat.
+
+Version history and architecture diffing let you compare threat models across versions, showing exactly which threats were added, changed, or resolved with each architecture update. The validation dashboard scores your threat model's completeness across architecture, data flows, trust boundaries, and component dependencies.
+
+You can export DFDs as PNG or SVG, and export threat models as JSON or Excel for stakeholder review.
+
+---
+
+SECTION 4: MULTI-LAYER VULNERABILITY SCANNING WITH DEEP ANALYSIS
+
+Secure Dev AI runs three layers of automated security scanning simultaneously, with advanced analysis engines that go far beyond basic pattern matching.
+
+Static Application Security Testing supports eight languages: Python, JavaScript, TypeScript, Java, PHP, C-Sharp, Go, and Ruby. It detects SQL injection, cross-site scripting, command injection, LDAP injection, NoSQL injection, insecure cryptography, insecure deserialization, path traversal, XXE attacks, CSRF, and sensitive data exposure, across 68 OWASP rules. Each finding includes CWE classification, OWASP category mapping, and CVSS severity scoring.
+
+Under the hood, the SAST engine performs interprocedural analysis, tracking data flow across function boundaries. The taint analysis engine follows a state machine model, tracking data through states of untainted, tainted, sanitized, and partially sanitized, tracing propagation through assignments, concatenations, function calls, and returns. It identifies sources like user input, verifies sanitizer effectiveness, and detects when tainted data reaches sensitive sinks. The reachability analysis engine maps exploitable code paths, assessing whether vulnerabilities are actually exploitable, potentially exploitable, imported only, or not reachable, with confidence scoring.
+
+Software Composition Analysis supports npm, pip, Maven, NuGet, Composer, and Go modules. It queries live vulnerability databases including NVD and OSV, tracking both direct and transitive dependencies with full dependency chain visualization. Each finding includes CVE IDs, GitHub Security Advisory references, CVSS scores, affected and fixed versions, and upgrade recommendations. License compliance checking identifies licensing risks across your supply chain. A built-in deduplication engine fingerprints and merges duplicate SCA findings.
+
+Secrets detection scans for over 50 categories of hardcoded credentials: AWS access keys, secret keys, session tokens, and API keys. Azure storage keys, client secrets, and connection strings. Google Cloud API keys and OAuth tokens. GitHub tokens and personal access tokens. Slack API tokens and webhooks. SendGrid, Stripe, Twilio, and Mailchimp keys. Database passwords, connection strings, private keys in RSA, DSA, ECDSA, and ED25519 formats, SSH keys, PEM files, and PKCS12 certificates. Shannon entropy analysis catches high-entropy strings that pattern matching alone would miss, with context awareness that filters out false positives from comments and test files.
+
+The baseline engine computes developer behavioral baselines using rolling 60-commit windows, detecting anomalies through Z-score analysis of commit timing, commit sizes, risk score deviations, and activity rates.
+
+Every finding comes with AI-generated remediation guidance, including code examples developers can apply immediately.
+
+---
+
+SECTION 5: SECURITY REQUIREMENTS GENERATION AND COMPLIANCE INTELLIGENCE
+
+Secure Dev AI doesn't just find problems. It helps you build security in from the start.
+
+Enter a user story, or sync stories from JIRA, Azure DevOps, or ServiceNow, and the platform automatically generates a comprehensive security analysis. For each story, it produces 5 to 7 abuse cases with threat actor identification, attack vector descriptions, STRIDE category mapping, impact and likelihood assessments, and mitigation strategies.
+
+It generates 10 to 15 security requirements covering access control, audit logging, data loss prevention, privileged access management, separation of duties, behavioral analytics, data classification, session management, monitoring and alerting, and cryptographic controls.
+
+An optional insider threat analysis mode generates specialized scenarios for privileged user abuse, employee data exfiltration, backdoor injection, audit log tampering, and permission escalation, with threat actor profiles for employees, contractors, and departing staff.
+
+Every requirement is automatically mapped to compliance frameworks: NIST SP 800-53, ISO 27001, SOC 2, PCI-DSS, HIPAA, and GDPR. BDD acceptance criteria are generated in Gherkin format for immediate test automation.
+
+Per-story risk scores aggregate into project-level risk metrics. You can customize the AI prompts used for abuse case and requirements generation to match your organization's security policies.
+
+---
+
+SECTION 6: SECURITY CONTROLS FRAMEWORK AND COVERAGE ANALYTICS
+
+The security controls module provides a complete control registry. Define controls by type: preventive, detective, corrective, or compensating. Track implementation status as implemented, planned, partial, or not implemented. Score effectiveness on a zero to one scale and assign owners.
+
+Link controls to specific threats and security requirements for full traceability. The coverage summary dashboard shows total controls, implementation status breakdown, average effectiveness score, threats mitigated, and requirements satisfied.
+
+A STRIDE coverage heatmap visualizes your control coverage across all six threat categories, highlighting gaps where implemented or planned controls are insufficient. Import and export controls via CSV, with mappings to NIST 800-53 and CIS Controls frameworks.
+
+---
+
+SECTION 7: GITHUB MONITORING AND INSIDER THREAT INTELLIGENCE
+
+For teams using GitHub, Secure Dev AI provides continuous commit monitoring with deep behavioral intelligence.
+
+Every push is analyzed against 25-plus detection rules. The commit risk scoring engine evaluates SAST findings in the diff, sensitive file changes, binary file injection, force push detection, off-hours commits, author and committer mismatches, unsigned commits, large deletions over 500 lines, suspicious commit messages, dependency manipulation including typosquatting detection, CI/CD pipeline tampering, and configuration weakening.
+
+The insider threat detection engine classifies threats as intentional insider, suspicious, negligent, or false positive, with confidence scoring, intent analysis, impact summaries, key indicator extraction, and recommended actions.
+
+Developer profiling tracks each contributor's total commits, high-risk commit count, total findings, average risk score, risk trend direction, and last activity. Behavioral baselines computed over rolling windows detect off-hours deviations, abnormally large commits, and risk spikes using statistical Z-score analysis.
+
+A commit timeline visualization shows risk levels over time with cumulative trends, filterable by risk level, developer, and date range. Findings can be exported as CSV with filters for repository, severity, rule, author, and date.
+
+---
+
+SECTION 8: THREAT INTELLIGENCE AND CVE CORRELATION
+
+The threat intelligence module provides sector-specific threat libraries for 12 industries: banking, healthcare, government, retail, manufacturing, energy, telecom, education, insurance, defense, media, and technology.
+
+Each entry includes severity, STRIDE threat category, mapped MITRE ATT&CK techniques, regulatory impact across PCI-DSS, HIPAA, GDPR, NIST, and SOC 2, recommended controls, source tracking, and references. Entry types cover incident reports, threat actor profiles, attack scenarios, regulatory impacts, security control recommendations, and penetration test findings.
+
+Upload your own threat intelligence in bulk via CSV, JSON, or STIX 2.1 format, or create entries individually. The CVE correlation engine links your scan vulnerabilities to live threat feeds from CISA KEV, NVD, Exploit-DB, and GitHub Security Advisories, flagging actively exploited vulnerabilities and correlating threat actor attribution.
+
+Generate custom SAST rules directly from threat intelligence entries and export them for your scanning tools.
+
+---
+
+SECTION 9: APPLICATION INTELLIGENCE AND AUTOMATED PROFILING
+
+Application Intelligence automatically profiles your codebase to build a complete security context. It detects programming languages with percentage breakdowns and lines of code counts. It identifies backend and frontend frameworks with version detection, including FastAPI, Django, Spring, Express, React, Vue, Angular, and Next.js. It discovers ORM libraries, task queues, database technologies across SQL, NoSQL, caching, and search engines, and external integrations including cloud services, payment processors, email providers, CDNs, and message queues.
+
+The profiler detects authentication mechanisms: basic auth, OAuth2, OpenID Connect, JWT, SAML, API keys, and certificate-based authentication. It identifies sensitive data fields across PII, financial, authentication, and healthcare categories. It maps all API entry points with paths, methods, and parameters.
+
+A security score from 0 to 100 with risk level classification summarizes your application's posture. Based on the profile, AI generates framework-specific security rule suggestions with confidence scores, CWE, OWASP, and MITRE mappings, pattern indicators, and export formats for Semgrep, CodeQL, Checkmarx, and Fortify.
+
+---
+
+SECTION 10: CUSTOM RULES AND RULE PERFORMANCE ANALYTICS
+
+Create organization-specific detection rules with custom regex patterns, severity levels, language filters, CWE and OWASP mappings, and remediation guidance with code examples. Enable, disable, or delete rules as needed.
+
+The rule performance dashboard provides full analytics: total rules, enabled count, total detections, average precision, and rules needing refinement below 85% precision. It breaks down rules by severity with detection counts, shows AI-generated versus user-created rule ratios, and displays a 30-day detection trend chart.
+
+Top performing rules and rules needing attention are surfaced automatically. The feedback system tracks true positives, false positives, resolved findings, and ignored results, feeding precision calculations. AI-powered rule enhancement suggests refinements, optimizations, and new rules, with job tracking showing status, rules generated, and completion times.
+
+---
+
+SECTION 11: SCAN MONITORING AND REAL-TIME OPERATIONS
+
+The scan monitor provides real-time operational visibility. Track running, pending, completed, and failed scans across SAST, SCA, secrets, and threat model scan types. Each scan shows progress indicators, start and completion times, total vulnerabilities found, and severity breakdowns.
+
+A live log viewer streams scan output in real-time with color-coded log levels: info, warning, error, and success. Scan history per project enables performance comparison across runs, with duration tracking and findings trend analysis.
+
+---
+
+SECTION 12: AI SECURITY ASSISTANT WITH MULTILINGUAL TRAINING
+
+The AI-powered security chatbot provides context-aware guidance with built-in training modules covering the complete OWASP Top 10: broken access control, cryptographic failures, injection attacks, insecure design, security misconfiguration, vulnerable components, authentication failures, software integrity failures, logging and monitoring failures, and server-side request forgery.
+
+Additional training covers secure coding practices, authentication best practices, cryptography fundamentals, web security, API security, cloud security, and mobile security.
+
+The chatbot supports multiple AI providers: Anthropic Claude, OpenAI GPT-4, Azure OpenAI, Google PaLM, and local models via Ollama. It auto-detects the developer's language and responds in kind, with multi-turn conversation support and context injection from your project's vulnerabilities, threat models, and user stories.
+
+---
+
+SECTION 13: ENTERPRISE REPORTING AND INTEGRATION ECOSYSTEM
+
+Generate comprehensive reports in three formats. Excel reports include over 20 sheets: a cover page, visual dashboard, overall summary, SAST findings grouped by severity, CWE, OWASP category, and file, SCA findings grouped by severity, package, and CVE details, secrets detection findings, STRIDE threat analysis, MITRE ATT&CK mappings, and a remediation summary, all with charts and color-coded severity formatting.
+
+PDF reports provide styled executive summaries with embedded charts, code snippets, and severity highlighting. XML reports follow Checkmarx-compatible schemas for machine-readable integration with third-party tools.
+
+Native integrations connect to JIRA with OAuth, field mapping for abuse cases and security requirements, project discovery, and bidirectional sync. Azure DevOps integration supports work item creation, field mapping, and status synchronization. ServiceNow integration enables incident and change request creation with assignment routing. GitHub webhook integration powers the continuous commit scanning pipeline.
+
+---
+
+SECTION 14: VS CODE EXTENSION FOR DEVELOPER WORKFLOW
+
+The Secure Dev AI VS Code extension, version 1.5.0, brings the full power of the platform directly into the developer's editor, eliminating context switching entirely.
+
+Four dedicated sidebar tree views organize security findings by category: SAST findings, SCA findings, secrets detection, and custom rules. Each tree view is fully navigable, letting developers click through to the exact line of vulnerable code.
+
+Inline security feedback highlights vulnerabilities directly in the code editor with severity-based coloring. Hovering over a highlighted line displays diagnostic details including vulnerability type, CWE classification, and risk level. One-click code actions offer immediate remediation, applying AI-suggested fixes right in the editor without manual editing.
+
+The extension supports both workspace-wide scanning and targeted file-specific scanning, with a real-time progress indicator in the status bar. Language support covers Python, TypeScript, JavaScript, Java, Go, PHP, C-Sharp, and Ruby. Under the hood, the extension performs advanced analysis including Abstract Syntax Tree parsing, control flow graph generation, data flow tracking across functions, and full interprocedural analysis, all running locally for speed.
+
+A dedicated vulnerability details panel shows full context for each finding, including the surrounding code, attack scenario, and step-by-step remediation instructions. The taint flow visualization panel renders source-to-sink data flow paths, showing exactly how untrusted input reaches sensitive operations. The rule performance tracking panel displays detection rates, precision metrics, and false positive trends for every active rule.
+
+An integrated AI chatbot panel lets developers ask security questions, get OWASP guidance, and request vulnerability explanations without leaving VS Code. Configuration is managed through the extension settings: API URL, frontend URL, and authentication token, with a built-in connection test to verify connectivity to the Secure Dev AI backend.
+
+Right-click context menu integration lets developers trigger scans, view findings, and access remediation for any file or selection. Results are cached locally for instant access, with auto-refresh when new scan data becomes available. The extension is downloadable directly from the Secure Dev AI settings page.
+
+---
+
+SECTION 15: CONFIGURATION AND ENTERPRISE SETTINGS
+
+The settings page provides full control over AI provider configuration with provider selection, API key management, model choice, custom endpoints for Azure and self-hosted instances, and connection testing.
+
+Threat intelligence feeds are configurable with NVD API keys and optional MISP integration for enterprise threat sharing. SCA feed sources can be prioritized across GitHub Advisory and Snyk vulnerability databases. Custom prompts for abuse case and security requirements generation can be tailored to your organization's policies.
+
+---
+
+Secure Dev AI. Complete business intelligence across your entire application security lifecycle. From architecture design through threat modeling, vulnerability scanning, compliance tracking, and continuous monitoring, every feature delivers actionable analytics, measurable metrics, and enterprise-grade reporting.
+
+Shift left. Stay secure. Build with confidence.

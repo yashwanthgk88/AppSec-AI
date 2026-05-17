@@ -3790,6 +3790,33 @@ async def run_security_scan(
     else:
         sast_findings = []  # No demo findings - only real scans
 
+    # Threat-Model-Driven prioritization: rerank findings against this project's
+    # latest STRIDE threat model so findings on internet-facing / CWE-matched
+    # components bubble up and findings on trusted/internal components are
+    # de-prioritized. Purely additive — failures are non-fatal.
+    try:
+        from services.threat_model_prioritizer import prioritize_findings
+        latest_tm = (
+            db.query(ThreatModel)
+            .filter(ThreatModel.project_id == project_id)
+            .order_by(ThreatModel.created_at.desc())
+            .first()
+        )
+        if latest_tm and sast_findings:
+            before = len(sast_findings)
+            sast_findings = prioritize_findings(sast_findings, latest_tm)
+            reranked = sum(
+                1 for f in sast_findings
+                if isinstance(f.get("threat_model_context"), dict)
+                and f["threat_model_context"].get("matched")
+            )
+            print(
+                f"Threat-model prioritizer: {reranked}/{before} findings "
+                f"matched to components in ThreatModel id={latest_tm.id}"
+            )
+    except Exception as tm_err:
+        print(f"Threat-model prioritization skipped (non-fatal): {tm_err}")
+
     sast_scan = Scan(
         project_id=project_id,
         scan_type=ScanType.SAST,
@@ -3826,7 +3853,8 @@ async def run_security_scan(
             remediation_code=finding.get('remediation_code'),
             cvss_score=finding.get('cvss_score', 0.0),
             stride_category=finding.get('stride_category'),
-            mitre_attack_id=finding.get('mitre_attack_id')
+            mitre_attack_id=finding.get('mitre_attack_id'),
+            threat_model_context=finding.get('threat_model_context'),
         )
         db.add(vuln)
 
@@ -3921,9 +3949,9 @@ async def run_security_scan(
         pkg_name = pkg_name.lower()
 
         # Extract CVE from code_snippet if present
+        import re
         cve_match = ''
         if v.code_snippet and 'CVE-' in v.code_snippet:
-            import re
             cve_found = re.search(r'CVE-\d{4}-\d+', v.code_snippet)
             if cve_found:
                 cve_match = cve_found.group()
@@ -4296,7 +4324,8 @@ async def get_vulnerabilities(
             "business_impact": v.business_impact,
             "technical_impact": v.technical_impact,
             "recommendations": v.recommendations,
-            "impact_generated_by": v.impact_generated_by
+            "impact_generated_by": v.impact_generated_by,
+            "threat_model_context": v.threat_model_context,
         }
         for v in vulnerabilities
     ]

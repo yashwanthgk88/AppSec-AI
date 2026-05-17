@@ -1426,6 +1426,38 @@ function VulnerabilityCard({ vulnerability, isExpanded, onToggle, projectId, onU
               <span className={`badge ${severityColors[vulnerability.severity]}`}>
                 {vulnerability.severity.toUpperCase()}
               </span>
+              {vulnerability.threat_model_context?.matched && (
+                (() => {
+                  const tmc = vulnerability.threat_model_context
+                  const confirmed = tmc.cwe_confirmed
+                  const original = tmc.original_severity
+                  const bumped = original && original !== vulnerability.severity
+                  const pillClass = confirmed
+                    ? 'bg-red-100 text-red-800 border border-red-300'
+                    : bumped
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      : 'bg-slate-100 text-slate-700 border border-slate-300'
+                  const label = confirmed
+                    ? '⚡ Confirmed by Threat Model'
+                    : bumped
+                      ? `↑ Reranked from ${original}`
+                      : '✓ In Threat Model'
+                  const tooltip = [
+                    `Matched components: ${(tmc.matched_components || []).join(', ') || 'n/a'}`,
+                    tmc.stride_categories?.length ? `STRIDE: ${tmc.stride_categories.join(', ')}` : '',
+                    tmc.rerank_reasons?.length ? `Why: ${tmc.rerank_reasons.join(' • ')}` : '',
+                  ].filter(Boolean).join('\n')
+                  return (
+                    <span
+                      className={`px-2 py-1 text-xs rounded font-medium inline-flex items-center space-x-1 ${pillClass}`}
+                      title={tooltip}
+                    >
+                      <Shield className="w-3 h-3" />
+                      <span>{label}</span>
+                    </span>
+                  )
+                })()
+              )}
               <span className={`px-2 py-1 text-xs rounded ${scanTypeColors[vulnerability.scan_type]}`}>
                 {vulnerability.scan_type.toUpperCase()}
               </span>

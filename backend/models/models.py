@@ -130,6 +130,9 @@ class Vulnerability(Base):
     recommendations = Column(Text)
     impact_generated_by = Column(String(50))  # 'ai', 'ai_cached', 'template', 'fallback'
 
+    # Threat-model-driven prioritization context (populated by threat_model_prioritizer)
+    threat_model_context = Column(JSON)
+
     # Relationships
     scan = relationship("Scan", back_populates="vulnerabilities")
 
