@@ -1,6 +1,7 @@
 """Initialize custom rules database tables in SQLite"""
 import sqlite3
 import os
+from utils.db_compat import connect as _db_connect
 
 # Use consistent database path (same as utils/db_path.py)
 def get_db_path():
@@ -12,7 +13,7 @@ def get_db_path():
 # Connect to SQLite database
 db_path = get_db_path()
 print(f"Using database at: {db_path}")
-conn = sqlite3.connect(db_path)
+conn = _db_connect(db_path)
 cursor = conn.cursor()
 
 # Custom rules table

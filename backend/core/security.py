@@ -5,6 +5,7 @@ import bcrypt
 import hashlib
 import secrets
 import sqlite3
+from utils.db_compat import connect as _db_connect
 from fastapi import Depends, HTTPException, status, Header, Request
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -111,7 +112,7 @@ def generate_api_key() -> tuple[str, str, str]:
 def verify_api_key(raw_key: str) -> Optional[dict]:
     """Verify an API key and return its metadata if valid."""
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
-    conn = sqlite3.connect(_get_db_path())
+    conn = _db_connect(_get_db_path())
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     cursor.execute(

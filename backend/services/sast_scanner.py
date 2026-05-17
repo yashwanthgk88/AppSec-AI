@@ -3505,11 +3505,11 @@ data = file.read(MAX_FILE_SIZE)"""
 
     def _load_custom_rules(self):
         """Load enabled custom rules from database"""
-        import sqlite3
+        from utils.db_compat import connect, Row
         from utils.db_path import get_db_path
         try:
-            conn = sqlite3.connect(get_db_path())
-            conn.row_factory = sqlite3.Row
+            conn = connect(get_db_path())
+            conn.row_factory = Row
             cursor = conn.cursor()
 
             cursor.execute('''

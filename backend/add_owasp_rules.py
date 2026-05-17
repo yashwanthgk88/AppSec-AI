@@ -1,7 +1,8 @@
 """Add comprehensive OWASP Top 10 rules for Web, API, and Mobile"""
 import sqlite3
+from utils.db_compat import connect as _db_connect
 
-conn = sqlite3.connect('appsec.db')
+conn = _db_connect('appsec.db')
 cursor = conn.cursor()
 
 # OWASP Top 10 Web Application Security Risks (2021)

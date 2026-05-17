@@ -14,6 +14,7 @@ import shutil
 import logging
 import sys
 import sqlite3
+from utils.db_compat import connect as _db_connect
 from dotenv import load_dotenv
 
 # Configure logging to output to stdout for Railway
@@ -402,7 +403,7 @@ async def startup_event():
 
 def _migrate_security_controls_tables():
     """Create security controls registry table."""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -435,7 +436,7 @@ def _migrate_security_controls_tables():
 
 def _migrate_and_seed_insider_threat_rules():
     """Add category column if missing and seed insider threat detection rules."""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     cursor = conn.cursor()
 
     # Ensure custom_rules table exists (it may be created by init_rules_db.py or lazily)
@@ -1218,7 +1219,7 @@ def _migrate_and_seed_insider_threat_rules():
 
 def _migrate_github_monitor_tables():
     """Create GitHub Monitor tables if they don't exist."""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -1405,7 +1406,7 @@ def _migrate_github_monitor_tables():
 
 def _migrate_threat_intel_tables():
     """Create threat intel tables and add industry_sector to projects."""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     cursor = conn.cursor()
 
     # Client threat intel table
@@ -1763,7 +1764,7 @@ async def create_project(
             if finding.get('rule_id'):
                 try:
                     import sqlite3
-                    conn = sqlite3.connect(get_db_path())
+                    conn = _db_connect(get_db_path())
                     cursor = conn.cursor()
                     # Update custom rule detection count
                     cursor.execute('''
@@ -2465,7 +2466,7 @@ def _generate_threat_model_background(project_id: int, project_name: str, archit
         # Client-uploaded threat intel
         try:
             import json as _json
-            conn = sqlite3.connect(get_db_path())
+            conn = _db_connect(get_db_path())
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(
@@ -4164,7 +4165,7 @@ async def delete_project(
     try:
         import sqlite3
         db_path = get_db_path()
-        conn = sqlite3.connect(db_path)
+        conn = _db_connect(db_path)
         cursor = conn.cursor()
         for table in (
             "client_threat_intel", "threat_intel_correlations", "custom_rules",
@@ -4860,7 +4861,7 @@ async def export_excel_report(
         if os.path.exists("/app/data"):
             db_path = "/app/data/appsec.db"
         if os.path.exists(db_path):
-            conn = sqlite3.connect(db_path)
+            conn = _db_connect(db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             # Repos

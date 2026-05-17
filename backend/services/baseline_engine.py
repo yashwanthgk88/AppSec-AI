@@ -19,6 +19,7 @@ Anomaly types detected:
 import math
 import sqlite3
 import logging
+from utils.db_compat import connect as _db_connect
 from datetime import datetime
 from typing import List, Dict, Optional
 
@@ -62,7 +63,7 @@ class BaselineEngine:
         self.db_path = db_path
 
     def _conn(self):
-        c = sqlite3.connect(self.db_path)
+        c = _db_connect(self.db_path)
         c.row_factory = sqlite3.Row
         return c
 

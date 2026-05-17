@@ -29,6 +29,7 @@ import subprocess
 import shutil
 import os
 import sqlite3
+from utils.db_compat import connect as _db_connect
 
 logger = logging.getLogger(__name__)
 
@@ -844,7 +845,7 @@ async def get_project_rules(
             rule_languages.append(lang_lower)
 
     # Query custom rules from SQLite
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -897,7 +898,7 @@ async def get_project_rule_performance(
         raise HTTPException(status_code=404, detail="Profile not found. Run profiling first.")
 
     # Query from SQLite
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -1021,7 +1022,7 @@ async def convert_suggestion_to_rule(
                 break
 
     # Insert into custom_rules table
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
@@ -1125,7 +1126,7 @@ async def get_project_rules_summary(
                 suggestions_stats[status] += 1
 
     # Get custom rules stats
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 

@@ -3,9 +3,10 @@
 Script to update rule performance statistics based on existing vulnerabilities
 """
 import sqlite3
+from utils.db_compat import connect as _db_connect
 
 def update_rule_performance():
-    conn = sqlite3.connect('appsec.db')
+    conn = _db_connect('appsec.db')
     cursor = conn.cursor()
 
     print("Updating rule performance statistics...")

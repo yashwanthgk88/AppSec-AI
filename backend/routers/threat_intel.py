@@ -10,6 +10,7 @@ import csv
 import io
 import sqlite3
 import logging
+from utils.db_compat import connect as _db_connect
 from datetime import timedelta
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
@@ -46,7 +47,7 @@ def _get_db_path():
 
 
 def _sqlite_conn():
-    conn = sqlite3.connect(_get_db_path())
+    conn = _db_connect(_get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

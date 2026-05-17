@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from typing import List, Optional
 import sqlite3
 import json
+from utils.db_compat import connect as _db_connect
 from datetime import datetime
 from models.custom_rule import (
     CustomRule,
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/rules", tags=["Custom Rules"])
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

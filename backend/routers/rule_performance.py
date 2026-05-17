@@ -6,6 +6,7 @@ from typing import List, Optional
 import sqlite3
 import json
 from datetime import datetime, timedelta
+from utils.db_compat import connect as _db_connect
 from models.custom_rule import RulePerformanceMetric, RulePerformanceStats
 from core.security import get_current_user
 from utils.db_path import get_db_path
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/api/rules/performance", tags=["Rule Performance"])
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

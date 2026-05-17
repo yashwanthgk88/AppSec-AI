@@ -4,6 +4,7 @@ Endpoints for managing monitored repos and viewing commit risk analysis.
 """
 import json
 import sqlite3
+from utils.db_compat import connect as _db_connect
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -32,7 +33,7 @@ def _get_db_path():
 
 
 def _sqlite_conn():
-    conn = sqlite3.connect(_get_db_path())
+    conn = _db_connect(_get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

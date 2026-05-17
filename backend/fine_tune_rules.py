@@ -4,9 +4,10 @@ Script to fine-tune custom security rules to reduce false positives
 This improves rule precision by adding better context checks and excluding common false positives
 """
 import sqlite3
+from utils.db_compat import connect as _db_connect
 
 def fine_tune_rules():
-    conn = sqlite3.connect('appsec.db')
+    conn = _db_connect('appsec.db')
     cursor = conn.cursor()
 
     print("Fine-tuning custom security rules to reduce false positives...\n")

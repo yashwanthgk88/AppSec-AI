@@ -16,6 +16,7 @@ Signals used:
 import re
 import sqlite3
 import logging
+from utils.db_compat import connect as _db_connect
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Optional
@@ -265,7 +266,7 @@ class CommitAnalyzer:
         if self._rules_cache is not None:
             return self._rules_cache
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = _db_connect(self.db_path)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute(

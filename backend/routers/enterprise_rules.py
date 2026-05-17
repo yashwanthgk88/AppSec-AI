@@ -19,6 +19,7 @@ from datetime import datetime
 import sqlite3
 import json
 import io
+from utils.db_compat import connect as _db_connect
 import zipfile
 import logging
 
@@ -93,7 +94,7 @@ class RuleTemplate(BaseModel):
 
 def get_db():
     """Get database connection"""
-    conn = sqlite3.connect(get_db_path())
+    conn = _db_connect(get_db_path())
     conn.row_factory = sqlite3.Row
     return conn
 

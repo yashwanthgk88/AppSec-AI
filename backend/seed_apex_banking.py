@@ -10,6 +10,7 @@ import sqlite3
 import json
 import os
 from datetime import datetime, timedelta
+from utils.db_compat import connect as _db_connect
 
 DB_PATH = "appsec.db"
 if os.path.exists("/app/data/appsec.db"):
@@ -19,7 +20,7 @@ USER_ID = 1
 USER_EMAIL = "admin@example.com"
 NOW = datetime.utcnow().isoformat()
 
-conn = sqlite3.connect(DB_PATH)
+conn = _db_connect(DB_PATH)
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 

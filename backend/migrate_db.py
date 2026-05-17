@@ -4,6 +4,7 @@ Database migration script to add AI provider configuration fields
 """
 import sqlite3
 import os
+from utils.db_compat import connect as _db_connect
 
 def get_db_path():
     """Get database path, preferring persistent storage if available"""
@@ -19,7 +20,7 @@ def get_db_path():
 DB_PATH = get_db_path()
 
 def migrate():
-    conn = sqlite3.connect(DB_PATH)
+    conn = _db_connect(DB_PATH)
     cursor = conn.cursor()
 
     print("Starting database migration...")

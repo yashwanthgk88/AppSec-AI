@@ -5,10 +5,11 @@ This enables tracking which custom rule detected each vulnerability
 """
 import sqlite3
 import sys
+from utils.db_compat import connect as _db_connect
 
 def run_migration():
     try:
-        conn = sqlite3.connect('appsec.db')
+        conn = _db_connect('appsec.db')
         cursor = conn.cursor()
 
         # Check if column already exists
